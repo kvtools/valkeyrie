@@ -40,7 +40,6 @@ type etcdLock struct {
 }
 
 const (
-	periodicSync      = 5 * time.Minute
 	defaultLockTTL    = 20 * time.Second
 	defaultUpdateTime = 5 * time.Second
 )
@@ -88,11 +87,13 @@ func New(addrs []string, options *store.Config) (store.Store, error) {
 	s.client = etcd.NewKeysAPI(c)
 
 	// Periodic Cluster Sync
-	go func() {
-		for {
-			c.AutoSync(context.Background(), periodicSync)
-		}
-	}()
+	if options != nil && options.SyncPeriod != 0 {
+		go func() {
+			for {
+				c.AutoSync(context.Background(), options.SyncPeriod)
+			}
+		}()
+	}
 
 	return s, nil
 }
