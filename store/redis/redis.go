@@ -17,7 +17,7 @@ import (
 var (
 	// ErrMultipleEndpointsUnsupported is thrown when there are
 	// multiple endpoints specified for Redis
-	ErrMultipleEndpointsUnsupported = errors.New("redis: support multiple endpoints does not support")
+	ErrMultipleEndpointsUnsupported = errors.New("redis: does not support multiple endpoints")
 
 	// ErrTLSUnsupported is thrown when tls config is given
 	ErrTLSUnsupported = errors.New("redis does not support tls")
@@ -642,7 +642,7 @@ func (r *Redis) runScript(args ...interface{}) error {
 		args...,
 	).Err()
 	if err != nil && strings.Contains(err.Error(), "redis: key is not found") {
-		return ErrKeyNotFound
+		return store.ErrKeyNotFound
 	}
 	if err != nil && strings.Contains(err.Error(), "redis: value has been changed") {
 		return ErrValueChanged

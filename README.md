@@ -1,9 +1,9 @@
 # libkv
 
 [![GoDoc](https://godoc.org/github.com/docker/libkv?status.png)](https://godoc.org/github.com/docker/libkv)
-[![Build Status](https://travis-ci.org/docker/libkv.svg?branch=master)](https://travis-ci.org/docker/libkv)
-[![Coverage Status](https://coveralls.io/repos/docker/libkv/badge.svg)](https://coveralls.io/r/docker/libkv)
-[![Go Report Card](https://goreportcard.com/badge/github.com/docker/libkv)](https://goreportcard.com/report/github.com/docker/libkv)
+[![Build Status](https://travis-ci.org/docker/libkv.svg?branch=master)](https://travis-ci.org/abronan/libkv)
+[![Coverage Status](https://coveralls.io/repos/docker/libkv/badge.svg)](https://coveralls.io/r/abronan/libkv)
+[![Go Report Card](https://goreportcard.com/badge/github.com/abronan/libkv)](https://goreportcard.com/report/github.com/abronan/libkv)
 
 `libkv` provides a `Go` native library to store metadata.
 
@@ -63,8 +63,8 @@ Backend drivers in `libkv` are generally divided between **local drivers** and *
 
 Local drivers are usually used in complement to the distributed drivers to store informations that only needs to be available locally.
 
-| Calls                 |   Consul   |  Etcd  |  Zookeeper  |  BoltDB  | Redis |
-|-----------------------|:----------:|:------:|:-----------:|:--------:|:--------:|
+| Calls                 |   Consul   |  Etcd  |  Zookeeper  |  BoltDB  |    Redis   |
+|-----------------------|:----------:|:------:|:-----------:|:--------:|:----------:|
 | Put                   |     X      |   X    |      X      |    X     |      X     |
 | Get                   |     X      |   X    |      X      |    X     |      X     |
 | Delete                |     X      |   X    |      X      |    X     |      X     |
@@ -95,11 +95,20 @@ Only `Consul` and `etcd` have support for TLS and you should build and provide y
 
 ## Roadmap
 
+### General
+
 - Make the API nicer to use (using `options`)
-- Provide more options (`consistency` for example)
-- Improve performance (remove extras `Get`/`List` operations)
-- Better key formatting
-- New backends?
+- Provide with more options (`consistency` for example)
+- Improve some call performance (remove extras `Get`/`List` operations)
+
+### Backends
+
+- Add etcd api V3 backend (separate from etcd V2 for backward compat)
+- Improve error handling in redis backend (align error types with other stores)
+
+### Tests
+
+- Make tests more deterministic and less reliant on timers
 
 ## Contributing
 

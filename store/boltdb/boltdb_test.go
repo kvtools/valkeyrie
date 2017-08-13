@@ -58,7 +58,7 @@ func TestMultiplePersistConnection(t *testing.T) {
 	}
 
 	// Must fail if multiple boltdb requests are made with a valid timeout
-	kv, err = libkv.NewStore(
+	_, err = libkv.NewStore(
 		store.BOLTDB,
 		[]string{"/tmp/not_exist_dir/__boltdbtest"},
 		&store.Config{
@@ -71,7 +71,7 @@ func TestMultiplePersistConnection(t *testing.T) {
 	_ = os.Remove("/tmp/not_exist_dir/__boltdbtest")
 }
 
-// TestConcurrentConnection tests simultaenous get/put using
+// TestConcurrentConnection tests simultaneous get/put using
 // two handles.
 func TestConcurrentConnection(t *testing.T) {
 	var err error
@@ -105,14 +105,14 @@ func TestConcurrentConnection(t *testing.T) {
 	assert.NoError(t, err)
 
 	pair1, err1 := kv1.Get(key1)
-	assert.NoError(t, err)
+	assert.NoError(t, err1)
 	if assert.NotNil(t, pair1) {
 		assert.NotNil(t, pair1.Value)
 	}
 	assert.Equal(t, pair1.Value, value1)
 
 	pair2, err2 := kv2.Get(key2)
-	assert.NoError(t, err)
+	assert.NoError(t, err2)
 	if assert.NotNil(t, pair2) {
 		assert.NotNil(t, pair2.Value)
 	}
