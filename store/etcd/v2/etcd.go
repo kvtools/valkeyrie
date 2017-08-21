@@ -7,6 +7,7 @@ import (
 	"net"
 	"net/http"
 	"strings"
+	"sync"
 	"time"
 
 	"golang.org/x/net/context"
@@ -30,13 +31,17 @@ type Etcd struct {
 }
 
 type etcdLock struct {
-	client    etcd.KeysAPI
+	lock   sync.Mutex
+	client etcd.KeysAPI
+
 	stopLock  chan struct{}
 	stopRenew chan struct{}
-	key       string
-	value     string
-	last      *etcd.Response
-	ttl       time.Duration
+
+	mutexKey string
+	writeKey string
+	value    string
+	last     *etcd.Response
+	ttl      time.Duration
 }
 
 const (
@@ -459,7 +464,8 @@ func (s *Etcd) NewLock(key string, options *store.LockOptions) (lock store.Locke
 	lock = &etcdLock{
 		client:    s.client,
 		stopRenew: renewCh,
-		key:       s.normalize(key),
+		mutexKey:  s.normalize(key + "_lock"),
+		writeKey:  s.normalize(key),
 		value:     value,
 		ttl:       ttl,
 	}
@@ -471,6 +477,8 @@ func (s *Etcd) NewLock(key string, options *store.LockOptions) (lock store.Locke
 // doing so. It returns a channel that is closed if our
 // lock is lost or if an error occurs
 func (l *etcdLock) Lock(stopChan chan struct{}) (<-chan struct{}, error) {
+	l.lock.Lock()
+	defer l.lock.Unlock()
 
 	// Lock holder channel
 	lockHeld := make(chan struct{})
@@ -482,7 +490,7 @@ func (l *etcdLock) Lock(stopChan chan struct{}) (<-chan struct{}, error) {
 
 	for {
 		setOpts.PrevExist = etcd.PrevNoExist
-		resp, err := l.client.Set(context.Background(), l.key, l.value, setOpts)
+		resp, err := l.client.Set(context.Background(), l.mutexKey, "", setOpts)
 		if err != nil {
 			if etcdError, ok := err.(etcd.Error); ok {
 				if etcdError.Code != etcd.ErrorCodeNodeExist {
@@ -495,12 +503,19 @@ func (l *etcdLock) Lock(stopChan chan struct{}) (<-chan struct{}, error) {
 		}
 
 		setOpts.PrevExist = etcd.PrevExist
-		l.last, err = l.client.Set(context.Background(), l.key, l.value, setOpts)
+		l.last, err = l.client.Set(context.Background(), l.mutexKey, "", setOpts)
 
 		if err == nil {
 			// Leader section
 			l.stopLock = stopLocking
-			go l.holdLock(l.key, lockHeld, stopLocking)
+			go l.holdLock(l.mutexKey, lockHeld, stopLocking)
+
+			// We are holding the lock, set the write key
+			_, err = l.client.Set(context.Background(), l.writeKey, l.value, nil)
+			if err != nil {
+				return nil, err
+			}
+
 			break
 		} else {
 			// If this is a legitimate error, return
@@ -515,7 +530,7 @@ func (l *etcdLock) Lock(stopChan chan struct{}) (<-chan struct{}, error) {
 			chWStop := make(chan bool)
 			free := make(chan bool)
 
-			go l.waitLock(l.key, errorCh, chWStop, free)
+			go l.waitLock(l.mutexKey, errorCh, chWStop, free)
 
 			// Wait for the key to be available or for
 			// a signal to stop trying to lock the key
@@ -552,7 +567,7 @@ func (l *etcdLock) holdLock(key string, lockHeld chan struct{}, stopLocking <-ch
 		select {
 		case <-update.C:
 			setOpts.PrevIndex = l.last.Node.ModifiedIndex
-			l.last, err = l.client.Set(context.Background(), key, l.value, setOpts)
+			l.last, err = l.client.Set(context.Background(), key, "", setOpts)
 			if err != nil {
 				return
 			}
@@ -574,7 +589,7 @@ func (l *etcdLock) waitLock(key string, errorCh chan error, stopWatchCh chan boo
 			errorCh <- err
 			return
 		}
-		if event.Action == "delete" || event.Action == "expire" {
+		if event.Action == "delete" || event.Action == "compareAndDelete" || event.Action == "expire" {
 			free <- true
 			return
 		}
@@ -584,6 +599,9 @@ func (l *etcdLock) waitLock(key string, errorCh chan error, stopWatchCh chan boo
 // Unlock the "key". Calling unlock while
 // not holding the lock will throw an error
 func (l *etcdLock) Unlock() error {
+	l.lock.Lock()
+	defer l.lock.Unlock()
+
 	if l.stopLock != nil {
 		l.stopLock <- struct{}{}
 	}
@@ -591,7 +609,7 @@ func (l *etcdLock) Unlock() error {
 		delOpts := &etcd.DeleteOptions{
 			PrevIndex: l.last.Node.ModifiedIndex,
 		}
-		_, err := l.client.Delete(context.Background(), l.key, delOpts)
+		_, err := l.client.Delete(context.Background(), l.mutexKey, delOpts)
 		if err != nil {
 			return err
 		}
