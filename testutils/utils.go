@@ -270,7 +270,7 @@ func testAtomicPutCreate(t *testing.T, kv store.Store) {
 
 	// Attempting to create again should fail.
 	success, _, err = kv.AtomicPut(key, value, nil, nil)
-	assert.Error(t, store.ErrKeyExists)
+	assert.Equal(t, err, store.ErrKeyExists)
 	assert.False(t, success)
 
 	// This CAS should succeed, since it has the value from Get()
