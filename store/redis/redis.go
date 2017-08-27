@@ -22,15 +22,6 @@ var (
 	// ErrTLSUnsupported is thrown when tls config is given
 	ErrTLSUnsupported = errors.New("redis does not support tls")
 
-	// ErrSetNotPerformed is thrown when set operations failed
-	ErrSetNotPerformed = errors.New("redis: set is not performed")
-
-	// ErrKeyNotFound is thrown when the request key does not exist
-	ErrKeyNotFound = errors.New("redis: key is not found")
-
-	// ErrValueChanged is thrown when the value has been changed by others
-	ErrValueChanged = errors.New("redis: value being changed")
-
 	// ErrAbortTryLock is thrown when a user stops trying to seek the lock
 	// by sending a signal to the stop chan, this is used to verify if the
 	// operation succeeded
@@ -400,7 +391,7 @@ func (l *redisLock) tryLock(lockHeld, stopChan chan struct{}) (bool, error) {
 		go l.holdLock(lockHeld, stopChan)
 		return true, nil
 	}
-	if err != nil && (err == ErrKeyNotFound || err == ErrValueChanged || err == ErrSetNotPerformed) {
+	if err != nil && (err == store.ErrKeyNotFound || err == store.ErrKeyModified || err == store.ErrKeyExists) {
 		return false, nil
 	}
 	return false, err
@@ -579,7 +570,7 @@ func (r *Redis) setNX(key string, val *store.KVPair, expirationAfter time.Durati
 	}
 
 	if !r.client.SetNX(key, valBlob, expirationAfter).Val() {
-		return ErrSetNotPerformed
+		return store.ErrKeyExists
 	}
 	return nil
 }
