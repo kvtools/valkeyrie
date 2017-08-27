@@ -645,7 +645,7 @@ func (r *Redis) runScript(args ...interface{}) error {
 		return store.ErrKeyNotFound
 	}
 	if err != nil && strings.Contains(err.Error(), "redis: value has been changed") {
-		return ErrValueChanged
+		return store.ErrKeyModified
 	}
 	return err
 }
