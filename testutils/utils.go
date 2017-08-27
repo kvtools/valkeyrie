@@ -247,7 +247,7 @@ func testAtomicPut(t *testing.T, kv store.Store) {
 	// This CAS should fail, key has wrong index.
 	pair.LastIndex = 6744
 	success, _, err = kv.AtomicPut(key, []byte("WORLDWORLD"), pair, nil)
-	assert.Error(t, store.ErrKeyModified)
+	assert.Equal(t, err, store.ErrKeyModified)
 	assert.False(t, success)
 }
 
