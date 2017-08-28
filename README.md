@@ -1,6 +1,6 @@
 # libkv
 
-[![GoDoc](https://godoc.org/github.com/docker/libkv?status.png)](https://godoc.org/github.com/docker/libkv)
+[![GoDoc](https://godoc.org/github.com/docker/libkv?status.png)](https://godoc.org/github.com/abronan/libkv)
 [![Build Status](https://travis-ci.org/docker/libkv.svg?branch=master)](https://travis-ci.org/abronan/libkv)
 [![Coverage Status](https://coveralls.io/repos/docker/libkv/badge.svg)](https://coveralls.io/r/abronan/libkv)
 [![Go Report Card](https://goreportcard.com/badge/github.com/abronan/libkv)](https://goreportcard.com/report/github.com/abronan/libkv)
@@ -101,18 +101,25 @@ Only `Consul` and `etcd` have support for TLS and you should build and provide y
 - Provide with more options (`consistency` for example)
 - Improve some call performance (remove extras `Get`/`List` operations)
 
-### Backends
-
-- Add etcd api V3 backend (separate from etcd V2 for backward compat)
-- Improve error handling in redis backend (align error types with other stores)
-
 ### Tests
 
 - Make tests more deterministic and less reliant on timers
+- Test TLS connection to clients when available
+
+## Security
+
+- Add TLS support for other backends
 
 ## Contributing
 
-Want to hack on libkv? [Docker's contributions guidelines](https://github.com/docker/docker/blob/master/CONTRIBUTING.md) apply.
+Want to hack on libkv? You can take a quick look at the [Docker's contributions guidelines](https://github.com/docker/docker/blob/master/CONTRIBUTING.md) for an example process.
+
+## Maintainers
+
+**Alexandre Beslic**
+
+- [abronan.com](https://abronan.com)
+- [@abronan](https://twitter.com/abronan)
 
 ## Copyright and license
 
