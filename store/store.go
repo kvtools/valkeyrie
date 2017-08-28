@@ -12,8 +12,10 @@ type Backend string
 const (
 	// CONSUL backend
 	CONSUL Backend = "consul"
-	// ETCD backend
+	// ETCD backend with v2 client (backward compatibility)
 	ETCD Backend = "etcd"
+	// ETCDV3 backend with v3 client
+	ETCDV3 Backend = "etcdv3"
 	// ZK backend
 	ZK Backend = "zk"
 	// BOLTDB backend
