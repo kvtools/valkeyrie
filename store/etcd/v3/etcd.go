@@ -265,12 +265,12 @@ func (s *EtcdV3) WatchTree(directory string, stopCh <-chan struct{}) (<-chan []*
 
 			list := make([]*store.KVPair, len(resp.Events))
 
-			for _, ev := range resp.Events {
-				list = append(list, &store.KVPair{
+			for i, ev := range resp.Events {
+				list[i] = &store.KVPair{
 					Key:       directory,
 					Value:     []byte(ev.Kv.Value),
 					LastIndex: uint64(ev.Kv.ModRevision),
-				})
+				}
 			}
 
 			respCh <- list
