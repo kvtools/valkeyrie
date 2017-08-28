@@ -14,17 +14,23 @@ import (
 
     "github.com/docker/libkv"
     "github.com/docker/libkv/store"
+    "github.com/docker/libkv/store/boltdb"
     "github.com/docker/libkv/store/consul"
+    "github.com/docker/libkv/store/etcd/v3"
+    "github.com/docker/libkv/store/zookeeper"
+    "github.com/docker/libkv/store/redis"
 )
 
 func init() {
     // Register consul store to libkv
     consul.Register()
 
-    // We can register as many backends that are supported by libkv
-    etcd.Register()
+    // We can register more backends that are supported by
+    // libkv if we plan to use these
+    etcdv3.Register()
     zookeeper.Register()
     boltdb.Register()
+    redis.Register()
 }
 
 func main() {
