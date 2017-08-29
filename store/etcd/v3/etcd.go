@@ -253,7 +253,15 @@ func (s *EtcdV3) WatchTree(directory string, stopCh <-chan struct{}) (<-chan []*
 		// Push the current value through the channel.
 		respCh <- pairs
 
-		watchCh := wc.Watch(context.Background(), s.normalize(directory), etcd.WithPrefix())
+		var minRev uint64
+		for _, pair := range pairs {
+			if minRev < pair.LastIndex {
+				minRev = pair.LastIndex
+			}
+		}
+		minRev++
+
+		watchCh := wc.Watch(context.Background(), s.normalize(directory), etcd.WithPrefix(), etcd.WithRev(int64(minRev)))
 
 		for resp := range watchCh {
 			// Check if the watch was stopped by the caller
