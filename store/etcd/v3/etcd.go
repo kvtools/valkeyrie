@@ -267,7 +267,7 @@ func (s *EtcdV3) WatchTree(directory string, stopCh <-chan struct{}) (<-chan []*
 
 			for i, ev := range resp.Events {
 				list[i] = &store.KVPair{
-					Key:       directory,
+					Key:       string(ev.Kv.Key),
 					Value:     []byte(ev.Kv.Value),
 					LastIndex: uint64(ev.Kv.ModRevision),
 				}
