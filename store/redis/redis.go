@@ -28,7 +28,7 @@ var (
 	ErrAbortTryLock = errors.New("redis: lock operation aborted")
 )
 
-// Register registers consul to libkv
+// Register registers Redis to libkv
 func Register() {
 	libkv.AddStore(store.REDIS, New)
 }
