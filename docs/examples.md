@@ -95,22 +95,24 @@ if !kv.Exists(key) {
 stopCh := make(<-chan struct{})
 events, err := kv.Watch(key, stopCh)
 
-select {
-    case pair := <-events:
-        // Do something with events
-        fmt.Printf("value changed on key %v: new value=%v", key, pair.Value)
+for {
+    select {
+        case pair := <-events:
+            // Do something with events
+            fmt.Printf("value changed on key %v: new value=%v", key, pair.Value)
+    }
 }
 
 ```
 
 ## Watching for events happening on child keys (WatchTree)
 
-You can use watches to watch modifications on a key. First you need to check if the key exists. If this is not the case, we need to create it using the `Put` function. There is a special step here though if you want your code to work across backends. Because `etcd` is a special case and it makes the distinction between directories and keys, we need to make sure that the created key is considered as a directory by enforcing `IsDir` at `true`.
+You can use watches to watch modifications on a key. First you need to check if the key exists. If this is not the case, we need to create it using the `Put` function. There is a special step here if you are using etcd **APIv2** and if want your code to work across backends. `etcd` with **APIv2** makes the distinction between directories and keys, we need to make sure that the created key is considered as a directory by enforcing `IsDir` at `true`.
 
 ```go
 // Checking on the key before watching
 if !kv.Exists(key) {
-    // Don't forget IsDir:true if the code is used cross-backend
+    // Do not forget `IsDir:true` if you are using etcd APIv2
     err := kv.Put(key, []byte("bar"), &store.WriteOptions{IsDir:true})
     if err != nil {
         fmt.Errorf("Something went wrong when initializing key %v", key)

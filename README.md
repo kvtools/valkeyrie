@@ -5,15 +5,13 @@
 [![Coverage Status](https://coveralls.io/repos/docker/libkv/badge.svg)](https://coveralls.io/r/abronan/libkv)
 [![Go Report Card](https://goreportcard.com/badge/github.com/abronan/libkv)](https://goreportcard.com/report/github.com/abronan/libkv)
 
-`libkv` provides a `Go` native library to store metadata.
+`libkv` provides a `Go` native library to store metadata using Distributed Key/Value stores (or common databases).
 
-The goal of `libkv` is to abstract common store operations for multiple distributed and/or local Key/Value store backends.
+The goal of `libkv` is to abstract common store operations (Get/Put/List/etc.) for multiple distributed and/or local Key/Value store backends thus using the same self-contained codebase to manage them all.
 
-For example, you can use it to store your metadata or for service discovery to register machines and endpoints inside your cluster.
+This repository is a fork of the [docker/libkv](https://github.com/docker/libkv) project which includes many fixes/additional features and is maintained by an original project maintainer. This project is notably used by [containous/traefik](https://github.com/containous/traefik), [docker/swarm](https://github.com/docker/swarm) and [docker/libnetwork](https://github.com/docker/libnetwork).
 
-You can also easily implement a generic *Leader Election* on top of it (see the [docker/leadership](https://github.com/docker/leadership) repository).
-
-As of now, `libkv` offers support for `Consul`, `Etcd`, `Zookeeper` (**Distributed** store) and `BoltDB` (**Local** store).
+As of now, `libkv` offers support for `Consul`, `Etcd`, `Zookeeper`, `Redis` (**Distributed** store) and `BoltDB` (**Local** store).
 
 ## Usage
 
@@ -25,20 +23,22 @@ It is ideal if you plan for something written in Go that should support:
 - A lightweight discovery service for your nodes
 - A distributed lock mechanism
 
-You can find examples of usage for `libkv` under in `docs/examples.go`. Optionally you can also take a look at the `docker/swarm` or `docker/libnetwork` repositories which are using `docker/libkv` for all the use cases listed above.
+You can also easily implement a generic *Leader Election* algorithm on top of it (see the [docker/leadership](https://github.com/docker/leadership) repository).
+
+You can find examples of usage for `libkv` under in [docs/examples.go](https://github.com/abronan/libkv/blob/master/docs/examples.md). Optionally you can also take a look at the `docker/swarm`, `docker/libnetwork` or `containous/traefik` repositories which are using `libkv` for all the use cases listed above.
 
 ## Supported versions
 
 `libkv` supports:
-- Consul versions >= `0.5.1` because it uses Sessions with `Delete` behavior for the use of `TTLs` (mimics zookeeper's Ephemeral node support), If you don't plan to use `TTLs`: you can use Consul version `0.4.0+`.
-- Etcd versions >= `2.0` because it uses the new `coreos/etcd/client`, this might change in the future as the support for `APIv3` comes along and adds more capabilities.
-- Zookeeper versions >= `3.4.5`. Although this might work with previous version but this remains untested as of now.
-- Boltdb, which shouldn't be subject to any version dependencies.
-- Redis versions >= `3.2.6`. Although this might work with previous version but this remains untested as of now.
+- **Consul** versions >= `0.5.1` because it uses Sessions with `Delete` behavior for the use of `TTLs` (mimics zookeeper's Ephemeral node support), If you don't plan to use `TTLs`: you can use Consul version `0.4.0+`.
+- **Etcd** versions >= `2.0` with **APIv2** (*deprecated*) and **APIv3** (*recommended*).
+- **Zookeeper** versions >= `3.4.5`. Although this might work with previous version but this remains untested as of now.
+- **Boltdb**, which shouldn't be subject to any version dependencies.
+- **Redis** versions >= `3.2.6`. Although this might work with previous version but this remains untested as of now.
 
 ## Interface
 
-A **storage backend** in `libkv` should implement (fully or partially) this interface:
+A **storage backend** in `libkv` should implement (fully or partially) these interfaces:
 
 ```go
 type Store interface {
@@ -55,6 +55,11 @@ type Store interface {
 	AtomicDelete(key string, previous *KVPair) (bool, error)
 	Close()
 }
+
+type Locker interface {
+	Lock(stopChan chan struct{}) (<-chan struct{}, error)
+	Unlock() error
+}
 ```
 
 ## Compatibility matrix
@@ -63,19 +68,20 @@ Backend drivers in `libkv` are generally divided between **local drivers** and *
 
 Local drivers are usually used in complement to the distributed drivers to store informations that only needs to be available locally.
 
-| Calls                 |   Consul   |  Etcd  |  Zookeeper  |  BoltDB  |    Redis   |
-|-----------------------|:----------:|:------:|:-----------:|:--------:|:----------:|
-| Put                   |     X      |   X    |      X      |    X     |      X     |
-| Get                   |     X      |   X    |      X      |    X     |      X     |
-| Delete                |     X      |   X    |      X      |    X     |      X     |
-| Exists                |     X      |   X    |      X      |    X     |      X     |
-| Watch                 |     X      |   X    |      X      |          |      X     |
-| WatchTree             |     X      |   X    |      X      |          |      X     |
-| NewLock (Lock/Unlock) |     X      |   X    |      X      |          |      X     |
-| List                  |     X      |   X    |      X      |    X     |      X     |
-| DeleteTree            |     X      |   X    |      X      |    X     |      X     |
-| AtomicPut             |     X      |   X    |      X      |    X     |      X     |
-| Close                 |     X      |   X    |      X      |    X     |      X     |
+| Calls                 |   Consul   |  Etcd  |  Zookeeper  |    Redis   |  BoltDB  |
+|-----------------------|:----------:|:------:|:-----------:|:----------:|:--------:|
+| Put                   |     X      |   X    |      X      |      X     |    X     |
+| Get                   |     X      |   X    |      X      |      X     |    X     |
+| Delete                |     X      |   X    |      X      |      X     |    X     |
+| Exists                |     X      |   X    |      X      |      X     |    X     |
+| Watch                 |     X      |   X    |      X      |      X     |          |
+| WatchTree             |     X      |   X    |      X      |      X     |          |
+| NewLock (Lock/Unlock) |     X      |   X    |      X      |      X     |          |
+| List                  |     X      |   X    |      X      |      X     |    X     |
+| DeleteTree            |     X      |   X    |      X      |      X     |    X     |
+| AtomicPut             |     X      |   X    |      X      |      X     |    X     |
+| AtomicDelete          |     X      |   X    |      X      |      X     |    X     |
+| Close                 |     X      |   X    |      X      |      X     |    X     |
 
 ## Limitations
 
@@ -93,26 +99,9 @@ For `Redis` backend, it relies on [key space notification](https://redis.io/topi
 
 Only `Consul` and `etcd` have support for TLS and you should build and provide your own `config.TLS` object to feed the client. Support is planned for `zookeeper` and `redis`.
 
-## Roadmap
-
-### General
-
-- Make the API nicer to use (using `options`)
-- Provide with more options (`consistency` for example)
-- Improve some call performance (remove extras `Get`/`List` operations)
-
-### Tests
-
-- Make tests more deterministic and less reliant on timers
-- Test TLS connection to clients when available
-
-## Security
-
-- Add TLS support for other backends
-
 ## Contributing
 
-Want to hack on libkv? You can take a quick look at the [Docker's contributions guidelines](https://github.com/docker/docker/blob/master/CONTRIBUTING.md) for an example process.
+Want to contribute to libkv? Take a look at the [Contribution Guidelines](https://github.com/abronan/libkv/blob/master/CONTRIBUTING.md).
 
 ## Maintainers
 
