@@ -16,6 +16,7 @@ import (
 const (
 	defaultLockTTL     = 20 * time.Second
 	etcdDefaultTimeout = 5 * time.Second
+	lockSuffix         = "_lock"
 )
 
 // EtcdV3 is the receiver type for the
@@ -428,7 +429,8 @@ func (s *EtcdV3) NewLock(key string, options *store.LockOptions) (lock store.Loc
 	// a suffix (such as "_lock") and represents the mutex. Thus we have a pair
 	// composed of the key to protect with a lock: "/key", and a side key that
 	// acts as the lock: "/key_lock"
-	mutexKey := s.normalize(key + "_lock")
+	mutexKey := s.normalize(key + lockSuffix)
+	writeKey := s.normalize(key)
 
 	// Create lock object
 	lock = &etcdLock{
@@ -436,7 +438,7 @@ func (s *EtcdV3) NewLock(key string, options *store.LockOptions) (lock store.Loc
 		mutex:    concurrency.NewMutex(session, mutexKey),
 		session:  session,
 		mutexKey: mutexKey,
-		writeKey: s.normalize(key),
+		writeKey: writeKey,
 		value:    value,
 		ttl:      ttl,
 	}
@@ -513,6 +515,11 @@ func (s *EtcdV3) list(directory string, opts *store.ReadOptions) (int64, []*stor
 
 	for _, n := range resp.Kvs {
 		if string(n.Key) == directory {
+			continue
+		}
+
+		// Allow to filter the _lock entry when the mutex key directory is given
+		if strings.Contains(string(n.Key), lockSuffix+"/") {
 			continue
 		}
 

@@ -27,7 +27,9 @@ var (
 // Etcd is the receiver type for the
 // Store interface
 type Etcd struct {
-	client etcd.KeysAPI
+	client   etcd.KeysAPI
+	mutexKey string // mutexKey is the key to write appended with a "_lock" suffix
+	writeKey string // writeKey is the actual key to update protected by the mutexKey
 }
 
 type etcdLock struct {
@@ -485,15 +487,21 @@ func (s *Etcd) NewLock(key string, options *store.LockOptions) (lock store.Locke
 		}
 	}
 
+	mutexKey := s.normalize(key + "_lock")
+	writeKey := s.normalize(key)
+
 	// Create lock object
 	lock = &etcdLock{
 		client:    s.client,
 		stopRenew: renewCh,
-		mutexKey:  s.normalize(key + "_lock"),
-		writeKey:  s.normalize(key),
+		mutexKey:  mutexKey,
+		writeKey:  writeKey,
 		value:     value,
 		ttl:       ttl,
 	}
+
+	s.mutexKey = mutexKey
+	s.writeKey = writeKey
 
 	return lock, nil
 }
