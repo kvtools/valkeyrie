@@ -485,7 +485,7 @@ func (s *EtcdV3) Close() {
 // list child nodes of a given directory and return revision number
 func (s *EtcdV3) list(directory string) (int64, []*store.KVPair, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), etcdDefaultTimeout)
-	resp, err := s.client.KV.Get(ctx, s.normalize(directory), etcd.WithPrefix(), etcd.WithSort(etcd.SortByKey, etcd.SortDescend))
+	resp, err := s.client.KV.Get(ctx, s.normalize(directory), etcd.WithSerializable(), etcd.WithPrefix(), etcd.WithSort(etcd.SortByKey, etcd.SortDescend))
 	cancel()
 	if err != nil {
 		return 0, nil, err
