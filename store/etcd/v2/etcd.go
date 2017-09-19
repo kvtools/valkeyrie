@@ -428,6 +428,9 @@ func (s *Etcd) List(directory string, opts *store.ReadOptions) ([]*store.KVPair,
 
 	kv := []*store.KVPair{}
 	for _, n := range resp.Node.Nodes {
+		if n.Key == directory {
+			continue
+		}
 		kv = append(kv, &store.KVPair{
 			Key:       n.Key,
 			Value:     []byte(n.Value),

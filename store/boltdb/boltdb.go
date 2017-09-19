@@ -275,7 +275,7 @@ func (b *BoltDB) List(keyPrefix string, opts *store.ReadOptions) ([]*store.KVPai
 		return nil, err
 	}
 	defer b.releaseDBhandle()
-
+	hasResult := false
 	err = db.View(func(tx *bolt.Tx) error {
 		bucket := tx.Bucket(b.boltBucket)
 		if bucket == nil {
@@ -286,21 +286,23 @@ func (b *BoltDB) List(keyPrefix string, opts *store.ReadOptions) ([]*store.KVPai
 		prefix := []byte(keyPrefix)
 
 		for key, v := cursor.Seek(prefix); bytes.HasPrefix(key, prefix); key, v = cursor.Next() {
-
+			hasResult = true
 			dbIndex := binary.LittleEndian.Uint64(v[:libkvmetadatalen])
 			v = v[libkvmetadatalen:]
 			val := make([]byte, len(v))
 			copy(val, v)
 
-			kv = append(kv, &store.KVPair{
-				Key:       string(key),
-				Value:     val,
-				LastIndex: dbIndex,
-			})
+			if string(key) != keyPrefix {
+				kv = append(kv, &store.KVPair{
+					Key:       string(key),
+					Value:     val,
+					LastIndex: dbIndex,
+				})
+			}
 		}
 		return nil
 	})
-	if len(kv) == 0 {
+	if !hasResult {
 		return nil, store.ErrKeyNotFound
 	}
 	return kv, err

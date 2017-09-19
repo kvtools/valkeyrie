@@ -502,7 +502,8 @@ func testPutTTL(t *testing.T, kv store.Store, otherConn store.Store) {
 }
 
 func testList(t *testing.T, kv store.Store) {
-	prefix := "testList"
+	parentKey := "testList"
+	//parentValue := []byte("parent")
 
 	firstKey := "testList/first"
 	firstValue := []byte("first")
@@ -510,33 +511,45 @@ func testList(t *testing.T, kv store.Store) {
 	secondKey := "testList/second"
 	secondValue := []byte("second")
 
-	// Put the first key
-	err := kv.Put(firstKey, firstValue, nil)
+	// Put the parent key
+	err := kv.Put(parentKey, nil, &store.WriteOptions{IsDir: true})
 	assert.NoError(t, err)
 
-	// Put the second key
+	// Put the first child key
+	err = kv.Put(firstKey, firstValue, nil)
+	assert.NoError(t, err)
+
+	// Put the second child key
 	err = kv.Put(secondKey, secondValue, nil)
 	assert.NoError(t, err)
 
 	// List should work and return the two correct values
-	for _, parent := range []string{prefix, prefix + "/"} {
+	for _, parent := range []string{parentKey, parentKey + "/"} {
 		pairs, err := kv.List(parent, nil)
 		assert.NoError(t, err)
 		if assert.NotNil(t, pairs) {
-			assert.Equal(t, len(pairs), 2)
+			assert.Equal(t, 2, len(pairs))
 		}
 
 		// Check pairs, those are not necessarily in Put order
 		for _, pair := range pairs {
 			if pair.Key == firstKey {
-				assert.Equal(t, pair.Value, firstValue)
+				assert.Equal(t, firstValue, pair.Value)
 			}
 			if pair.Key == secondKey {
-				assert.Equal(t, pair.Value, secondValue)
+				assert.Equal(t, secondValue, pair.Value)
 			}
 		}
 	}
 
+	// List should work and return 0 value
+	for _, key := range []string{firstKey, secondKey} {
+		pairs, err := kv.List(key, nil)
+		assert.NoError(t, err)
+		if assert.NotNil(t, pairs) {
+			assert.Equal(t, 0, len(pairs))
+		}
+	}
 	// List should fail: the key does not exist
 	pairs, err := kv.List("idontexist", nil)
 	assert.Equal(t, store.ErrKeyNotFound, err)

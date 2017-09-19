@@ -457,7 +457,7 @@ func (r *Redis) list(directory string) ([]*store.KVPair, error) {
 		return nil, err
 	}
 	// TODO: need to handle when #key is too large
-	return r.mget(allKeys...)
+	return r.mget(directory, allKeys...)
 }
 
 func (r *Redis) keys(regex string) ([]string, error) {
@@ -489,13 +489,13 @@ func (r *Redis) keys(regex string) ([]string, error) {
 }
 
 // mget values given their keys
-func (r *Redis) mget(keys ...string) ([]*store.KVPair, error) {
+func (r *Redis) mget(directory string, keys ...string) ([]*store.KVPair, error) {
 	replies, err := r.client.MGet(keys...).Result()
 	if err != nil {
 		return nil, err
 	}
 
-	var pairs []*store.KVPair
+	pairs := []*store.KVPair{}
 	for _, reply := range replies {
 		var sreply string
 		if _, ok := reply.(string); ok {
@@ -510,7 +510,9 @@ func (r *Redis) mget(keys ...string) ([]*store.KVPair, error) {
 		if err := r.codec.decode(sreply, newkv); err != nil {
 			return nil, err
 		}
-		pairs = append(pairs, newkv)
+		if normalize(newkv.Key) != directory {
+			pairs = append(pairs, newkv)
+		}
 	}
 	return pairs, nil
 }
