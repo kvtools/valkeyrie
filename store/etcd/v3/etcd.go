@@ -107,9 +107,17 @@ func (s *EtcdV3) normalize(key string) string {
 
 // Get the value at "key", returns the last modified
 // index to use in conjunction to Atomic calls
-func (s *EtcdV3) Get(key string) (pair *store.KVPair, err error) {
+func (s *EtcdV3) Get(key string, opts *store.ReadOptions) (pair *store.KVPair, err error) {
 	ctx, cancel := context.WithTimeout(context.Background(), etcdDefaultTimeout)
-	result, err := s.client.KV.Get(ctx, s.normalize(key), etcd.WithSerializable())
+
+	var result *etcd.GetResponse
+
+	if opts != nil && !opts.Consistent {
+		result, err = s.client.KV.Get(ctx, s.normalize(key), etcd.WithSerializable())
+	} else {
+		result, err = s.client.KV.Get(ctx, s.normalize(key))
+	}
+
 	cancel()
 
 	if err != nil {
@@ -171,8 +179,8 @@ func (s *EtcdV3) Delete(key string) error {
 }
 
 // Exists checks if the key exists inside the store
-func (s *EtcdV3) Exists(key string) (bool, error) {
-	_, err := s.Get(key)
+func (s *EtcdV3) Exists(key string, opts *store.ReadOptions) (bool, error) {
+	_, err := s.Get(key, opts)
 	if err != nil {
 		if err == store.ErrKeyNotFound {
 			return false, nil
@@ -187,7 +195,7 @@ func (s *EtcdV3) Exists(key string) (bool, error) {
 // on errors. Upon creation, the current value will first
 // be sent to the channel. Providing a non-nil stopCh can
 // be used to stop watching.
-func (s *EtcdV3) Watch(key string, stopCh <-chan struct{}) (<-chan *store.KVPair, error) {
+func (s *EtcdV3) Watch(key string, stopCh <-chan struct{}, opts *store.ReadOptions) (<-chan *store.KVPair, error) {
 	wc := etcd.NewWatcher(s.client)
 
 	// respCh is sending back events to the caller
@@ -198,7 +206,7 @@ func (s *EtcdV3) Watch(key string, stopCh <-chan struct{}) (<-chan *store.KVPair
 		defer close(respCh)
 
 		// Get the current value
-		pair, err := s.Get(key)
+		pair, err := s.Get(key, opts)
 		if err != nil {
 			return
 		}
@@ -234,14 +242,14 @@ func (s *EtcdV3) Watch(key string, stopCh <-chan struct{}) (<-chan *store.KVPair
 // on errors. Upon creating a watch, the current childs values
 // will be sent to the channel. Providing a non-nil stopCh can
 // be used to stop watching.
-func (s *EtcdV3) WatchTree(directory string, stopCh <-chan struct{}) (<-chan []*store.KVPair, error) {
+func (s *EtcdV3) WatchTree(directory string, stopCh <-chan struct{}, opts *store.ReadOptions) (<-chan []*store.KVPair, error) {
 	wc := etcd.NewWatcher(s.client)
 
 	// respCh is sending back events to the caller
 	respCh := make(chan []*store.KVPair)
 
 	// Get the current value
-	rev, pairs, err := s.list(directory)
+	rev, pairs, err := s.list(directory, opts)
 	if err != nil {
 		return nil, err
 	}
@@ -371,8 +379,8 @@ func (s *EtcdV3) AtomicDelete(key string, previous *store.KVPair) (bool, error) 
 }
 
 // List child nodes of a given directory
-func (s *EtcdV3) List(directory string) ([]*store.KVPair, error) {
-	_, kv, err := s.list(directory)
+func (s *EtcdV3) List(directory string, opts *store.ReadOptions) ([]*store.KVPair, error) {
+	_, kv, err := s.list(directory, opts)
 	return kv, err
 }
 
@@ -483,10 +491,20 @@ func (s *EtcdV3) Close() {
 }
 
 // list child nodes of a given directory and return revision number
-func (s *EtcdV3) list(directory string) (int64, []*store.KVPair, error) {
+func (s *EtcdV3) list(directory string, opts *store.ReadOptions) (int64, []*store.KVPair, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), etcdDefaultTimeout)
-	resp, err := s.client.KV.Get(ctx, s.normalize(directory), etcd.WithSerializable(), etcd.WithPrefix(), etcd.WithSort(etcd.SortByKey, etcd.SortDescend))
+
+	var resp *etcd.GetResponse
+	var err error
+
+	if opts != nil && !opts.Consistent {
+		resp, err = s.client.KV.Get(ctx, s.normalize(directory), etcd.WithSerializable(), etcd.WithPrefix(), etcd.WithSort(etcd.SortByKey, etcd.SortDescend))
+	} else {
+		resp, err = s.client.KV.Get(ctx, s.normalize(directory), etcd.WithPrefix(), etcd.WithSort(etcd.SortByKey, etcd.SortDescend))
+	}
+
 	cancel()
+
 	if err != nil {
 		return 0, nil, err
 	}
