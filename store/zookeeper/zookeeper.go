@@ -1,6 +1,7 @@
 package zookeeper
 
 import (
+	"fmt"
 	"strings"
 	"time"
 
@@ -209,7 +210,7 @@ func (s *Zookeeper) WatchTree(directory string, stopCh <-chan struct{}, opts *st
 				return
 			}
 			if fireEvt {
-				kvs, err := s.getKVPairs(directory, keys, opts)
+				kvs, err := s.getListWithPath(directory, keys, opts)
 				if err != nil {
 					// Failed to get values for one or more of the keys,
 					// the list may be out of date so try again.
@@ -233,17 +234,53 @@ func (s *Zookeeper) WatchTree(directory string, stopCh <-chan struct{}, opts *st
 	return watchCh, nil
 }
 
-// List child nodes of a given directory
-func (s *Zookeeper) List(directory string, opts *store.ReadOptions) ([]*store.KVPair, error) {
-	keys, _, err := s.client.Children(s.normalize(directory))
+// listChildren lists the direct children of a directory
+func (s *Zookeeper) listChildren(directory string) ([]string, error) {
+	children, _, err := s.client.Children(s.normalize(directory))
 	if err != nil {
 		if err == zk.ErrNoNode {
 			return nil, store.ErrKeyNotFound
 		}
 		return nil, err
 	}
+	return children, nil
+}
 
-	kvs, err := s.getKVPairs(directory, keys, opts)
+// listChildrenRecursive lists the children of a directory as well as
+// all the descending childs from sub-folders in a recursive fashion.
+func (s *Zookeeper) listChildrenRecursive(list *[]string, directory string) error {
+	children, err := s.listChildren(directory)
+	if err != nil {
+		return err
+	}
+
+	// We reached a leaf.
+	if len(children) == 0 {
+		return nil
+	}
+
+	for _, c := range children {
+		c = strings.TrimSuffix(directory, "/") + "/" + c
+		err := s.listChildrenRecursive(list, c)
+		if err != nil && err != zk.ErrNoChildrenForEphemerals {
+			return err
+		}
+		*list = append(*list, c)
+	}
+
+	return nil
+}
+
+// List child nodes of a given directory
+func (s *Zookeeper) List(directory string, opts *store.ReadOptions) ([]*store.KVPair, error) {
+	children := make([]string, 0)
+	err := s.listChildrenRecursive(&children, directory)
+	if err != nil {
+		fmt.Println(err)
+		return nil, err
+	}
+
+	kvs, err := s.getList(children, opts)
 	if err != nil {
 		// If node is not found: List is out of date, retry
 		if err == store.ErrKeyNotFound {
@@ -257,16 +294,16 @@ func (s *Zookeeper) List(directory string, opts *store.ReadOptions) ([]*store.KV
 
 // DeleteTree deletes a range of keys under a given directory
 func (s *Zookeeper) DeleteTree(directory string) error {
-	pairs, err := s.List(directory, nil)
+	children, err := s.listChildren(directory)
 	if err != nil {
 		return err
 	}
 
 	var reqs []interface{}
 
-	for _, pair := range pairs {
+	for _, c := range children {
 		reqs = append(reqs, &zk.DeleteRequest{
-			Path:    s.normalize(directory + "/" + pair.Key),
+			Path:    s.normalize(directory + "/" + c),
 			Version: -1,
 		})
 	}
@@ -510,11 +547,39 @@ func (s *Zookeeper) getW(key string) ([]byte, *zk.Stat, <-chan zk.Event, error) 
 	return resp, meta, ech, nil
 }
 
-func (s *Zookeeper) getKVPairs(directory string, keys []string, opts *store.ReadOptions) ([]*store.KVPair, error) {
+// getListWithPath gets the key/value pairs for a list of keys under
+// a given path.
+//
+// This is generally used when we get a list of child keys which
+// are stripped out of their path (for example when using ChildrenW).
+func (s *Zookeeper) getListWithPath(path string, keys []string, opts *store.ReadOptions) ([]*store.KVPair, error) {
 	kvs := []*store.KVPair{}
 
 	for _, key := range keys {
-		pair, err := s.Get(strings.TrimSuffix(directory, "/")+s.normalize(key), opts)
+		pair, err := s.Get(strings.TrimSuffix(path, "/")+s.normalize(key), opts)
+		if err != nil {
+			return nil, err
+		}
+
+		kvs = append(kvs, &store.KVPair{
+			Key:       key,
+			Value:     pair.Value,
+			LastIndex: pair.LastIndex,
+		})
+	}
+
+	return kvs, nil
+}
+
+// getList returns key/value pairs from a list of keys.
+//
+// This is generally used when we have a full list of keys with
+// their full path included.
+func (s *Zookeeper) getList(keys []string, opts *store.ReadOptions) ([]*store.KVPair, error) {
+	kvs := []*store.KVPair{}
+
+	for _, key := range keys {
+		pair, err := s.Get(strings.TrimSuffix(key, "/"), nil)
 		if err != nil {
 			return nil, err
 		}

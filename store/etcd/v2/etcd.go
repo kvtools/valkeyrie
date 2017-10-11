@@ -431,6 +431,18 @@ func (s *Etcd) List(directory string, opts *store.ReadOptions) ([]*store.KVPair,
 		if n.Key == directory {
 			continue
 		}
+
+		// Etcd v2 seems to stop listing child keys at directories even
+		// with the "Recursive" option. If the child is a directory,
+		// we call `List` recursively to go through the whole set.
+		if n.Dir {
+			pairs, err := s.List(n.Key, opts)
+			if err != nil {
+				return nil, err
+			}
+			kv = append(kv, pairs...)
+		}
+
 		kv = append(kv, &store.KVPair{
 			Key:       n.Key,
 			Value:     []byte(n.Value),

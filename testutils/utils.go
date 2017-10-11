@@ -2,6 +2,7 @@ package testutils
 
 import (
 	"fmt"
+	"strconv"
 	"testing"
 	"time"
 
@@ -503,55 +504,53 @@ func testPutTTL(t *testing.T, kv store.Store, otherConn store.Store) {
 
 func testList(t *testing.T, kv store.Store) {
 	parentKey := "testList"
-	//parentValue := []byte("parent")
-
-	firstKey := "testList/first"
-	firstValue := []byte("first")
-
-	secondKey := "testList/second"
-	secondValue := []byte("second")
+	childKey := "testList/child"
+	subfolderKey := "testList/subfolder"
 
 	// Put the parent key
 	err := kv.Put(parentKey, nil, &store.WriteOptions{IsDir: true})
 	assert.NoError(t, err)
 
 	// Put the first child key
-	err = kv.Put(firstKey, firstValue, nil)
+	err = kv.Put(childKey, []byte("first"), nil)
 	assert.NoError(t, err)
 
-	// Put the second child key
-	err = kv.Put(secondKey, secondValue, nil)
+	// Put the second child key which is also a directory
+	err = kv.Put(subfolderKey, []byte("second"), &store.WriteOptions{IsDir: true})
 	assert.NoError(t, err)
 
-	// List should work and return the two correct values
+	// Put child keys under secondKey
+	for i := 1; i <= 3; i++ {
+		key := "testList/subfolder/key" + strconv.Itoa(i)
+		err := kv.Put(key, []byte("value"), nil)
+		assert.NoError(t, err)
+	}
+
+	// List should work and return five child entries
 	for _, parent := range []string{parentKey, parentKey + "/"} {
 		pairs, err := kv.List(parent, nil)
 		assert.NoError(t, err)
 		if assert.NotNil(t, pairs) {
-			assert.Equal(t, 2, len(pairs))
-		}
-
-		// Check pairs, those are not necessarily in Put order
-		for _, pair := range pairs {
-			if pair.Key == firstKey {
-				assert.Equal(t, firstValue, pair.Value)
-			}
-			if pair.Key == secondKey {
-				assert.Equal(t, secondValue, pair.Value)
-			}
+			assert.Equal(t, 5, len(pairs))
 		}
 	}
 
-	// List should work and return 0 value
-	for _, key := range []string{firstKey, secondKey} {
-		pairs, err := kv.List(key, nil)
-		assert.NoError(t, err)
-		if assert.NotNil(t, pairs) {
-			assert.Equal(t, 0, len(pairs))
-		}
+	// List on childKey should return 0 keys
+	pairs, err := kv.List(childKey, nil)
+	assert.NoError(t, err)
+	if assert.NotNil(t, pairs) {
+		assert.Equal(t, 0, len(pairs))
 	}
+
+	// List on subfolderKey should return 3 keys without the directory
+	pairs, err = kv.List(subfolderKey, nil)
+	assert.NoError(t, err)
+	if assert.NotNil(t, pairs) {
+		assert.Equal(t, 3, len(pairs))
+	}
+
 	// List should fail: the key does not exist
-	pairs, err := kv.List("idontexist", nil)
+	pairs, err = kv.List("idontexist", nil)
 	assert.Equal(t, store.ErrKeyNotFound, err)
 	assert.Nil(t, pairs)
 }
@@ -614,6 +613,7 @@ func RunCleanup(t *testing.T, kv store.Store) {
 		"testLockUnlock",
 		"testLockTTL",
 		"testPutTTL",
+		"testList/subfolder",
 		"testList",
 		"testDeleteTree",
 	} {

@@ -146,16 +146,14 @@ func (s *EtcdV3) Put(key string, value []byte, opts *store.WriteOptions) (err er
 	ctx, cancel := context.WithTimeout(context.Background(), etcdDefaultTimeout)
 	pr := s.client.Txn(ctx)
 
-	if opts != nil {
-		if opts.TTL > 0 {
-			lease := etcd.NewLease(s.client)
-			resp, err := lease.Grant(context.Background(), int64(opts.TTL/time.Second))
-			if err != nil {
-				cancel()
-				return err
-			}
-			pr.Then(etcd.OpPut(key, string(value), etcd.WithLease(resp.ID)))
+	if opts != nil && opts.TTL > 0 {
+		lease := etcd.NewLease(s.client)
+		resp, err := lease.Grant(context.Background(), int64(opts.TTL/time.Second))
+		if err != nil {
+			cancel()
+			return err
 		}
+		pr.Then(etcd.OpPut(key, string(value), etcd.WithLease(resp.ID)))
 	} else {
 		pr.Then(etcd.OpPut(key, string(value)))
 	}
