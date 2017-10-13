@@ -67,7 +67,7 @@ func (s *Zookeeper) setTimeout(time time.Duration) {
 
 // Get the value at "key", returns the last modified index
 // to use in conjunction to Atomic calls
-func (s *Zookeeper) Get(key string) (pair *store.KVPair, err error) {
+func (s *Zookeeper) Get(key string, opts *store.ReadOptions) (pair *store.KVPair, err error) {
 
 	resp, meta, err := s.get(key)
 	if err != nil {
@@ -114,7 +114,7 @@ func (s *Zookeeper) createFullPath(path []string, data []byte, ephemeral bool) e
 func (s *Zookeeper) Put(key string, value []byte, opts *store.WriteOptions) error {
 	fkey := s.normalize(key)
 
-	exists, err := s.Exists(key)
+	exists, err := s.Exists(key, nil)
 	if err != nil {
 		return err
 	}
@@ -142,7 +142,7 @@ func (s *Zookeeper) Delete(key string) error {
 }
 
 // Exists checks if the key exists inside the store
-func (s *Zookeeper) Exists(key string) (bool, error) {
+func (s *Zookeeper) Exists(key string, opts *store.ReadOptions) (bool, error) {
 	exists, _, err := s.client.Exists(s.normalize(key))
 	if err != nil {
 		return false, err
@@ -155,7 +155,7 @@ func (s *Zookeeper) Exists(key string) (bool, error) {
 // on errors. Upon creation, the current value will first
 // be sent to the channel. Providing a non-nil stopCh can
 // be used to stop watching.
-func (s *Zookeeper) Watch(key string, stopCh <-chan struct{}) (<-chan *store.KVPair, error) {
+func (s *Zookeeper) Watch(key string, stopCh <-chan struct{}, opts *store.ReadOptions) (<-chan *store.KVPair, error) {
 	// Catch zk notifications and fire changes into the channel.
 	watchCh := make(chan *store.KVPair)
 	go func() {
@@ -195,7 +195,7 @@ func (s *Zookeeper) Watch(key string, stopCh <-chan struct{}) (<-chan *store.KVP
 // on errors. Upon creating a watch, the current childs values
 // will be sent to the channel .Providing a non-nil stopCh can
 // be used to stop watching.
-func (s *Zookeeper) WatchTree(directory string, stopCh <-chan struct{}) (<-chan []*store.KVPair, error) {
+func (s *Zookeeper) WatchTree(directory string, stopCh <-chan struct{}, opts *store.ReadOptions) (<-chan []*store.KVPair, error) {
 	// Catch zk notifications and fire changes into the channel.
 	watchCh := make(chan []*store.KVPair)
 	go func() {
@@ -209,7 +209,7 @@ func (s *Zookeeper) WatchTree(directory string, stopCh <-chan struct{}) (<-chan 
 				return
 			}
 			if fireEvt {
-				kvs, err := s.getKVPairs(directory, keys)
+				kvs, err := s.getKVPairs(directory, keys, opts)
 				if err != nil {
 					// Failed to get values for one or more of the keys,
 					// the list may be out of date so try again.
@@ -234,7 +234,7 @@ func (s *Zookeeper) WatchTree(directory string, stopCh <-chan struct{}) (<-chan 
 }
 
 // List child nodes of a given directory
-func (s *Zookeeper) List(directory string) ([]*store.KVPair, error) {
+func (s *Zookeeper) List(directory string, opts *store.ReadOptions) ([]*store.KVPair, error) {
 	keys, _, err := s.client.Children(s.normalize(directory))
 	if err != nil {
 		if err == zk.ErrNoNode {
@@ -243,11 +243,11 @@ func (s *Zookeeper) List(directory string) ([]*store.KVPair, error) {
 		return nil, err
 	}
 
-	kvs, err := s.getKVPairs(directory, keys)
+	kvs, err := s.getKVPairs(directory, keys, opts)
 	if err != nil {
 		// If node is not found: List is out of date, retry
 		if err == store.ErrKeyNotFound {
-			return s.List(directory)
+			return s.List(directory, opts)
 		}
 		return nil, err
 	}
@@ -257,7 +257,7 @@ func (s *Zookeeper) List(directory string) ([]*store.KVPair, error) {
 
 // DeleteTree deletes a range of keys under a given directory
 func (s *Zookeeper) DeleteTree(directory string) error {
-	pairs, err := s.List(directory)
+	pairs, err := s.List(directory, nil)
 	if err != nil {
 		return err
 	}
@@ -510,11 +510,11 @@ func (s *Zookeeper) getW(key string) ([]byte, *zk.Stat, <-chan zk.Event, error) 
 	return resp, meta, ech, nil
 }
 
-func (s *Zookeeper) getKVPairs(directory string, keys []string) ([]*store.KVPair, error) {
+func (s *Zookeeper) getKVPairs(directory string, keys []string, opts *store.ReadOptions) ([]*store.KVPair, error) {
 	kvs := []*store.KVPair{}
 
 	for _, key := range keys {
-		pair, err := s.Get(strings.TrimSuffix(directory, "/") + s.normalize(key))
+		pair, err := s.Get(strings.TrimSuffix(directory, "/")+s.normalize(key), opts)
 		if err != nil {
 			return nil, err
 		}

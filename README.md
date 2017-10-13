@@ -43,13 +43,13 @@ A **storage backend** in `libkv` should implement (fully or partially) these int
 ```go
 type Store interface {
 	Put(key string, value []byte, options *WriteOptions) error
-	Get(key string) (*KVPair, error)
+	Get(key string, options *ReadOptions) (*KVPair, error)
 	Delete(key string) error
-	Exists(key string) (bool, error)
-	Watch(key string, stopCh <-chan struct{}) (<-chan *KVPair, error)
-	WatchTree(directory string, stopCh <-chan struct{}) (<-chan []*KVPair, error)
+	Exists(key string, options *ReadOptions) (bool, error)
+	Watch(key string, stopCh <-chan struct{}, options *ReadOptions) (<-chan *KVPair, error)
+	WatchTree(directory string, stopCh <-chan struct{}, options *ReadOptions) (<-chan []*KVPair, error)
 	NewLock(key string, options *LockOptions) (Locker, error)
-	List(directory string) ([]*KVPair, error)
+	List(directory string, options *ReadOptions) ([]*KVPair, error)
 	DeleteTree(directory string) error
 	AtomicPut(key string, value []byte, previous *KVPair, options *WriteOptions) (bool, *KVPair, error)
 	AtomicDelete(key string, previous *KVPair) (bool, error)
