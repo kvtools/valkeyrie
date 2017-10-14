@@ -483,13 +483,15 @@ func (s *Consul) renewLockSession(initialTTL string, id string, stopRenew chan s
 					return
 				}
 
+				// We cannot destroy the session because the store
+				// is unavailable, wait for the session renew period.
+				// Give up after 'MaxSessionDestroyAttempts'.
+				sessionDestroyAttempts++
+
 				if sessionDestroyAttempts >= MaxSessionDestroyAttempts {
 					return
 				}
 
-				// We can't destroy the session because the store
-				// is unavailable, wait for the session renew period
-				sessionDestroyAttempts++
 				time.Sleep(ttl / 2)
 			}
 		}
