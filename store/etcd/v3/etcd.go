@@ -307,16 +307,14 @@ func (s *EtcdV3) AtomicPut(key string, value []byte, previous *store.KVPair, opt
 	pr := s.client.Txn(ctx).If(cmp)
 
 	// We set the TTL if given
-	if opts != nil {
-		if opts.TTL > 0 {
-			lease := etcd.NewLease(s.client)
-			resp, err := lease.Grant(context.Background(), int64(opts.TTL/time.Second))
-			if err != nil {
-				cancel()
-				return false, nil, err
-			}
-			pr.Then(etcd.OpPut(key, string(value), etcd.WithLease(resp.ID)))
+	if opts != nil && opts.TTL > 0 {
+		lease := etcd.NewLease(s.client)
+		resp, err := lease.Grant(context.Background(), int64(opts.TTL/time.Second))
+		if err != nil {
+			cancel()
+			return false, nil, err
 		}
+		pr.Then(etcd.OpPut(key, string(value), etcd.WithLease(resp.ID)))
 	} else {
 		pr.Then(etcd.OpPut(key, string(value)))
 	}
