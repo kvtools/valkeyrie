@@ -242,7 +242,19 @@ func (s *Consul) Exists(key string, opts *store.ReadOptions) (bool, error) {
 
 // List child nodes of a given directory
 func (s *Consul) List(directory string, opts *store.ReadOptions) ([]*store.KVPair, error) {
-	pairs, _, err := s.client.KV().List(s.normalize(directory), nil)
+	options := &api.QueryOptions{
+		AllowStale:        false,
+		RequireConsistent: true,
+	}
+
+	if opts != nil {
+		if !opts.Consistent {
+			options.AllowStale = true
+			options.RequireConsistent = false
+		}
+	}
+
+	pairs, _, err := s.client.KV().List(s.normalize(directory), options)
 	if err != nil {
 		return nil, err
 	}
