@@ -72,6 +72,99 @@ To test a change, you can proceed in two ways:
 
             go test -v -race ./...
 
+### Flush Key/Value pairs and Specific configurations
+
+Once in a while, you may need to flush key/value pairs from your local store installations:
+for example if you stop the tests purposefully with keys still being locked. This section
+describes how to easily start distributed backend storage locally and flush the key/value
+pairs when needed.
+
+#### Consul
+
+To start consul, use the following command:
+
+    consul agent -server -bootstrap -advertise=127.0.0.1 -data-dir /tmp/consul -config-file=/path/to/config.json
+
+This is pointing to a `config.json` file having the following configuration:
+
+    {"session_ttl_min": "1s"}
+
+Finally, to flush the key/value pairs:
+
+    rm -rf /tmp/consul
+
+#### Etcd
+
+To start etcd, use the following command:
+
+    etcd --data-dir=/tmp/default.etcd --listen-client-urls 'http://0.0.0.0:4001' --advertise-client-urls 'http://localhost:4001'
+
+To flush key/value pairs:
+
+    rm -rf /tmp/default.etcd
+
+#### Zookeeper
+
+To start zookeeper, use:
+
+    zkServer.sh start
+
+Make sure you modify the `zoo.cfg` file to change the default zookeeper directory for testing. For
+example, to have the zookeeper director in the `/tmp` folder, modify the following line:
+
+    dataDir=/tmp/zookeeper
+
+To flush the key/value pairs:
+
+    rm -rf /tmp/zookeeper
+
+#### Redis
+
+To start redis:
+
+    redis-server
+
+For redis, flushing the key/value pairs is as simple as:
+
+    redis-cli flushall
+
+#### Convenient scripts
+
+You can group startup/stop/clean operations for every store with simple scripts:
+
+- **Start**:
+
+```
+#!/bin/bash
+
+nohup etcd --data-dir=/tmp/default.etcd --listen-client-urls 'http://0.0.0.0:4001' --advertise-client-urls 'http://localhost:4001' &>/dev/null &
+nohup consul agent -server -bootstrap -advertise=127.0.0.1 -data-dir /tmp/consul -config-file=/path/to/config.json &>/dev/null &
+zkServer start &>/dev/null &
+nohup redis-server &>/dev/null &
+```
+
+- **Clean**:
+
+```
+#!/bin/bash
+
+rm -rf /tmp/default.etcd
+rm -rf /tmp/consul
+rm -rf /tmp/zookeeper
+redis-cli flushall
+```
+
+- **Stop**:
+
+```
+#!/bin/bash
+
+pkill consul
+pkill etcd
+pkill -f zookeeper
+pkill redis
+```
+
 ## Before submitting a change
 
 Make sure you check each of these items before you submit a pull request to avoid
