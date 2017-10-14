@@ -1,7 +1,6 @@
 package zookeeper
 
 import (
-	"fmt"
 	"strings"
 	"time"
 
@@ -276,7 +275,6 @@ func (s *Zookeeper) List(directory string, opts *store.ReadOptions) ([]*store.KV
 	children := make([]string, 0)
 	err := s.listChildrenRecursive(&children, directory)
 	if err != nil {
-		fmt.Println(err)
 		return nil, err
 	}
 
