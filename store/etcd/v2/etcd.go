@@ -233,14 +233,14 @@ func (s *Etcd) Watch(key string, stopCh <-chan struct{}, opts *store.ReadOptions
 	// watchCh is sending back events to the caller
 	watchCh := make(chan *store.KVPair)
 
+	// Get the current value
+	pair, err := s.Get(key, opts)
+	if err != nil {
+		return nil, err
+	}
+
 	go func() {
 		defer close(watchCh)
-
-		// Get the current value
-		pair, err := s.Get(key, opts)
-		if err != nil {
-			return
-		}
 
 		// Push the current value through the channel.
 		watchCh <- pair
@@ -282,14 +282,14 @@ func (s *Etcd) WatchTree(directory string, stopCh <-chan struct{}, opts *store.R
 	// watchCh is sending back events to the caller
 	watchCh := make(chan []*store.KVPair)
 
+	// List current children
+	list, err := s.List(directory, opts)
+	if err != nil {
+		return nil, err
+	}
+
 	go func() {
 		defer close(watchCh)
-
-		// Get child values
-		list, err := s.List(directory, opts)
-		if err != nil {
-			return
-		}
 
 		// Push the current value through the channel.
 		watchCh <- list

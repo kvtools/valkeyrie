@@ -199,15 +199,15 @@ func (s *EtcdV3) Watch(key string, stopCh <-chan struct{}, opts *store.ReadOptio
 	// respCh is sending back events to the caller
 	respCh := make(chan *store.KVPair)
 
+	// Get the current value
+	pair, err := s.Get(key, opts)
+	if err != nil {
+		return nil, err
+	}
+
 	go func() {
 		defer wc.Close()
 		defer close(respCh)
-
-		// Get the current value
-		pair, err := s.Get(key, opts)
-		if err != nil {
-			return
-		}
 
 		// Push the current value through the channel.
 		respCh <- pair
