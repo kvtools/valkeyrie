@@ -17,6 +17,10 @@ import (
 	"github.com/docker/libkv/store"
 )
 
+const (
+	lockSuffix = "___lock"
+)
+
 var (
 	// ErrAbortTryLock is thrown when a user stops trying to seek the lock
 	// by sending a signal to the stop chan, this is used to verify if the
@@ -27,9 +31,7 @@ var (
 // Etcd is the receiver type for the
 // Store interface
 type Etcd struct {
-	client   etcd.KeysAPI
-	mutexKey string // mutexKey is the key to write appended with a "_lock" suffix
-	writeKey string // writeKey is the actual key to update protected by the mutexKey
+	client etcd.KeysAPI
 }
 
 type etcdLock struct {
@@ -445,6 +447,11 @@ func (s *Etcd) List(directory string, opts *store.ReadOptions) ([]*store.KVPair,
 			kv = append(kv, pairs...)
 		}
 
+		// Filter out etcd mutex side keys with `___lock` suffix
+		if strings.Contains(string(n.Key), lockSuffix) {
+			continue
+		}
+
 		kv = append(kv, &store.KVPair{
 			Key:       n.Key,
 			Value:     []byte(n.Value),
@@ -487,21 +494,15 @@ func (s *Etcd) NewLock(key string, options *store.LockOptions) (lock store.Locke
 		}
 	}
 
-	mutexKey := s.normalize(key + "_lock")
-	writeKey := s.normalize(key)
-
 	// Create lock object
 	lock = &etcdLock{
 		client:    s.client,
 		stopRenew: renewCh,
-		mutexKey:  mutexKey,
-		writeKey:  writeKey,
+		mutexKey:  s.normalize(key + lockSuffix),
+		writeKey:  s.normalize(key),
 		value:     value,
 		ttl:       ttl,
 	}
-
-	s.mutexKey = mutexKey
-	s.writeKey = writeKey
 
 	return lock, nil
 }

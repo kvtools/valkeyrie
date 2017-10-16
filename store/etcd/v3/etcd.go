@@ -16,7 +16,7 @@ import (
 const (
 	defaultLockTTL     = 20 * time.Second
 	etcdDefaultTimeout = 5 * time.Second
-	lockSuffix         = "_lock"
+	lockSuffix         = "___lock"
 )
 
 // EtcdV3 is the receiver type for the
@@ -518,8 +518,8 @@ func (s *EtcdV3) list(directory string, opts *store.ReadOptions) (int64, []*stor
 			continue
 		}
 
-		// Allow to filter the _lock entry when the mutex key directory is given
-		if strings.Contains(string(n.Key), lockSuffix+"/") {
+		// Filter out etcd mutex side keys with `___lock` suffix
+		if strings.Contains(string(n.Key), lockSuffix) {
 			continue
 		}
 

@@ -3,6 +3,7 @@ package testutils
 import (
 	"fmt"
 	"strconv"
+	"strings"
 	"testing"
 	"time"
 
@@ -16,6 +17,12 @@ func RunTestCommon(t *testing.T, kv store.Store) {
 	testPutGetDeleteExists(t, kv)
 	testList(t, kv)
 	testDeleteTree(t, kv)
+}
+
+// RunTestListLock tests the list output for mutexes
+// and checks that internal side keys are not listed
+func RunTestListLock(t *testing.T, kv store.Store) {
+	testListLockKey(t, kv)
 }
 
 // RunTestAtomic tests the Atomic operations by the K/V
@@ -555,6 +562,45 @@ func testList(t *testing.T, kv store.Store) {
 	assert.Nil(t, pairs)
 }
 
+func testListLockKey(t *testing.T, kv store.Store) {
+	listKey := "testListLockSide"
+
+	err := kv.Put(listKey, []byte("val"), &store.WriteOptions{IsDir: true})
+	assert.NoError(t, err)
+
+	err = kv.Put(listKey+"/subfolder", []byte("val"), &store.WriteOptions{IsDir: true})
+	assert.NoError(t, err)
+
+	// Put keys under subfolder.
+	for i := 1; i <= 3; i++ {
+		key := listKey + "/subfolder/key" + strconv.Itoa(i)
+		err := kv.Put(key, []byte("val"), nil)
+		assert.NoError(t, err)
+
+		// We lock the child key
+		lock, err := kv.NewLock(key, &store.LockOptions{Value: []byte("locked"), TTL: 2 * time.Second})
+		assert.NoError(t, err)
+		assert.NotNil(t, lock)
+
+		lockChan, err := lock.Lock(nil)
+		assert.NoError(t, err)
+		assert.NotNil(t, lockChan)
+	}
+
+	// List children of the root directory (`listKey`), this should
+	// not output any `___lock` entries and must contain 4 results.
+	pairs, err := kv.List(listKey, nil)
+	assert.NoError(t, err)
+	assert.NotNil(t, pairs)
+	assert.Equal(t, 4, len(pairs))
+
+	for _, pair := range pairs {
+		if strings.Contains(string(pair.Key), "___lock") {
+			assert.FailNow(t, "tesListLockKey: found a key containing lock suffix '___lock'")
+		}
+	}
+}
+
 func testDeleteTree(t *testing.T, kv store.Store) {
 	prefix := "testDeleteTree"
 
@@ -615,6 +661,8 @@ func RunCleanup(t *testing.T, kv store.Store) {
 		"testPutTTL",
 		"testList/subfolder",
 		"testList",
+		"testListLockSide/subfolder",
+		"testListLockSide",
 		"testDeleteTree",
 	} {
 		err := kv.DeleteTree(key)
