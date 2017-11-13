@@ -8,8 +8,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/docker/libkv"
-	"github.com/docker/libkv/store"
+	"github.com/abronan/valkeyrie"
+	"github.com/abronan/valkeyrie/store"
 
 	"gopkg.in/redis.v5"
 )
@@ -28,9 +28,9 @@ var (
 	ErrAbortTryLock = errors.New("redis: lock operation aborted")
 )
 
-// Register registers Redis to libkv
+// Register registers Redis to valkeyrie
 func Register() {
-	libkv.AddStore(store.REDIS, New)
+	valkeyrie.AddStore(store.REDIS, New)
 }
 
 // New creates a new Redis client given a list
@@ -77,7 +77,7 @@ func (c defaultCodec) decode(b string, kv *store.KVPair) error {
 	return json.Unmarshal([]byte(b), kv)
 }
 
-// Redis implements libkv.Store interface with redis backend
+// Redis implements valkeyrie.Store interface with redis backend
 type Redis struct {
 	client *redis.Client
 	script *redis.Script

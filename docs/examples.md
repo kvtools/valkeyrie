@@ -1,6 +1,6 @@
 # Examples
 
-This document contains useful example of usage for `libkv`. It might not be complete but provides with general informations on how to use the client.
+This document contains useful example of usage for `valkeyrie`. It might not be complete but provides with general informations on how to use the client.
 
 ## Create a store and use Put/Get/Delete
 
@@ -12,21 +12,21 @@ import (
     "time"
     "log"
 
-    "github.com/docker/libkv"
-    "github.com/docker/libkv/store"
-    "github.com/docker/libkv/store/boltdb"
-    "github.com/docker/libkv/store/consul"
-    "github.com/docker/libkv/store/etcd/v3"
-    "github.com/docker/libkv/store/zookeeper"
-    "github.com/docker/libkv/store/redis"
+    "github.com/abronan/valkeyrie"
+    "github.com/abronan/valkeyrie/store"
+    "github.com/abronan/valkeyrie/store/boltdb"
+    "github.com/abronan/valkeyrie/store/consul"
+    "github.com/abronan/valkeyrie/store/etcd/v3"
+    "github.com/abronan/valkeyrie/store/zookeeper"
+    "github.com/abronan/valkeyrie/store/redis"
 )
 
 func init() {
-    // Register consul store to libkv
+    // Register consul store to valkeyrie
     consul.Register()
 
     // We can register more backends that are supported by
-    // libkv if we plan to use these
+    // valkeyrie if we plan to use these
     etcdv3.Register()
     zookeeper.Register()
     boltdb.Register()
@@ -37,7 +37,7 @@ func main() {
     client := "localhost:8500"
 
     // Initialize a new store with consul
-    kv, err := libkv.NewStore(
+    kv, err := valkeyrie.NewStore(
         store.CONSUL, // or "consul"
         []string{client},
         &store.Config{

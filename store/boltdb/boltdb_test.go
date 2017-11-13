@@ -5,9 +5,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/docker/libkv"
-	"github.com/docker/libkv/store"
-	"github.com/docker/libkv/testutils"
+	"github.com/abronan/valkeyrie"
+	"github.com/abronan/valkeyrie/store"
+	"github.com/abronan/valkeyrie/testutils"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -24,7 +24,7 @@ func makeBoltDBClient(t *testing.T) store.Store {
 func TestRegister(t *testing.T) {
 	Register()
 
-	kv, err := libkv.NewStore(
+	kv, err := valkeyrie.NewStore(
 		store.BOLTDB,
 		[]string{"/tmp/not_exist_dir/__boltdbtest"},
 		&store.Config{Bucket: "boltDBTest"},
@@ -42,7 +42,7 @@ func TestRegister(t *testing.T) {
 // TestMultiplePersistConnection tests the second connection to a
 // BoltDB fails when one is already open with PersistConnection flag
 func TestMultiplePersistConnection(t *testing.T) {
-	kv, err := libkv.NewStore(
+	kv, err := valkeyrie.NewStore(
 		store.BOLTDB,
 		[]string{"/tmp/not_exist_dir/__boltdbtest"},
 		&store.Config{
@@ -58,7 +58,7 @@ func TestMultiplePersistConnection(t *testing.T) {
 	}
 
 	// Must fail if multiple boltdb requests are made with a valid timeout
-	_, err = libkv.NewStore(
+	_, err = valkeyrie.NewStore(
 		store.BOLTDB,
 		[]string{"/tmp/not_exist_dir/__boltdbtest"},
 		&store.Config{
@@ -75,7 +75,7 @@ func TestMultiplePersistConnection(t *testing.T) {
 // two handles.
 func TestConcurrentConnection(t *testing.T) {
 	var err error
-	kv1, err1 := libkv.NewStore(
+	kv1, err1 := valkeyrie.NewStore(
 		store.BOLTDB,
 		[]string{"/tmp/__boltdbtest"},
 		&store.Config{
@@ -85,7 +85,7 @@ func TestConcurrentConnection(t *testing.T) {
 	assert.NoError(t, err1)
 	assert.NotNil(t, kv1)
 
-	kv2, err2 := libkv.NewStore(
+	kv2, err2 := valkeyrie.NewStore(
 		store.BOLTDB,
 		[]string{"/tmp/__boltdbtest"},
 		&store.Config{Bucket: "boltDBTest",

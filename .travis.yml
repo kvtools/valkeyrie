@@ -6,8 +6,8 @@ go:
 sudo: true
 
 before_install:
-  # Symlink below is needed for Travis CI to work correctly on personal forks of libkv
-  - ln -s $HOME/gopath/src/github.com/${TRAVIS_REPO_SLUG///libkv/} $HOME/gopath/src/github.com/docker
+  # Symlink below is needed for Travis CI to work correctly on personal forks of valkeyrie
+  - ln -s $HOME/gopath/src/github.com/${TRAVIS_REPO_SLUG///valkeyrie/} $HOME/gopath/src/github.com/abronan
   - go get golang.org/x/tools/cmd/cover
   - go get github.com/mattn/goveralls
   - go get github.com/golang/lint/golint

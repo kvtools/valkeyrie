@@ -1,21 +1,21 @@
-# libkv
+# valkeyrie
 
-[![GoDoc](https://godoc.org/github.com/docker/libkv?status.png)](https://godoc.org/github.com/abronan/libkv)
-[![Build Status](https://travis-ci.org/docker/libkv.svg?branch=master)](https://travis-ci.org/abronan/libkv)
-[![Coverage Status](https://coveralls.io/repos/docker/libkv/badge.svg)](https://coveralls.io/r/abronan/libkv)
-[![Go Report Card](https://goreportcard.com/badge/github.com/abronan/libkv)](https://goreportcard.com/report/github.com/abronan/libkv)
+[![GoDoc](https://godoc.org/github.com/abronan/valkeyrie?status.png)](https://godoc.org/github.com/abronan/valkeyrie)
+[![Build Status](https://travis-ci.org/abronan/valkeyrie.svg?branch=master)](https://travis-ci.org/abronan/valkeyrie)
+[![Coverage Status](https://coveralls.io/repos/abronan/valkeyrie/badge.svg)](https://coveralls.io/r/abronan/valkeyrie)
+[![Go Report Card](https://goreportcard.com/badge/github.com/abronan/valkeyrie)](https://goreportcard.com/report/github.com/abronan/valkeyrie)
 
-`libkv` provides a `Go` native library to store metadata using Distributed Key/Value stores (or common databases).
+`valkeyrie` provides a `Go` native library to store metadata using Distributed Key/Value stores (or common databases).
 
-The goal of `libkv` is to abstract common store operations (Get/Put/List/etc.) for multiple distributed and/or local Key/Value store backends thus using the same self-contained codebase to manage them all.
+The goal of `valkeyrie` is to abstract common store operations (Get/Put/List/etc.) for multiple distributed and/or local Key/Value store backends thus using the same self-contained codebase to manage them all.
 
 This repository is a fork of the [docker/libkv](https://github.com/docker/libkv) project which includes many fixes/additional features and is maintained by an original project maintainer. This project is notably used by [containous/traefik](https://github.com/containous/traefik), [docker/swarm](https://github.com/docker/swarm) and [docker/libnetwork](https://github.com/docker/libnetwork).
 
-As of now, `libkv` offers support for `Consul`, `Etcd`, `Zookeeper`, `Redis` (**Distributed** store) and `BoltDB` (**Local** store).
+As of now, `valkeyrie` offers support for `Consul`, `Etcd`, `Zookeeper`, `Redis` (**Distributed** store) and `BoltDB` (**Local** store).
 
 ## Usage
 
-`libkv` is meant to be used as an abstraction layer over existing distributed Key/Value stores. It is especially useful if you plan to support `consul`, `etcd` and `zookeeper` using the same codebase.
+`valkeyrie` is meant to be used as an abstraction layer over existing distributed Key/Value stores. It is especially useful if you plan to support `consul`, `etcd` and `zookeeper` using the same codebase.
 
 It is ideal if you plan for something written in Go that should support:
 
@@ -25,11 +25,11 @@ It is ideal if you plan for something written in Go that should support:
 
 You can also easily implement a generic *Leader Election* algorithm on top of it (see the [docker/leadership](https://github.com/docker/leadership) repository).
 
-You can find examples of usage for `libkv` under in [docs/examples.go](https://github.com/abronan/libkv/blob/master/docs/examples.md). Optionally you can also take a look at the `docker/swarm`, `docker/libnetwork` or `containous/traefik` repositories which are using `libkv` for all the use cases listed above.
+You can find examples of usage for `valkeyrie` under in [docs/examples.go](https://github.com/abronan/valkeyrie/blob/master/docs/examples.md). Optionally you can also take a look at the `docker/swarm`, `docker/libnetwork` or `containous/traefik` repositories which are using `valkeyrie` for all the use cases listed above.
 
 ## Supported versions
 
-`libkv` supports:
+`valkeyrie` supports:
 - **Consul** versions >= `0.5.1` because it uses Sessions with `Delete` behavior for the use of `TTLs` (mimics zookeeper's Ephemeral node support), If you don't plan to use `TTLs`: you can use Consul version `0.4.0+`.
 - **Etcd** versions >= `2.0` with **APIv2** (*deprecated*) and **APIv3** (*recommended*).
 - **Zookeeper** versions >= `3.4.5`. Although this might work with previous version but this remains untested as of now.
@@ -38,7 +38,7 @@ You can find examples of usage for `libkv` under in [docs/examples.go](https://g
 
 ## Interface
 
-A **storage backend** in `libkv` should implement (fully or partially) these interfaces:
+A **storage backend** in `valkeyrie` should implement (fully or partially) these interfaces:
 
 ```go
 type Store interface {
@@ -64,7 +64,7 @@ type Locker interface {
 
 ## Compatibility matrix
 
-Backend drivers in `libkv` are generally divided between **local drivers** and **distributed drivers**. Distributed backends offer enhanced capabilities like `Watches` and/or distributed `Locks`.
+Backend drivers in `valkeyrie` are generally divided between **local drivers** and **distributed drivers**. Distributed backends offer enhanced capabilities like `Watches` and/or distributed `Locks`.
 
 Local drivers are usually used in complement to the distributed drivers to store informations that only needs to be available locally.
 
@@ -85,7 +85,7 @@ Local drivers are usually used in complement to the distributed drivers to store
 
 ## Limitations
 
-Distributed Key/Value stores often have different concepts for managing and formatting keys and their associated values. Even though `libkv` tries to abstract those stores aiming for some consistency, in some cases it can't be applied easily.
+Distributed Key/Value stores often have different concepts for managing and formatting keys and their associated values. Even though `valkeyrie` tries to abstract those stores aiming for some consistency, in some cases it can't be applied easily.
 
 Please refer to the `docs/compatibility.md` to see what are the special cases for cross-backend compatibility.
 
@@ -101,7 +101,7 @@ Only `Consul` and `etcd` have support for TLS and you should build and provide y
 
 ## Contributing
 
-Want to contribute to libkv? Take a look at the [Contribution Guidelines](https://github.com/abronan/libkv/blob/master/CONTRIBUTING.md).
+Want to contribute to valkeyrie? Take a look at the [Contribution Guidelines](https://github.com/abronan/valkeyrie/blob/master/CONTRIBUTING.md).
 
 ## Maintainers
 

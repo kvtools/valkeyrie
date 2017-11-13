@@ -4,9 +4,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/docker/libkv"
-	"github.com/docker/libkv/store"
-	"github.com/docker/libkv/testutils"
+	"github.com/abronan/valkeyrie"
+	"github.com/abronan/valkeyrie/store"
+	"github.com/abronan/valkeyrie/testutils"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -34,7 +34,7 @@ func makeEtcdV3Client(t *testing.T) store.Store {
 func TestRegister(t *testing.T) {
 	Register()
 
-	kv, err := libkv.NewStore(store.ETCDV3, []string{client}, nil)
+	kv, err := valkeyrie.NewStore(store.ETCDV3, []string{client}, nil)
 	assert.NoError(t, err)
 	assert.NotNil(t, kv)
 

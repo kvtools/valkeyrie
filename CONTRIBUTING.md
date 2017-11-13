@@ -35,7 +35,7 @@ Once you have a working Go installation, follow the next steps:
 
 - Get the repository:
 
-        go get -u github.com/abronan/libkv
+        go get -u github.com/abronan/valkeyrie
 
 - Checkout on a new branch from the master branch to start working on a patch
 
@@ -54,7 +54,7 @@ To test a change, you can proceed in two ways:
 
 - You installed a **single key/value** store of your choice:
 
-    - In this case, navigate to the store folder, for example `libkv/store/etcd/v3` and run:
+    - In this case, navigate to the store folder, for example `valkeyrie/store/etcd/v3` and run:
 
             go test .
 

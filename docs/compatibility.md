@@ -1,8 +1,8 @@
 # Cross-Backend Compatibility
 
-The value of `libkv` is not to duplicate the code for programs that should support multiple distributed Key/Value stores such as `Consul`/`etcd`/`zookeeper`, etc.
+The benefit of `valkeyrie` is not to duplicate the code for programs that should support multiple distributed Key/Value stores such as `Consul`/`etcd`/`zookeeper`, etc.
 
-This document offers general guidelines for users willing to support those backends with the same codebase using `libkv`.
+This document offers general guidelines for users willing to support those backends with the same codebase using `valkeyrie`.
 
 ## Etcd versions
 
@@ -14,7 +14,7 @@ In the case you plan to support etcd with **APIv2**, please be aware of some pit
 
 #### Etcd directory/key distinction
 
-`etcd` with APIv2 makes the distinction between keys and directories. The result with `libkv` is that when using the etcd driver:
+`etcd` with APIv2 makes the distinction between keys and directories. The result with `valkeyrie` is that when using the etcd driver:
 
 - You cannot store values on directories
 - You cannot invoke `WatchTree` (watching on child values), on a regular key

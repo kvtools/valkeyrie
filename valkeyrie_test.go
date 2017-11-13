@@ -1,10 +1,10 @@
-package libkv
+package valkeyrie
 
 import (
 	"testing"
 	"time"
 
-	"github.com/docker/libkv/store"
+	"github.com/abronan/valkeyrie/store"
 	"github.com/stretchr/testify/assert"
 )
 
