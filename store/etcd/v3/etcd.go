@@ -386,10 +386,13 @@ func (s *EtcdV3) DeleteTree(directory string) error {
 	ctx, cancel := context.WithTimeout(context.Background(), etcdDefaultTimeout)
 	resp, err := s.client.KV.Delete(ctx, s.normalize(directory), etcd.WithPrefix())
 	cancel()
+	if err != nil {
+		return err
+	}
 	if resp.Deleted == 0 {
 		return store.ErrKeyNotFound
 	}
-	return err
+	return nil
 }
 
 // NewLock returns a handle to a lock struct which can
