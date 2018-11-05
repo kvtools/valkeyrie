@@ -170,14 +170,12 @@ func (s *Aerospike) Exists(key string, opts *store.ReadOptions) (bool, error) {
 	return true, nil
 }
 
-// List records of a given substring
+// List returns the range of keys starting with the passed in prefix
+// Aerospike does not store primary keys by default and does not support key searches...
+// Used full scan of the keys - very slowly!
+// It is not recommended to use without special need.
 func (s *Aerospike) List(keyPrefix string, opts *store.ReadOptions) ([]*store.KVPair, error) {
 	stmt := api.NewStatement(s.namespace, "")
-	// stmt.SetPredExp(
-	// 	api.NewPredExpStringBin("PK"),
-	// 	api.NewPredExpStringValue(keyPrefix+".*"),
-	// 	api.NewPredExpStringRegex(3),
-	// )
 	rs, err := s.client.Query(nil, stmt)
 	if err != nil {
 		return nil, err
@@ -185,31 +183,40 @@ func (s *Aerospike) List(keyPrefix string, opts *store.ReadOptions) ([]*store.KV
 
 	kv := []*store.KVPair{}
 
-	hasResult := false
+	keyFound := false
 	for res := range rs.Results() {
 		if res.Err != nil {
 			return nil, res.Err
 		}
-		if res.Record.Key.Value() != nil && res.Record.Key.Value().String() != keyPrefix {
-			hasResult = true
-			if strings.HasPrefix(res.Record.Key.Value().String(), keyPrefix) {
-				kv = append(kv, &store.KVPair{
-					Key:       res.Record.Key.Value().String(),
-					Value:     res.Record.Bins["bin"].([]byte),
-					LastIndex: uint64(res.Record.Generation),
-				})
+		if res.Record.Key.Value() != nil {
+			if res.Record.Key.Value().String() != keyPrefix {
+				if len(res.Record.Key.Value().String()) > len(keyPrefix) &&
+					strings.HasPrefix(res.Record.Key.Value().String(), keyPrefix) {
+					kv = append(kv, &store.KVPair{
+						Key:       res.Record.Key.Value().String(),
+						Value:     res.Record.Bins["bin"].([]byte),
+						LastIndex: uint64(res.Record.Generation),
+					})
+				}
+			} else {
+				keyFound = true
 			}
 		}
 	}
 
-	if !hasResult {
-		return kv, store.ErrKeyNotFound
+	if keyFound && len(kv) == 0 {
+		return []*store.KVPair{}, nil
+	}
+	if !keyFound && len(kv) == 0 {
+		return nil, store.ErrKeyNotFound
 	}
 
 	return kv, nil
 }
 
 // DeleteTree deletes a range of keys under a given substring
+// Use List - very slowly!
+// It is not recommended to use without special need.
 func (s *Aerospike) DeleteTree(keyFilter string) error {
 	rs, err := s.List(keyFilter, nil)
 	if err != nil {
