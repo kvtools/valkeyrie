@@ -27,7 +27,7 @@ script:
   - ./etcd/etcd --listen-client-urls 'http://0.0.0.0:4001' --advertise-client-urls 'http://127.0.0.1:4001' >/dev/null 2>&1 &
   - ./zk/bin/zkServer.sh start ./zk/conf/zoo.cfg 1> /dev/null
   - ./redis/src/redis-server &
-  - asd
+  - aerospike-server/bin/asd --instance 1 --config aerospike-server/etc/aerospike.conf
   - script/validate-gofmt
   - go vet ./...
   - fgt golint ./...

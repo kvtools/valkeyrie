@@ -7,11 +7,11 @@ else
 fi
 
 # install Aerospike
-wget "https://www.aerospike.com/artifacts/aerospike-server-community/${AEROSPIKE_VERSION}/aerospike-server-community-${AEROSPIKE_VERSION}-ubuntu14.04.tgz" -O aerospike-server.tgz
-mkdir aerospike
-tar xzf aerospike-server.tgz --strip-components=1 -C aerospike
-dpkg -i aerospike/aerospike-server-*.deb
-rm -rf aerospike-server.tgz aerospike
+wget "https://www.aerospike.com/artifacts/aerospike-server-community/${AEROSPIKE_VERSION}/aerospike-server-community-${AEROSPIKE_VERSION}.tar.gz" -O aerospike-server.tgz
+tar xzf aerospike-server.tgz
+
+touch /aerospike-server/share/udf/lua/external/dummy.lua
+aerospike-server/bin/aerospike init --home ./aerospike-server
 
 # check
-asd --version
+aerospike-server/bin/asd --version
