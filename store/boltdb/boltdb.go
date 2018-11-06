@@ -12,7 +12,7 @@ import (
 
 	"github.com/abronan/valkeyrie"
 	"github.com/abronan/valkeyrie/store"
-	"github.com/coreos/bbolt"
+	bolt "github.com/coreos/bbolt"
 )
 
 var (
