@@ -51,9 +51,10 @@ func TestRegister(t *testing.T) {
 
 func TestAerospikeStore(t *testing.T) {
 	kv := makeAerospikeClient(t)
+	ttlKV := makeAerospikeClient(t)
 
 	testutils.RunTestCommon(t, kv)
 	testutils.RunTestAtomic(t, kv)
-	testutils.RunTestTTL(t, kv, kv)
+	testutils.RunTestTTL(t, kv, ttlKV)
 	testutils.RunCleanup(t, kv)
 }

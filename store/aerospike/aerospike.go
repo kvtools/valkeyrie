@@ -190,8 +190,7 @@ func (s *Aerospike) List(keyPrefix string, opts *store.ReadOptions) ([]*store.KV
 		}
 		if res.Record.Key.Value() != nil {
 			if res.Record.Key.Value().String() != keyPrefix {
-				if len(res.Record.Key.Value().String()) > len(keyPrefix) &&
-					strings.HasPrefix(res.Record.Key.Value().String(), keyPrefix) {
+				if strings.HasPrefix(res.Record.Key.Value().String(), keyPrefix) {
 					kv = append(kv, &store.KVPair{
 						Key:       res.Record.Key.Value().String(),
 						Value:     res.Record.Bins["bin"].([]byte),
@@ -215,7 +214,7 @@ func (s *Aerospike) List(keyPrefix string, opts *store.ReadOptions) ([]*store.KV
 }
 
 // DeleteTree deletes a range of keys under a given substring
-// Use List - very slowly!
+// Uses the List - very slowly!
 // It is not recommended to use without special need.
 func (s *Aerospike) DeleteTree(keyFilter string) error {
 	rs, err := s.List(keyFilter, nil)
