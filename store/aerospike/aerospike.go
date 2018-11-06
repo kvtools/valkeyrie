@@ -77,6 +77,16 @@ func New(endpoints []string, options *store.Config) (store.Store, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	regTask, err := client.RegisterUDF(nil, []byte(listUDF), "valkeyrie.lua", api.LUA)
+	if err != nil {
+		return nil, err
+	}
+	err = <-regTask.OnComplete()
+	if err != nil {
+		return nil, err
+	}
+
 	s.client = client
 
 	return s, nil
@@ -176,6 +186,7 @@ func (s *Aerospike) Exists(key string, opts *store.ReadOptions) (bool, error) {
 // It is not recommended to use without special need.
 func (s *Aerospike) List(keyPrefix string, opts *store.ReadOptions) ([]*store.KVPair, error) {
 	stmt := api.NewStatement(s.namespace, "")
+	stmt.SetAggregateFunction("valkeyrie", "list", []api.Value{api.NewValue(keyPrefix)}, true)
 	rs, err := s.client.Query(nil, stmt)
 	if err != nil {
 		return nil, err
@@ -188,15 +199,14 @@ func (s *Aerospike) List(keyPrefix string, opts *store.ReadOptions) ([]*store.KV
 		if res.Err != nil {
 			return nil, res.Err
 		}
-		if res.Record.Key.Value() != nil {
-			if res.Record.Key.Value().String() != keyPrefix {
-				if strings.HasPrefix(res.Record.Key.Value().String(), keyPrefix) {
-					kv = append(kv, &store.KVPair{
-						Key:       res.Record.Key.Value().String(),
-						Value:     res.Record.Bins["bin"].([]byte),
-						LastIndex: uint64(res.Record.Generation),
-					})
-				}
+		record := res.Record.Bins["SUCCESS"].(map[interface{}]interface{})
+		if record["key"] != nil {
+			if record["key"] != keyPrefix {
+				kv = append(kv, &store.KVPair{
+					Key:       record["key"].(string),
+					Value:     record["bin"].([]byte),
+					LastIndex: uint64(record["gen"].(int)),
+				})
 			} else {
 				keyFound = true
 			}
