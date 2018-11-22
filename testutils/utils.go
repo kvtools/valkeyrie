@@ -278,7 +278,7 @@ func testAtomicPutCreate(t *testing.T, kv store.Store) {
 
 	// Attempting to create again should fail.
 	success, _, err = kv.AtomicPut(key, value, nil, nil)
-	assert.Equal(t, err, store.ErrKeyExists)
+	assert.Equal(t, store.ErrKeyExists, err)
 	assert.False(t, success)
 
 	// This CAS should succeed, since it has the value from Get()
@@ -325,7 +325,7 @@ func testAtomicDelete(t *testing.T, kv store.Store) {
 
 	// Delete a non-existent key; should fail
 	success, err = kv.AtomicDelete(key, pair)
-	assert.Equal(t, err, store.ErrKeyNotFound)
+	assert.Equal(t, store.ErrKeyNotFound, err)
 	assert.False(t, success)
 }
 

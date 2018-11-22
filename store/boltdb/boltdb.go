@@ -12,7 +12,7 @@ import (
 
 	"github.com/abronan/valkeyrie"
 	"github.com/abronan/valkeyrie/store"
-	"github.com/coreos/bbolt"
+	"go.etcd.io/bbolt"
 )
 
 var (
@@ -29,7 +29,7 @@ const (
 
 //BoltDB type implements the Store interface
 type BoltDB struct {
-	client     *bolt.DB
+	client     *bbolt.DB
 	boltBucket []byte
 	dbIndex    uint64
 	path       string
@@ -56,9 +56,9 @@ func Register() {
 // New opens a new BoltDB connection to the specified path and bucket
 func New(endpoints []string, options *store.Config) (store.Store, error) {
 	var (
-		db          *bolt.DB
+		db          *bbolt.DB
 		err         error
-		boltOptions *bolt.Options
+		boltOptions *bbolt.Options
 		timeout     = transientTimeout
 	)
 
@@ -76,8 +76,8 @@ func New(endpoints []string, options *store.Config) (store.Store, error) {
 	}
 
 	if options.PersistConnection {
-		boltOptions = &bolt.Options{Timeout: options.ConnectionTimeout}
-		db, err = bolt.Open(endpoints[0], filePerm, boltOptions)
+		boltOptions = &bbolt.Options{Timeout: options.ConnectionTimeout}
+		db, err = bbolt.Open(endpoints[0], filePerm, boltOptions)
 		if err != nil {
 			return nil, err
 		}
@@ -103,14 +103,14 @@ func (b *BoltDB) reset() {
 	b.boltBucket = []byte{}
 }
 
-func (b *BoltDB) getDBhandle() (*bolt.DB, error) {
+func (b *BoltDB) getDBhandle() (*bbolt.DB, error) {
 	var (
-		db  *bolt.DB
+		db  *bbolt.DB
 		err error
 	)
 	if !b.PersistConnection {
-		boltOptions := &bolt.Options{Timeout: b.timeout}
-		if db, err = bolt.Open(b.path, filePerm, boltOptions); err != nil {
+		boltOptions := &bbolt.Options{Timeout: b.timeout}
+		if db, err = bbolt.Open(b.path, filePerm, boltOptions); err != nil {
 			return nil, err
 		}
 		b.client = db
@@ -130,7 +130,7 @@ func (b *BoltDB) releaseDBhandle() {
 func (b *BoltDB) Get(key string, opts *store.ReadOptions) (*store.KVPair, error) {
 	var (
 		val []byte
-		db  *bolt.DB
+		db  *bbolt.DB
 		err error
 	)
 	b.Lock()
@@ -141,7 +141,7 @@ func (b *BoltDB) Get(key string, opts *store.ReadOptions) (*store.KVPair, error)
 	}
 	defer b.releaseDBhandle()
 
-	err = db.View(func(tx *bolt.Tx) error {
+	err = db.View(func(tx *bbolt.Tx) error {
 		bucket := tx.Bucket(b.boltBucket)
 		if bucket == nil {
 			return store.ErrKeyNotFound
@@ -171,7 +171,7 @@ func (b *BoltDB) Get(key string, opts *store.ReadOptions) (*store.KVPair, error)
 func (b *BoltDB) Put(key string, value []byte, opts *store.WriteOptions) error {
 	var (
 		dbIndex uint64
-		db      *bolt.DB
+		db      *bbolt.DB
 		err     error
 	)
 	b.Lock()
@@ -184,7 +184,7 @@ func (b *BoltDB) Put(key string, value []byte, opts *store.WriteOptions) error {
 	}
 	defer b.releaseDBhandle()
 
-	err = db.Update(func(tx *bolt.Tx) error {
+	err = db.Update(func(tx *bbolt.Tx) error {
 		bucket, err := tx.CreateBucketIfNotExists(b.boltBucket)
 		if err != nil {
 			return err
@@ -206,7 +206,7 @@ func (b *BoltDB) Put(key string, value []byte, opts *store.WriteOptions) error {
 //Delete the value for the given key.
 func (b *BoltDB) Delete(key string) error {
 	var (
-		db  *bolt.DB
+		db  *bbolt.DB
 		err error
 	)
 	b.Lock()
@@ -217,7 +217,7 @@ func (b *BoltDB) Delete(key string) error {
 	}
 	defer b.releaseDBhandle()
 
-	err = db.Update(func(tx *bolt.Tx) error {
+	err = db.Update(func(tx *bbolt.Tx) error {
 		bucket := tx.Bucket(b.boltBucket)
 		if bucket == nil {
 			return store.ErrKeyNotFound
@@ -232,7 +232,7 @@ func (b *BoltDB) Delete(key string) error {
 func (b *BoltDB) Exists(key string, opts *store.ReadOptions) (bool, error) {
 	var (
 		val []byte
-		db  *bolt.DB
+		db  *bbolt.DB
 		err error
 	)
 	b.Lock()
@@ -243,7 +243,7 @@ func (b *BoltDB) Exists(key string, opts *store.ReadOptions) (bool, error) {
 	}
 	defer b.releaseDBhandle()
 
-	err = db.View(func(tx *bolt.Tx) error {
+	err = db.View(func(tx *bbolt.Tx) error {
 		bucket := tx.Bucket(b.boltBucket)
 		if bucket == nil {
 			return store.ErrKeyNotFound
@@ -263,7 +263,7 @@ func (b *BoltDB) Exists(key string, opts *store.ReadOptions) (bool, error) {
 // List returns the range of keys starting with the passed in prefix
 func (b *BoltDB) List(keyPrefix string, opts *store.ReadOptions) ([]*store.KVPair, error) {
 	var (
-		db  *bolt.DB
+		db  *bbolt.DB
 		err error
 	)
 	b.Lock()
@@ -276,7 +276,7 @@ func (b *BoltDB) List(keyPrefix string, opts *store.ReadOptions) ([]*store.KVPai
 	}
 	defer b.releaseDBhandle()
 	hasResult := false
-	err = db.View(func(tx *bolt.Tx) error {
+	err = db.View(func(tx *bbolt.Tx) error {
 		bucket := tx.Bucket(b.boltBucket)
 		if bucket == nil {
 			return store.ErrKeyNotFound
@@ -314,7 +314,7 @@ func (b *BoltDB) List(keyPrefix string, opts *store.ReadOptions) ([]*store.KVPai
 func (b *BoltDB) AtomicDelete(key string, previous *store.KVPair) (bool, error) {
 	var (
 		val []byte
-		db  *bolt.DB
+		db  *bbolt.DB
 		err error
 	)
 	b.Lock()
@@ -328,7 +328,7 @@ func (b *BoltDB) AtomicDelete(key string, previous *store.KVPair) (bool, error) 
 	}
 	defer b.releaseDBhandle()
 
-	err = db.Update(func(tx *bolt.Tx) error {
+	err = db.Update(func(tx *bbolt.Tx) error {
 		bucket := tx.Bucket(b.boltBucket)
 		if bucket == nil {
 			return store.ErrKeyNotFound
@@ -357,7 +357,7 @@ func (b *BoltDB) AtomicPut(key string, value []byte, previous *store.KVPair, opt
 	var (
 		val     []byte
 		dbIndex uint64
-		db      *bolt.DB
+		db      *bbolt.DB
 		err     error
 	)
 	b.Lock()
@@ -370,7 +370,7 @@ func (b *BoltDB) AtomicPut(key string, value []byte, previous *store.KVPair, opt
 	}
 	defer b.releaseDBhandle()
 
-	err = db.Update(func(tx *bolt.Tx) error {
+	err = db.Update(func(tx *bbolt.Tx) error {
 		var err error
 		bucket := tx.Bucket(b.boltBucket)
 		if bucket == nil {
@@ -431,7 +431,7 @@ func (b *BoltDB) Close() {
 // DeleteTree deletes a range of keys with a given prefix
 func (b *BoltDB) DeleteTree(keyPrefix string) error {
 	var (
-		db  *bolt.DB
+		db  *bbolt.DB
 		err error
 	)
 	b.Lock()
@@ -442,7 +442,7 @@ func (b *BoltDB) DeleteTree(keyPrefix string) error {
 	}
 	defer b.releaseDBhandle()
 
-	err = db.Update(func(tx *bolt.Tx) error {
+	err = db.Update(func(tx *bbolt.Tx) error {
 		bucket := tx.Bucket(b.boltBucket)
 		if bucket == nil {
 			return store.ErrKeyNotFound

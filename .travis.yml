@@ -1,7 +1,7 @@
 language: go
 
 go:
-  - 1.9.1
+  - 1.11
 
 sudo: true
 
@@ -10,16 +10,16 @@ before_install:
   - ln -s $HOME/gopath/src/github.com/${TRAVIS_REPO_SLUG///valkeyrie/} $HOME/gopath/src/github.com/abronan
   - go get golang.org/x/tools/cmd/cover
   - go get github.com/mattn/goveralls
-  - go get github.com/golang/lint/golint
+  - go get golang.org/x/lint/golint
   - go get github.com/GeertJohan/fgt
   # ca-certificates is needed for wget to work properly
   - sudo apt-get install ca-certificates
 
 before_script:
-  - script/travis_consul.sh 0.9.3
-  - script/travis_etcd.sh 3.2.9
-  - script/travis_zk.sh 3.4.10
-  - script/travis_redis.sh 4.0.2
+  - script/travis_consul.sh 1.1.0
+  - script/travis_etcd.sh 3.3.8
+  - script/travis_zk.sh 3.4.12
+  - script/travis_redis.sh 4.0.10
 
 script:
   - ./consul agent -server -bootstrap -advertise=127.0.0.1 -data-dir /tmp/consul -config-file=./config.json 1>/dev/null &
