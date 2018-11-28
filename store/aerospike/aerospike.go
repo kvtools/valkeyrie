@@ -1,6 +1,7 @@
 package aerospike
 
 import (
+	"bytes"
 	"errors"
 	"strconv"
 	"strings"
@@ -41,11 +42,13 @@ func New(endpoints []string, options *store.Config) (store.Store, error) {
 	hosts := []*api.Host{}
 	for _, endpoint := range endpoints {
 		h := strings.Split(endpoint, ":")
-		p, err := strconv.Atoi(h[1])
-		if err != nil {
-			return nil, err
+		if len(h) > 1 {
+			p, err := strconv.Atoi(h[1])
+			if err != nil {
+				return nil, err
+			}
+			hosts = append(hosts, api.NewHost(h[0], p))
 		}
-		hosts = append(hosts, api.NewHost(h[0], p))
 	}
 
 	// Set options
@@ -95,13 +98,16 @@ func New(endpoints []string, options *store.Config) (store.Store, error) {
 // newKey initializes a key from namespace
 func (s *Aerospike) newKey(key string) (*api.Key, error) {
 	var akey *api.Key
+	// Try parsing the key as an integer
 	ikey, err := strconv.ParseInt(key, 10, 64)
 	if err == nil {
+		// If it works, create an integer key.
 		akey, err = api.NewKey(s.namespace, "", ikey)
 		if err != nil {
 			return nil, err
 		}
 	} else {
+		// If it fails to create a string key
 		akey, err = api.NewKey(s.namespace, "", key)
 		if err != nil {
 			return nil, err
@@ -128,7 +134,12 @@ func (s *Aerospike) Get(key string, opts *store.ReadOptions) (*store.KVPair, err
 		return nil, err
 	}
 
-	return &store.KVPair{Key: key, Value: record.Bins["bin"].([]byte), LastIndex: uint64(record.Generation)}, nil
+	b := new(bytes.Buffer)
+	for _, value := range record.Bins {
+		b.Write(value.([]byte))
+	}
+
+	return &store.KVPair{Key: key, Value: b.Bytes(), LastIndex: uint64(record.Generation)}, nil
 }
 
 // Put a value at "key"
@@ -199,8 +210,8 @@ func (s *Aerospike) List(keyPrefix string, opts *store.ReadOptions) ([]*store.KV
 		if res.Err != nil {
 			return nil, res.Err
 		}
-		record := res.Record.Bins["SUCCESS"].(map[interface{}]interface{})
-		if record["key"] != nil {
+		record, ok := res.Record.Bins["SUCCESS"].(map[interface{}]interface{})
+		if ok && record["key"] != nil {
 			if record["key"] != keyPrefix {
 				kv = append(kv, &store.KVPair{
 					Key:       record["key"].(string),
