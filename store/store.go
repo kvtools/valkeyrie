@@ -22,6 +22,8 @@ const (
 	BOLTDB Backend = "boltdb"
 	// REDIS backend
 	REDIS Backend = "redis"
+	// DYNAMODB backend
+	DYNAMODB Backend = "dynamodb"
 )
 
 var (
@@ -50,6 +52,8 @@ type Config struct {
 	ConnectionTimeout time.Duration
 	SyncPeriod        time.Duration
 	Bucket            string
+	DynamodDBRegion   string
+	DynamodDBEndpoint string
 	PersistConnection bool
 	Username          string
 	Password          string
