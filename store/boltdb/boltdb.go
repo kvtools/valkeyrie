@@ -12,7 +12,8 @@ import (
 
 	"github.com/abronan/valkeyrie"
 	"github.com/abronan/valkeyrie/store"
-	bbolt "go.etcd.io/bbolt"
+
+	"go.etcd.io/bbolt"
 )
 
 var (
