@@ -12,7 +12,6 @@ import (
 
 	"github.com/abronan/valkeyrie"
 	"github.com/abronan/valkeyrie/store"
-
 	"go.etcd.io/bbolt"
 )
 
