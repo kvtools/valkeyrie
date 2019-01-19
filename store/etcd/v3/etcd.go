@@ -9,7 +9,7 @@ import (
 
 	"github.com/abronan/valkeyrie"
 	"github.com/abronan/valkeyrie/store"
-	etcd "go.etcd.io/etcd/clientv3"
+	etcd "github.com/coreos/etcd/clientv3"
 	"go.etcd.io/etcd/clientv3/concurrency"
 )
 
