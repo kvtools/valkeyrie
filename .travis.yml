@@ -25,12 +25,14 @@ before_script:
   - script/travis_etcd.sh 3.3.8
   - script/travis_zk.sh 3.4.12
   - script/travis_redis.sh 4.0.10
+  - script/travis_dynamodb_local.sh
 
 script:
   - ./consul agent -server -bootstrap -advertise=127.0.0.1 -data-dir /tmp/consul -config-file=./config.json 1>/dev/null &
   - ./etcd/etcd --listen-client-urls 'http://0.0.0.0:4001' --advertise-client-urls 'http://127.0.0.1:4001' >/dev/null 2>&1 &
   - ./zk/bin/zkServer.sh start ./zk/conf/zoo.cfg 1> /dev/null
   - ./redis/src/redis-server &
+  - java -Djava.library.path=./DynamoDBLocal_lib -jar DynamoDBLocal.jar -inMemory &
   - script/validate-gofmt
   - go vet ./...
   - fgt golint ./...
