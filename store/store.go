@@ -24,6 +24,8 @@ const (
 	REDIS Backend = "redis"
 	// DYNAMODB backend
 	DYNAMODB Backend = "dynamodb"
+	// BADGERDB backend
+	BADGERDB Backend = "badgerdb"
 )
 
 var (
