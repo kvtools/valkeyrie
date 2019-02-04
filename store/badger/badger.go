@@ -2,13 +2,13 @@ package badgerdb
 
 import (
 	"errors"
-	"os"
-	"path/filepath"
-	"time"
-
 	"github.com/abronan/valkeyrie"
 	"github.com/abronan/valkeyrie/store"
 	"github.com/dgraph-io/badger"
+	"strings"
+	"sync"
+	"sync/atomic"
+	"time"
 )
 
 var (
@@ -18,22 +18,64 @@ var (
 	ErrTooManyUpdateConflicts       = errors.New("unable to commit badger update transaction: too many conflicts")
 )
 
-// modify following options to change default BadgerDB behavior
-// must NOT be updated concurrently with calling New
-var Options = badger.DefaultOptions
-var GCInterval = 5 * time.Minute
-var ConflictMaxRetries = 5
+const (
+	// how many attempts on of BadgerDB conflict
+	defaultUpdateMaxAttempts = 5
+	defaultGCInterval        = 5 * time.Minute
+	defaultGCDiscardRatio    = 0.7
+)
 
-//BadgerDB type implements the Store interface
-type BadgerDB struct {
-	db   *badger.DB
-	opts badger.Options
+type (
+	keyWatcher struct {
+		opts   *store.ReadOptions
+		out    chan<- *store.KVPair
+		cancel <-chan struct{}
+	}
 
-	// closed when not zero, when closed db is not set to nil to not race with concurrent GC loop
-	closed uint32
+	dirWatcher struct {
+		prefix string
+		opts   *store.ReadOptions
+		out    chan<- []*store.KVPair
+		cancel <-chan struct{}
+	}
+
+	//BadgerDB type implements the Store interface
+	BadgerDB struct {
+		db                  *badger.DB
+		opts                badger.Options
+		conflictMaxAttempts int
+		gcInterval          time.Duration
+		gcDiscardRatio      float64
+
+		// closed when not zero, when closed db is not set to nil to not race with concurrent GC loop
+		closed uint32
+
+		lock        *sync.Mutex // for
+		keyWatchers map[string][]*keyWatcher
+		dirWatchers []*dirWatcher
+	}
+
+	BadgerOpt func(b *BadgerDB)
+)
+
+func WithConflictMaxAttempts(attempts int) BadgerOpt {
+	return func(b *BadgerDB) {
+		b.conflictMaxAttempts = attempts
+	}
 }
 
-// Register registers boltdb to valkeyrie
+func WithGCInterval(int time.Duration) BadgerOpt {
+	return func(b *BadgerDB) {
+		b.gcInterval = int
+	}
+}
+
+func WithGCDiscardRatio(r float64) BadgerOpt {
+	return func(b *BadgerDB) {
+		b.gcDiscardRatio = r
+	}
+}
+
 func Register() {
 	valkeyrie.AddStore(store.BADGERDB, New)
 }
@@ -43,34 +85,78 @@ func New(endpoints []string, _ *store.Config) (store.Store, error) {
 		return nil, ErrMultipleEndpointsUnsupported
 	}
 
-	dir, _ := filepath.Split(endpoints[0])
-	err := os.MkdirAll(dir, 0750)
+	opts := badger.DefaultOptions
+	opts.Dir = endpoints[0]
+	opts.ValueDir = endpoints[0]
+
+	db, err := badger.Open(opts)
 	if err != nil {
 		return nil, err
 	}
-
-	opts := Options
-	opts.Dir = dir
-	opts.ValueDir = dir
 
 	b := &BadgerDB{
-		opts: opts,
+		db:                  db,
+		conflictMaxAttempts: defaultUpdateMaxAttempts,
+		gcInterval:          defaultGCInterval,
+		gcDiscardRatio:      defaultGCDiscardRatio,
+		lock:                &sync.Mutex{},
+		keyWatchers:         make(map[string][]*keyWatcher),
 	}
 
-	b.db, err = badger.Open(b.opts)
-	if err != nil {
-		return nil, err
-	}
-
-	// TODO(os) run GC loop
+	go b.runGcLoop()
 
 	return b, nil
 }
 
+func NewBadgerDB(badgerOpts badger.Options, opts ...BadgerOpt) (*BadgerDB, error) {
+	db, err := badger.Open(badgerOpts)
+	if err != nil {
+		return nil, err
+	}
+
+	b := &BadgerDB{
+		db:                  db,
+		conflictMaxAttempts: defaultUpdateMaxAttempts,
+		gcInterval:          defaultGCInterval,
+		gcDiscardRatio:      defaultGCDiscardRatio,
+		lock:                &sync.Mutex{},
+		keyWatchers:         make(map[string][]*keyWatcher),
+	}
+
+	for _, o := range opts {
+		o(b)
+	}
+
+	go b.runGcLoop()
+
+	return b, nil
+}
+
+func (b *BadgerDB) runGcLoop() {
+	ticker := time.NewTicker(b.gcInterval)
+	defer ticker.Stop()
+	for range ticker.C {
+		if atomic.LoadUint32(&b.closed) > 0 {
+			break
+		}
+
+		// One call would only result in removal of at max one log file.
+		// As an optimization, you could also immediately re-run it whenever it returns nil error
+		//(indicating a successful value log GC), as shown below.
+	again:
+		err := b.db.RunValueLogGC(b.gcDiscardRatio)
+		if err == nil {
+			goto again
+		}
+	}
+}
+
 func (b *BadgerDB) Get(key string, opts *store.ReadOptions) (*store.KVPair, error) {
+	key = normalize(key)
+
 	kv := &store.KVPair{Key: key}
 
-	return kv, b.db.View(func(tx *badger.Txn) error {
+	err := b.db.View(func(tx *badger.Txn) error {
 		it, err := tx.Get([]byte(key))
 		if err != nil {
 			return err
@@ -85,12 +171,24 @@ func (b *BadgerDB) Get(key string, opts *store.ReadOptions) (*store.KVPair, erro
 
 		return nil
 	})
+
+	if err == badger.ErrKeyNotFound {
+		return nil, store.ErrKeyNotFound
+	}
+
+	return kv, err
 }
 
 func (b *BadgerDB) Put(key string, value []byte, opts *store.WriteOptions) error {
-	for i := 0; i < ConflictMaxRetries; i++ {
+	key = normalize(key)
+
+	if opts != nil && opts.IsDir {
+		key = toDirectory(key)
+	}
+
+	for i := 0; i < b.conflictMaxAttempts; i++ {
 		err := b.db.Update(func(tx *badger.Txn) error {
-			if opts.TTL > 0 {
+			if opts != nil && opts.TTL > 0 {
 				return tx.SetWithTTL([]byte(key), value, opts.TTL)
 			} else {
 				return tx.Set([]byte(key), value)
@@ -106,13 +204,15 @@ func (b *BadgerDB) Put(key string, value []byte, opts *store.WriteOptions) error
 }
 
 func (b *BadgerDB) Delete(key string) (err error) {
-	for i := 0; i < ConflictMaxRetries; i++ {
+	key = normalize(key)
+
+	for i := 0; i < b.conflictMaxAttempts; i++ {
 		err = b.db.Update(func(tx *badger.Txn) error {
 			return tx.Delete([]byte(key))
 		})
 
 		if err != badger.ErrConflict {
-			break
+			return err
 		}
 	}
 
@@ -120,6 +220,8 @@ func (b *BadgerDB) Delete(key string) (err error) {
 }
 
 func (b *BadgerDB) Exists(key string, opts *store.ReadOptions) (bool, error) {
+	key = normalize(key)
+
 	err := b.db.View(func(tx *badger.Txn) error {
 		_, err := tx.Get([]byte(key))
 		return err
@@ -134,17 +236,27 @@ func (b *BadgerDB) Exists(key string, opts *store.ReadOptions) (bool, error) {
 	}
 }
 
-func (b *BadgerDB) List(keyPrefix string, opts *store.ReadOptions) ([]*store.KVPair, error) {
-	var res []*store.KVPair
+func (b *BadgerDB) List(directory string, opts *store.ReadOptions) ([]*store.KVPair, error) {
+	directory = toDirectory(normalize(directory))
 
-	return res, b.db.View(func(tx *badger.Txn) error {
+	res := []*store.KVPair{}
+
+	err := b.db.View(func(tx *badger.Txn) error {
 		it := tx.NewIterator(badger.DefaultIteratorOptions)
 		defer it.Close()
 
-		prefix := []byte(keyPrefix)
+		prefix := []byte(directory)
 
 		for it.Seek(prefix); it.ValidForPrefix(prefix); it.Next() {
 			item := it.Item()
+
+			k := string(item.Key())
+
+			// ignore self in listing
+			if k == directory {
+				continue
+			}
+
 			kv := &store.KVPair{
 				Key:       string(item.Key()),
 				LastIndex: item.Version(),
@@ -161,6 +273,8 @@ func (b *BadgerDB) List(keyPrefix string, opts *store.ReadOptions) ([]*store.KVP
 
 		return nil
 	})
+
+	return res, err
 }
 
 func (b *BadgerDB) AtomicDelete(key string, previous *store.KVPair) (bool, error) {
@@ -168,7 +282,9 @@ func (b *BadgerDB) AtomicDelete(key string, previous *store.KVPair) (bool, error
 		return false, store.ErrPreviousNotSpecified
 	}
 
-	for i := 0; i < ConflictMaxRetries; i++ {
+	key = normalize(key)
+
+	for i := 0; i < b.conflictMaxAttempts; i++ {
 		err := b.db.Update(func(tx *badger.Txn) error {
 			k := []byte(key)
 
@@ -203,9 +319,15 @@ func (b *BadgerDB) AtomicPut(key string, value []byte, previous *store.KVPair, o
 		return false, nil, store.ErrPreviousNotSpecified
 	}
 
+	key = normalize(key)
+
+	if opts != nil && opts.IsDir {
+		key = toDirectory(key)
+	}
+
 	res := &store.KVPair{Key: key}
 
-	for i := 0; i < ConflictMaxRetries; i++ {
+	for i := 0; i < b.conflictMaxAttempts; i++ {
 		err := b.db.Update(func(tx *badger.Txn) error {
 			k := []byte(key)
 
@@ -223,7 +345,7 @@ func (b *BadgerDB) AtomicPut(key string, value []byte, previous *store.KVPair, o
 				return store.ErrKeyModified
 			}
 
-			if opts.TTL > 0 {
+			if opts != nil && opts.TTL > 0 {
 				err = tx.SetWithTTL(k, value, opts.TTL)
 			} else {
 				err = tx.Set(k, value)
@@ -262,17 +384,19 @@ func (b *BadgerDB) AtomicPut(key string, value []byte, previous *store.KVPair, o
 
 // Close the db connection to the BadgerDB
 func (b *BadgerDB) Close() {
+	atomic.StoreUint32(&b.closed, 1)
+
 	_ = b.db.Close()
 }
 
 // DeleteTree deletes a range of keys with a given prefix
 func (b *BadgerDB) DeleteTree(keyPrefix string) error {
 
-	prefix := []byte(keyPrefix)
+	prefix := []byte(toDirectory(normalize(keyPrefix)))
 
 	// transaction may conflict
 ConflictRetry:
-	for i := 0; i < ConflictMaxRetries; i++ {
+	for i := 0; i < b.conflictMaxAttempts; i++ {
 
 		// always retry when TxnTooBig is signalled
 	TxnTooBigRetry:
@@ -288,24 +412,23 @@ ConflictRetry:
 					continue
 				}
 
-				if err == badger.ErrTxnTooBig {
-					err = txn.Commit(nil)
-
-					// commit failed with conflict
-					if err == badger.ErrConflict {
-						continue ConflictRetry
-					}
-
-					if err != nil {
-						return err
-					}
-
-					// open new transaction and continue
-					continue TxnTooBigRetry
-				} else {
+				if err != badger.ErrTxnTooBig {
 					return err
 				}
 
+				err = txn.Commit(nil)
+
+				// commit failed with conflict
+				if err == badger.ErrConflict {
+					continue ConflictRetry
+				}
+
+				if err != nil {
+					return err
+				}
+
+				// open new transaction and continue
+				continue TxnTooBigRetry
 			}
 
 			return nil
@@ -320,12 +443,132 @@ func (b *BadgerDB) NewLock(key string, options *store.LockOptions) (store.Locker
 	return nil, store.ErrCallNotSupported
 }
 
-// Watch has to implemented at the library level since its not supported by BadgerDB
+//
 func (b *BadgerDB) Watch(key string, stopCh <-chan struct{}, opts *store.ReadOptions) (<-chan *store.KVPair, error) {
-	return nil, store.ErrCallNotSupported
+	b.lock.Lock()
+	defer b.lock.Unlock()
+
+	kv, err := b.Get(key, opts)
+	if err != nil {
+		return nil, err
+	}
+
+	out := make(chan *store.KVPair, 1)
+	out <- kv
+
+	watcher := &keyWatcher{
+		opts:   opts,
+		out:    out,
+		cancel: stopCh,
+	}
+
+	b.keyWatchers[key] = append(b.keyWatchers[key], watcher)
+
+	return out, nil
 }
 
-// WatchTree has to implemented at the library level since its not supported by BadgerDB
-func (b *BadgerDB) WatchTree(directory string, stopCh <-chan struct{}, opts *store.ReadOptions) (<-chan []*store.KVPair, error) {
-	return nil, store.ErrCallNotSupported
+func (b *BadgerDB) WatchTree(prefix string, stopCh <-chan struct{}, opts *store.ReadOptions) (<-chan []*store.KVPair, error) {
+	b.lock.Lock()
+	defer b.lock.Unlock()
+
+	prefix = toDirectory(normalize(prefix))
+
+	kvs, err := b.List(prefix, opts)
+	if err != nil {
+		return nil, err
+	}
+
+	// create small notify buffer to handle random spikes of notifications
+	out := make(chan []*store.KVPair, 1)
+	out <- kvs
+
+	watcher := &dirWatcher{
+		prefix: prefix,
+		opts:   opts,
+		out:    out,
+		cancel: stopCh,
+	}
+
+	b.dirWatchers = append(b.dirWatchers, watcher)
+
+	return out, nil
+}
+
+func (b *BadgerDB) notify(key string, p *store.KVPair) {
+	b.lock.Lock()
+
+	b.notifyKeyWatchers(key, p)
+	b.notifyDirWatchers(key)
+
+	b.lock.Unlock()
+}
+
+func (b *BadgerDB) notifyKeyWatchers(key string, p *store.KVPair) {
+	i := 0
+
+	kv := b.keyWatchers[key]
+
+	for _, e := range kv {
+		select {
+		case <-e.cancel:
+			close(e.out)
+			continue
+		default:
+		}
+
+		select {
+		case e.out <- p:
+		default:
+			close(e.out)
+			continue
+		}
+
+		kv[i] = e
+		i += 1
+	}
+
+	b.keyWatchers[key] = kv[:i]
+}
+
+func (b *BadgerDB) notifyDirWatchers(key string) {
+	i := 0
+
+	for _, e := range b.dirWatchers {
+		select {
+		case <-e.cancel:
+			close(e.out)
+			continue
+		default:
+		}
+
+		if !strings.HasPrefix(key, e.prefix) {
+			continue
+		}
+
+		kvs, _ := b.List(e.prefix, nil)
+		select {
+		case e.out <- kvs:
+		default:
+			close(e.out)
+			continue
+		}
+
+		b.dirWatchers[i] = e
+		i += 1
+	}
+
+	b.dirWatchers = b.dirWatchers[:i]
+}
+
+func normalize(key string) string {
+	return store.Normalize(key)
+}
+
+func toDirectory(key string) string {
+	if !strings.HasSuffix(key, "/") {
+		key += "/"
+	}
+
+	return key
+
 }

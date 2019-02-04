@@ -5,7 +5,7 @@ require (
 	github.com/aws/aws-sdk-go v1.16.23 // indirect
 	github.com/coreos/etcd v3.3.11+incompatible
 	github.com/coreos/go-semver v0.2.0 // indirect
-	github.com/dgraph-io/badger v1.5.4 // indirect
+	github.com/dgraph-io/badger v1.5.4
 	github.com/dgryski/go-farm v0.0.0-20190104051053-3adb47b1fb0f // indirect
 	github.com/gogo/protobuf v1.2.0 // indirect
 	github.com/hashicorp/consul v1.4.0
