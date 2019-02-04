@@ -1,6 +1,7 @@
 package badgerdb
 
 import (
+	"bytes"
 	"errors"
 	"github.com/abronan/valkeyrie"
 	"github.com/abronan/valkeyrie/store"
@@ -236,29 +237,33 @@ func (b *BadgerDB) Exists(key string, opts *store.ReadOptions) (bool, error) {
 	}
 }
 
-func (b *BadgerDB) List(directory string, opts *store.ReadOptions) ([]*store.KVPair, error) {
-	directory = toDirectory(normalize(directory))
+func (b *BadgerDB) List(prefix string, opts *store.ReadOptions) ([]*store.KVPair, error) {
+	prefix = normalize(strings.TrimSuffix(prefix, "/"))
 
 	res := []*store.KVPair{}
+
+	found := false
 
 	err := b.db.View(func(tx *badger.Txn) error {
 		it := tx.NewIterator(badger.DefaultIteratorOptions)
 		defer it.Close()
 
-		prefix := []byte(directory)
+		prefix := []byte(prefix)
 
 		for it.Seek(prefix); it.ValidForPrefix(prefix); it.Next() {
+			found = true
+
 			item := it.Item()
 
-			k := string(item.Key())
+			k := item.Key()
 
 			// ignore self in listing
-			if k == directory {
+			if bytes.Equal(trimDirectoryKey(k), prefix) {
 				continue
 			}
 
 			kv := &store.KVPair{
-				Key:       string(item.Key()),
+				Key:       string(k),
 				LastIndex: item.Version(),
 			}
 
@@ -273,6 +278,10 @@ func (b *BadgerDB) List(directory string, opts *store.ReadOptions) ([]*store.KVP
 
 		return nil
 	})
+
+	if err == nil && !found {
+		return nil, store.ErrKeyNotFound
+	}
 
 	return res, err
 }
@@ -392,7 +401,7 @@ func (b *BadgerDB) Close() {
 // DeleteTree deletes a range of keys with a given prefix
 func (b *BadgerDB) DeleteTree(keyPrefix string) error {
 
-	prefix := []byte(toDirectory(normalize(keyPrefix)))
+	prefix := []byte(normalize(keyPrefix))
 
 	// transaction may conflict
 ConflictRetry:
@@ -412,6 +421,7 @@ ConflictRetry:
 					continue
 				}
 
+				it.Close()
 				if err != badger.ErrTxnTooBig {
 					return err
 				}
@@ -431,7 +441,15 @@ ConflictRetry:
 				continue TxnTooBigRetry
 			}
 
-			return nil
+			it.Close()
+			err := txn.Commit(nil)
+
+			// commit failed with conflict
+			if err == badger.ErrConflict {
+				continue ConflictRetry
+			}
+
+			return err
 		}
 	}
 
@@ -570,5 +588,16 @@ func toDirectory(key string) string {
 	}
 
 	return key
+}
 
+func trimDirectoryKey(key []byte) []byte {
+	if isDirectoryKey(key) {
+		return key[:len(key)-1]
+	}
+
+	return key
+}
+
+func isDirectoryKey(key []byte) bool {
+	return len(key) > 0 && key[len(key)-1] == '/'
 }

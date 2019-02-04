@@ -638,6 +638,7 @@ func testDeleteTree(t *testing.T, kv store.Store) {
 
 	// Get should fail on both keys
 	pair, err = kv.Get(firstKey, nil)
+	fmt.Println(pair, err)
 	assert.Error(t, err)
 	assert.Nil(t, pair)
 
