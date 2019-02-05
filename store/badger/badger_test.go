@@ -1,17 +1,25 @@
 package badgerdb
 
 import (
+	"io/ioutil"
+	"log"
+	"os"
+	"testing"
+	"time"
+
 	"github.com/abronan/valkeyrie"
 	"github.com/abronan/valkeyrie/store"
 	"github.com/abronan/valkeyrie/testutils"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"io/ioutil"
-	"os"
-	"testing"
 )
 
-func makeBadgerBBClient(t *testing.T) store.Store {
+func init() {
+	// Suppress badger log output (not configurable in 1.5.4), should be configurable in next release
+	log.SetOutput(ioutil.Discard)
+}
+
+func makeBadgerBBClient(t *testing.T) (store.Store, string) {
 	tmpDir, err := ioutil.TempDir("", "badger_test")
 	require.NoError(t, err)
 
@@ -21,7 +29,7 @@ func makeBadgerBBClient(t *testing.T) store.Store {
 		t.Fatalf("cannot create store: %v", err)
 	}
 
-	return kv
+	return kv, tmpDir
 }
 
 func TestRegister(t *testing.T) {
@@ -41,12 +49,66 @@ func TestRegister(t *testing.T) {
 	}
 }
 
-func TestZkStore(t *testing.T) {
-	kv := makeBadgerBBClient(t)
+func TestBadgerDBStore(t *testing.T) {
+	kv, dir := makeBadgerBBClient(t)
+
+	defer os.RemoveAll(dir)
 
 	testutils.RunTestCommon(t, kv)
 	testutils.RunTestAtomic(t, kv)
 	testutils.RunTestWatch(t, kv)
-	testutils.RunTestTTL(t, kv, kv)
 	testutils.RunCleanup(t, kv)
+}
+
+func TestBadgerDB_TTL(t *testing.T) {
+	kv, dir := makeBadgerBBClient(t)
+
+	defer os.RemoveAll(dir)
+
+	firstKey := "testPutTTL"
+	firstValue := []byte("foo")
+
+	secondKey := "second"
+	secondValue := []byte("bar")
+
+	// Put the first key with the Ephemeral flag
+	err := kv.Put(firstKey, firstValue, &store.WriteOptions{TTL: 2 * time.Second})
+	assert.NoError(t, err)
+
+	// Put a second key with the Ephemeral flag
+	err = kv.Put(secondKey, secondValue, &store.WriteOptions{TTL: 2 * time.Second})
+	assert.NoError(t, err)
+
+	// Get on firstKey should work
+	pair, err := kv.Get(firstKey, nil)
+	assert.NoError(t, err)
+	checkPairNotNil(t, pair)
+
+	// Get on secondKey should work
+	pair, err = kv.Get(secondKey, nil)
+	assert.NoError(t, err)
+	checkPairNotNil(t, pair)
+
+	// Let the session expire
+	time.Sleep(3 * time.Second)
+
+	// Get on firstKey shouldn't work
+	pair, err = kv.Get(firstKey, nil)
+	assert.Error(t, err)
+	assert.Nil(t, pair)
+
+	// Get on secondKey shouldn't work
+	pair, err = kv.Get(secondKey, nil)
+	assert.Error(t, err)
+	assert.Nil(t, pair)
+}
+
+func checkPairNotNil(t *testing.T, pair *store.KVPair) {
+	if assert.NotNil(t, pair) {
+		if !assert.NotNil(t, pair.Value) {
+			t.Fatal("test failure, value is nil")
+		}
+	} else {
+		t.Fatal("test failure, pair is nil")
+	}
 }

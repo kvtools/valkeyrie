@@ -11,7 +11,7 @@ The goal of `valkeyrie` is to abstract common store operations (Get/Put/List/etc
 
 This repository is a fork of the [docker/libkv](https://github.com/docker/libkv) project which includes many fixes/additional features and is maintained by an original project maintainer. This project is notably used by [containous/traefik](https://github.com/containous/traefik), [docker/swarm](https://github.com/docker/swarm) and [docker/libnetwork](https://github.com/docker/libnetwork).
 
-As of now, `valkeyrie` offers support for `Consul`, `Etcd`, `Zookeeper`, `Redis` (**Distributed** store) and `BoltDB` (**Local** store).
+As of now, `valkeyrie` offers support for `Consul`, `Etcd`, `Zookeeper`, `Redis` (**Distributed** store) , `BoltDB` (**Local** store) and `BadgerDB` (**Local** store).
 
 ## Usage
 
@@ -35,6 +35,7 @@ You can find examples of usage for `valkeyrie` under in [docs/examples.go](https
 - **Zookeeper** versions >= `3.4.5`. Although this might work with previous version but this remains untested as of now.
 - **Boltdb**, which shouldn't be subject to any version dependencies.
 - **Redis** versions >= `3.2.6`. Although this might work with previous version but this remains untested as of now.
+- **BadgerDB** versions >= `1.5.4`. Although this might work with previous version but this remains untested as of now.
 
 ## Interface
 
@@ -68,20 +69,20 @@ Backend drivers in `valkeyrie` are generally divided between **local drivers** a
 
 Local drivers are usually used in complement to the distributed drivers to store informations that only needs to be available locally.
 
-| Calls                 |   Consul   |  Etcd  |  Zookeeper  |    Redis   |  BoltDB  |
-|-----------------------|:----------:|:------:|:-----------:|:----------:|:--------:|
-| Put                   |     X      |   X    |      X      |      X     |    X     |
-| Get                   |     X      |   X    |      X      |      X     |    X     |
-| Delete                |     X      |   X    |      X      |      X     |    X     |
-| Exists                |     X      |   X    |      X      |      X     |    X     |
-| Watch                 |     X      |   X    |      X      |      X     |          |
-| WatchTree             |     X      |   X    |      X      |      X     |          |
-| NewLock (Lock/Unlock) |     X      |   X    |      X      |      X     |          |
-| List                  |     X      |   X    |      X      |      X     |    X     |
-| DeleteTree            |     X      |   X    |      X      |      X     |    X     |
-| AtomicPut             |     X      |   X    |      X      |      X     |    X     |
-| AtomicDelete          |     X      |   X    |      X      |      X     |    X     |
-| Close                 |     X      |   X    |      X      |      X     |    X     |
+| Calls                 |   Consul   |  Etcd  |  Zookeeper  |    Redis   |  BoltDB  |  BadgerDB  |
+|-----------------------|:----------:|:------:|:-----------:|:----------:|:--------:|:----------:|
+| Put                   |     X      |   X    |      X      |      X     |    X     |      X     |
+| Get                   |     X      |   X    |      X      |      X     |    X     |      X     |
+| Delete                |     X      |   X    |      X      |      X     |    X     |      X     |
+| Exists                |     X      |   X    |      X      |      X     |    X     |      X     |
+| Watch                 |     X      |   X    |      X      |      X     |          |      X     |
+| WatchTree             |     X      |   X    |      X      |      X     |          |      X     |
+| NewLock (Lock/Unlock) |     X      |   X    |      X      |      X     |          |            |
+| List                  |     X      |   X    |      X      |      X     |    X     |      X     |
+| DeleteTree            |     X      |   X    |      X      |      X     |    X     |      X     |
+| AtomicPut             |     X      |   X    |      X      |      X     |    X     |      X     |
+| AtomicDelete          |     X      |   X    |      X      |      X     |    X     |      X     |
+| Close                 |     X      |   X    |      X      |      X     |    X     |      X     |
 
 ## Limitations
 

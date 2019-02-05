@@ -3,44 +3,43 @@ package badgerdb
 import (
 	"bytes"
 	"errors"
+	"strings"
+	"sync"
+	"time"
+
 	"github.com/abronan/valkeyrie"
 	"github.com/abronan/valkeyrie/store"
 	"github.com/dgraph-io/badger"
-	"strings"
-	"sync"
-	"sync/atomic"
-	"time"
 )
 
 var (
 	// ErrMultipleEndpointsUnsupported is thrown when multiple endpoints specified for
 	// BadgerDB. Endpoint has to be a local file path
-	ErrMultipleEndpointsUnsupported = errors.New("badger supports one endpoint and should be a file path")
-	ErrTooManyUpdateConflicts       = errors.New("unable to commit badger update transaction: too many conflicts")
+	ErrMultipleEndpointsUnsupported = errors.New("badger: supports one endpoint and should be a file path")
+	// Conflict management is left to the user of library, by default we retry operation up to defaultUpdateMaxAttempts
+	ErrTooManyUpdateConflicts = errors.New("badger: too many transaction conflicts")
+	ErrAlreadyClosed          = errors.New("badger: db already closed")
 )
 
 const (
-	// how many attempts on of BadgerDB conflict
 	defaultUpdateMaxAttempts = 5
 	defaultGCInterval        = 5 * time.Minute
 	defaultGCDiscardRatio    = 0.7
+	defaultNotifyChannelSize = 16
 )
 
 type (
 	keyWatcher struct {
-		opts   *store.ReadOptions
 		out    chan<- *store.KVPair
 		cancel <-chan struct{}
 	}
 
 	dirWatcher struct {
 		prefix string
-		opts   *store.ReadOptions
 		out    chan<- []*store.KVPair
 		cancel <-chan struct{}
 	}
 
-	//BadgerDB type implements the Store interface
 	BadgerDB struct {
 		db                  *badger.DB
 		opts                badger.Options
@@ -48,16 +47,16 @@ type (
 		gcInterval          time.Duration
 		gcDiscardRatio      float64
 
-		// closed when not zero, when closed db is not set to nil to not race with concurrent GC loop
-		closed uint32
-
 		lock        *sync.Mutex // for
+		closed      bool
 		keyWatchers map[string][]*keyWatcher
 		dirWatchers []*dirWatcher
 	}
 
 	BadgerOpt func(b *BadgerDB)
 )
+
+var _ = store.Store(&BadgerDB{})
 
 func WithConflictMaxAttempts(attempts int) BadgerOpt {
 	return func(b *BadgerDB) {
@@ -109,6 +108,7 @@ func New(endpoints []string, _ *store.Config) (store.Store, error) {
 	return b, nil
 }
 
+// Constructor that allows more fine control over options when needed
 func NewBadgerDB(badgerOpts badger.Options, opts ...BadgerOpt) (*BadgerDB, error) {
 	db, err := badger.Open(badgerOpts)
 	if err != nil {
@@ -137,7 +137,10 @@ func (b *BadgerDB) runGcLoop() {
 	ticker := time.NewTicker(b.gcInterval)
 	defer ticker.Stop()
 	for range ticker.C {
-		if atomic.LoadUint32(&b.closed) > 0 {
+		b.lock.Lock()
+		closed := b.closed
+		b.lock.Unlock()
+		if closed {
 			break
 		}
 
@@ -152,9 +155,14 @@ func (b *BadgerDB) runGcLoop() {
 	}
 }
 
-func (b *BadgerDB) Get(key string, opts *store.ReadOptions) (*store.KVPair, error) {
-	key = normalize(key)
+func (b *BadgerDB) notify(key string, val *store.KVPair) {
+	b.lock.Lock()
+	b.notifyKeyWatchers(key, val)
+	b.notifyDirWatchers(key)
+	b.lock.Unlock()
+}
 
+func (b *BadgerDB) Get(key string, opts *store.ReadOptions) (*store.KVPair, error) {
 	kv := &store.KVPair{Key: key}
 
 	err := b.db.View(func(tx *badger.Txn) error {
@@ -181,20 +189,44 @@ func (b *BadgerDB) Get(key string, opts *store.ReadOptions) (*store.KVPair, erro
 }
 
 func (b *BadgerDB) Put(key string, value []byte, opts *store.WriteOptions) error {
-	key = normalize(key)
-
 	if opts != nil && opts.IsDir {
 		key = toDirectory(key)
 	}
 
+	var err error
+
 	for i := 0; i < b.conflictMaxAttempts; i++ {
+		res := &store.KVPair{Key: key}
+
 		err := b.db.Update(func(tx *badger.Txn) error {
+			k := []byte(key)
+
 			if opts != nil && opts.TTL > 0 {
-				return tx.SetWithTTL([]byte(key), value, opts.TTL)
+				err = tx.SetWithTTL(k, value, opts.TTL)
 			} else {
-				return tx.Set([]byte(key), value)
+				err = tx.Set(k, value)
 			}
+
+			if err != nil {
+				return err
+			}
+
+			// read again to get version
+			it, err := tx.Get(k)
+			if err != nil {
+				return err
+			}
+
+			res.LastIndex = it.Version()
+
+			return nil
 		})
+
+		if err == nil {
+			res.Value = make([]byte, len(value))
+			copy(res.Value, value)
+			b.notify(key, res)
+		}
 
 		if err != badger.ErrConflict {
 			return err
@@ -204,13 +236,15 @@ func (b *BadgerDB) Put(key string, value []byte, opts *store.WriteOptions) error
 	return ErrTooManyUpdateConflicts
 }
 
-func (b *BadgerDB) Delete(key string) (err error) {
-	key = normalize(key)
-
+func (b *BadgerDB) Delete(key string) error {
 	for i := 0; i < b.conflictMaxAttempts; i++ {
-		err = b.db.Update(func(tx *badger.Txn) error {
+		err := b.db.Update(func(tx *badger.Txn) error {
 			return tx.Delete([]byte(key))
 		})
+
+		if err == nil {
+			b.notify(key, nil)
+		}
 
 		if err != badger.ErrConflict {
 			return err
@@ -221,8 +255,6 @@ func (b *BadgerDB) Delete(key string) (err error) {
 }
 
 func (b *BadgerDB) Exists(key string, opts *store.ReadOptions) (bool, error) {
-	key = normalize(key)
-
 	err := b.db.View(func(tx *badger.Txn) error {
 		_, err := tx.Get([]byte(key))
 		return err
@@ -238,10 +270,13 @@ func (b *BadgerDB) Exists(key string, opts *store.ReadOptions) (bool, error) {
 }
 
 func (b *BadgerDB) List(prefix string, opts *store.ReadOptions) ([]*store.KVPair, error) {
-	prefix = normalize(strings.TrimSuffix(prefix, "/"))
+	return b.list(prefix, true)
+}
 
-	res := []*store.KVPair{}
+func (b *BadgerDB) list(prefix string, checkRoot bool) ([]*store.KVPair, error) {
+	prefix = strings.TrimSuffix(prefix, "/")
 
+	kvs := []*store.KVPair{}
 	found := false
 
 	err := b.db.View(func(tx *badger.Txn) error {
@@ -252,9 +287,7 @@ func (b *BadgerDB) List(prefix string, opts *store.ReadOptions) ([]*store.KVPair
 
 		for it.Seek(prefix); it.ValidForPrefix(prefix); it.Next() {
 			found = true
-
 			item := it.Item()
-
 			k := item.Key()
 
 			// ignore self in listing
@@ -273,25 +306,23 @@ func (b *BadgerDB) List(prefix string, opts *store.ReadOptions) ([]*store.KVPair
 			}
 
 			kv.Value = body
-			res = append(res, kv)
+			kvs = append(kvs, kv)
 		}
 
 		return nil
 	})
 
-	if err == nil && !found {
+	if err == nil && !found && checkRoot {
 		return nil, store.ErrKeyNotFound
 	}
 
-	return res, err
+	return kvs, err
 }
 
 func (b *BadgerDB) AtomicDelete(key string, previous *store.KVPair) (bool, error) {
 	if previous == nil {
 		return false, store.ErrPreviousNotSpecified
 	}
-
-	key = normalize(key)
 
 	for i := 0; i < b.conflictMaxAttempts; i++ {
 		err := b.db.Update(func(tx *badger.Txn) error {
@@ -310,6 +341,7 @@ func (b *BadgerDB) AtomicDelete(key string, previous *store.KVPair) (bool, error
 		})
 
 		if err == nil {
+			b.notify(key, nil)
 			return true, nil
 		} else if err == badger.ErrConflict {
 			continue
@@ -324,17 +356,11 @@ func (b *BadgerDB) AtomicDelete(key string, previous *store.KVPair) (bool, error
 }
 
 func (b *BadgerDB) AtomicPut(key string, value []byte, previous *store.KVPair, opts *store.WriteOptions) (bool, *store.KVPair, error) {
-	if previous == nil {
-		return false, nil, store.ErrPreviousNotSpecified
-	}
-
-	key = normalize(key)
-
 	if opts != nil && opts.IsDir {
 		key = toDirectory(key)
 	}
 
-	res := &store.KVPair{Key: key}
+	kv := &store.KVPair{Key: key}
 
 	for i := 0; i < b.conflictMaxAttempts; i++ {
 		err := b.db.Update(func(tx *badger.Txn) error {
@@ -344,10 +370,13 @@ func (b *BadgerDB) AtomicPut(key string, value []byte, previous *store.KVPair, o
 			if err != nil {
 				if err == badger.ErrKeyNotFound && previous == nil {
 					// OK
-
 				} else {
 					return err
 				}
+			}
+
+			if previous == nil && it != nil {
+				return store.ErrKeyExists
 			}
 
 			if previous != nil && it.Version() != previous.LastIndex {
@@ -370,15 +399,18 @@ func (b *BadgerDB) AtomicPut(key string, value []byte, previous *store.KVPair, o
 				return err
 			}
 
-			res.LastIndex = it.Version()
+			kv.LastIndex = it.Version()
 			return nil
 		})
 
 		if err == nil {
 			// make copy of input (to be consistent with other stores that do not retain reference to input args)
-			res.Value = make([]byte, len(value))
-			copy(res.Value, value)
-			return true, res, nil
+			kv.Value = make([]byte, len(value))
+			copy(kv.Value, value)
+
+			b.notify(key, kv)
+
+			return true, kv, nil
 		} else if err == badger.ErrConflict {
 			continue
 		} else if err == badger.ErrKeyNotFound {
@@ -393,15 +425,38 @@ func (b *BadgerDB) AtomicPut(key string, value []byte, previous *store.KVPair, o
 
 // Close the db connection to the BadgerDB
 func (b *BadgerDB) Close() {
-	atomic.StoreUint32(&b.closed, 1)
+	b.lock.Lock()
+	defer b.lock.Unlock()
+
+	if b.closed {
+		return
+	}
+
+	b.closed = true
 
 	_ = b.db.Close()
+
+	// close all watchers
+	for _, kw := range b.keyWatchers {
+		for _, w := range kw {
+			close(w.out)
+		}
+	}
+
+	for _, dw := range b.dirWatchers {
+		close(dw.out)
+	}
 }
 
 // DeleteTree deletes a range of keys with a given prefix
-func (b *BadgerDB) DeleteTree(keyPrefix string) error {
+func (b *BadgerDB) DeleteTree(keyPrefix string) (err error) {
+	prefix := []byte(keyPrefix)
 
-	prefix := []byte(normalize(keyPrefix))
+	defer func() {
+		if err == nil {
+			b.notifyDirWatchers(keyPrefix)
+		}
+	}()
 
 	// transaction may conflict
 ConflictRetry:
@@ -415,9 +470,13 @@ ConflictRetry:
 			opts.PrefetchValues = false
 
 			it := txn.NewIterator(opts)
+
 			for it.Seek(prefix); it.ValidForPrefix(prefix); it.Next() {
-				err := txn.Delete(it.Item().Key())
+				k := it.Item().KeyCopy(nil)
+
+				err := txn.Delete(k)
 				if err == nil {
+					b.notifyKeyWatchers(string(k), nil)
 					continue
 				}
 
@@ -461,21 +520,23 @@ func (b *BadgerDB) NewLock(key string, options *store.LockOptions) (store.Locker
 	return nil, store.ErrCallNotSupported
 }
 
-//
 func (b *BadgerDB) Watch(key string, stopCh <-chan struct{}, opts *store.ReadOptions) (<-chan *store.KVPair, error) {
 	b.lock.Lock()
 	defer b.lock.Unlock()
+
+	if b.closed {
+		return nil, ErrAlreadyClosed
+	}
 
 	kv, err := b.Get(key, opts)
 	if err != nil {
 		return nil, err
 	}
 
-	out := make(chan *store.KVPair, 1)
+	out := make(chan *store.KVPair, defaultNotifyChannelSize)
 	out <- kv
 
 	watcher := &keyWatcher{
-		opts:   opts,
 		out:    out,
 		cancel: stopCh,
 	}
@@ -489,20 +550,20 @@ func (b *BadgerDB) WatchTree(prefix string, stopCh <-chan struct{}, opts *store.
 	b.lock.Lock()
 	defer b.lock.Unlock()
 
-	prefix = toDirectory(normalize(prefix))
+	if b.closed {
+		return nil, ErrAlreadyClosed
+	}
 
-	kvs, err := b.List(prefix, opts)
+	kvs, err := b.list(prefix, false)
 	if err != nil {
 		return nil, err
 	}
 
-	// create small notify buffer to handle random spikes of notifications
-	out := make(chan []*store.KVPair, 1)
+	out := make(chan []*store.KVPair, defaultNotifyChannelSize)
 	out <- kvs
 
 	watcher := &dirWatcher{
 		prefix: prefix,
-		opts:   opts,
 		out:    out,
 		cancel: stopCh,
 	}
@@ -512,16 +573,7 @@ func (b *BadgerDB) WatchTree(prefix string, stopCh <-chan struct{}, opts *store.
 	return out, nil
 }
 
-func (b *BadgerDB) notify(key string, p *store.KVPair) {
-	b.lock.Lock()
-
-	b.notifyKeyWatchers(key, p)
-	b.notifyDirWatchers(key)
-
-	b.lock.Unlock()
-}
-
-func (b *BadgerDB) notifyKeyWatchers(key string, p *store.KVPair) {
+func (b *BadgerDB) notifyKeyWatchers(key string, state *store.KVPair) {
 	i := 0
 
 	kv := b.keyWatchers[key]
@@ -534,9 +586,14 @@ func (b *BadgerDB) notifyKeyWatchers(key string, p *store.KVPair) {
 		default:
 		}
 
-		select {
-		case e.out <- p:
-		default:
+		if state != nil {
+			select {
+			case e.out <- state:
+			default:
+				close(e.out)
+				continue
+			}
+		} else {
 			close(e.out)
 			continue
 		}
@@ -559,16 +616,14 @@ func (b *BadgerDB) notifyDirWatchers(key string) {
 		default:
 		}
 
-		if !strings.HasPrefix(key, e.prefix) {
-			continue
-		}
-
-		kvs, _ := b.List(e.prefix, nil)
-		select {
-		case e.out <- kvs:
-		default:
-			close(e.out)
-			continue
+		if strings.HasPrefix(key, e.prefix) {
+			kvs, _ := b.list(e.prefix, false)
+			select {
+			case e.out <- kvs:
+			default:
+				close(e.out)
+				continue
+			}
 		}
 
 		b.dirWatchers[i] = e
@@ -576,10 +631,6 @@ func (b *BadgerDB) notifyDirWatchers(key string) {
 	}
 
 	b.dirWatchers = b.dirWatchers[:i]
-}
-
-func normalize(key string) string {
-	return store.Normalize(key)
 }
 
 func toDirectory(key string) string {
