@@ -13,12 +13,13 @@ import (
 )
 
 var (
-	// ErrMultipleEndpointsUnsupported is thrown when multiple endpoints specified for
+	// ErrMultipleEndpointsUnsupported is returned when multiple endpoints specified for
 	// BadgerDB. Endpoint has to be a local file path
 	ErrMultipleEndpointsUnsupported = errors.New("badger: supports one endpoint and should be a file path")
-	// Conflict management is left to the user of library, by default we retry operation up to defaultUpdateMaxAttempts
+	// ErrTooManyUpdateConflicts is returned when all update attempts fails
 	ErrTooManyUpdateConflicts = errors.New("badger: too many transaction conflicts")
-	ErrAlreadyClosed          = errors.New("badger: db already closed")
+	// ErrAlreadyClosed is returned when Watch or WatchTree is called on closed client
+	ErrAlreadyClosed = errors.New("badger: db already closed")
 )
 
 const (
@@ -40,6 +41,7 @@ type (
 		cancel <-chan struct{}
 	}
 
+	// BadgerDB type implements the Store interface
 	BadgerDB struct {
 		db                  *badger.DB
 		opts                badger.Options
@@ -53,33 +55,39 @@ type (
 		dirWatchers []*dirWatcher
 	}
 
-	BadgerOpt func(b *BadgerDB)
+	// ConfigOpt allows optional configuration of BadgerDB
+	ConfigOpt func(b *BadgerDB)
 )
 
 var _ = store.Store(&BadgerDB{})
 
-func WithConflictMaxAttempts(attempts int) BadgerOpt {
+// WithConflictMaxAttempts sets BadgerDB max number of attempts when conflict detected
+func WithConflictMaxAttempts(attempts int) ConfigOpt {
 	return func(b *BadgerDB) {
 		b.conflictMaxAttempts = attempts
 	}
 }
 
-func WithGCInterval(int time.Duration) BadgerOpt {
+// WithGCInterval sets BadgerDB GC interval
+func WithGCInterval(int time.Duration) ConfigOpt {
 	return func(b *BadgerDB) {
 		b.gcInterval = int
 	}
 }
 
-func WithGCDiscardRatio(r float64) BadgerOpt {
+// WithGCDiscardRatio sets BadgerDB GC discard ration
+func WithGCDiscardRatio(r float64) ConfigOpt {
 	return func(b *BadgerDB) {
 		b.gcDiscardRatio = r
 	}
 }
 
+// Register registers BadgerDB to valkeyrie
 func Register() {
 	valkeyrie.AddStore(store.BADGERDB, New)
 }
 
+// New opens a new BadgerDB connection to the specified path
 func New(endpoints []string, _ *store.Config) (store.Store, error) {
 	if len(endpoints) > 1 {
 		return nil, ErrMultipleEndpointsUnsupported
@@ -108,8 +116,8 @@ func New(endpoints []string, _ *store.Config) (store.Store, error) {
 	return b, nil
 }
 
-// Constructor that allows more fine control over options when needed
-func NewBadgerDB(badgerOpts badger.Options, opts ...BadgerOpt) (*BadgerDB, error) {
+// NewBadgerDB opens a new BadgerDB connection to the specified path
+func NewBadgerDB(badgerOpts badger.Options, opts ...ConfigOpt) (*BadgerDB, error) {
 	db, err := badger.Open(badgerOpts)
 	if err != nil {
 		return nil, err
@@ -162,6 +170,8 @@ func (b *BadgerDB) notify(key string, val *store.KVPair) {
 	b.lock.Unlock()
 }
 
+// Get the value at "key", returns the last modified
+// index to use in conjunction to Atomic calls
 func (b *BadgerDB) Get(key string, opts *store.ReadOptions) (*store.KVPair, error) {
 	kv := &store.KVPair{Key: key}
 
@@ -188,6 +198,7 @@ func (b *BadgerDB) Get(key string, opts *store.ReadOptions) (*store.KVPair, erro
 	return kv, err
 }
 
+// Put a value at "key"
 func (b *BadgerDB) Put(key string, value []byte, opts *store.WriteOptions) error {
 	if opts != nil && opts.IsDir {
 		key = toDirectory(key)
@@ -236,6 +247,7 @@ func (b *BadgerDB) Put(key string, value []byte, opts *store.WriteOptions) error
 	return ErrTooManyUpdateConflicts
 }
 
+// Delete a value at "key"
 func (b *BadgerDB) Delete(key string) error {
 	for i := 0; i < b.conflictMaxAttempts; i++ {
 		err := b.db.Update(func(tx *badger.Txn) error {
@@ -254,6 +266,7 @@ func (b *BadgerDB) Delete(key string) error {
 	return ErrTooManyUpdateConflicts
 }
 
+// Exists checks if the key exists inside the store
 func (b *BadgerDB) Exists(key string, opts *store.ReadOptions) (bool, error) {
 	err := b.db.View(func(tx *badger.Txn) error {
 		_, err := tx.Get([]byte(key))
@@ -269,6 +282,7 @@ func (b *BadgerDB) Exists(key string, opts *store.ReadOptions) (bool, error) {
 	}
 }
 
+// List child nodes of a given directory
 func (b *BadgerDB) List(prefix string, opts *store.ReadOptions) ([]*store.KVPair, error) {
 	return b.list(prefix, true)
 }
@@ -319,6 +333,9 @@ func (b *BadgerDB) list(prefix string, checkRoot bool) ([]*store.KVPair, error) 
 	return kvs, err
 }
 
+// AtomicDelete deletes a value at "key" if the key
+// has not been modified in the meantime, throws an
+// error if this is the case
 func (b *BadgerDB) AtomicDelete(key string, previous *store.KVPair) (bool, error) {
 	if previous == nil {
 		return false, store.ErrPreviousNotSpecified
@@ -355,6 +372,8 @@ func (b *BadgerDB) AtomicDelete(key string, previous *store.KVPair) (bool, error
 	return false, ErrTooManyUpdateConflicts
 }
 
+// AtomicPut puts a value at "key" if the key has not been
+// modified in the meantime, throws an error if this is the case
 func (b *BadgerDB) AtomicPut(key string, value []byte, previous *store.KVPair, opts *store.WriteOptions) (bool, *store.KVPair, error) {
 	if opts != nil && opts.IsDir {
 		key = toDirectory(key)
@@ -520,6 +539,11 @@ func (b *BadgerDB) NewLock(key string, options *store.LockOptions) (store.Locker
 	return nil, store.ErrCallNotSupported
 }
 
+// Watch for changes on a "key"
+// It returns a channel that will receive changes or pass
+// on errors. Upon creation, the current value will first
+// be sent to the channel. Providing a non-nil stopCh can
+// be used to stop watching.
 func (b *BadgerDB) Watch(key string, stopCh <-chan struct{}, opts *store.ReadOptions) (<-chan *store.KVPair, error) {
 	b.lock.Lock()
 	defer b.lock.Unlock()
@@ -546,6 +570,11 @@ func (b *BadgerDB) Watch(key string, stopCh <-chan struct{}, opts *store.ReadOpt
 	return out, nil
 }
 
+// WatchTree watches for changes on a "directory"
+// It returns a channel that will receive changes or pass
+// on errors. Upon creating a watch, the current childs values
+// will be sent to the channel. Providing a non-nil stopCh can
+// be used to stop watching.
 func (b *BadgerDB) WatchTree(prefix string, stopCh <-chan struct{}, opts *store.ReadOptions) (<-chan []*store.KVPair, error) {
 	b.lock.Lock()
 	defer b.lock.Unlock()
@@ -599,7 +628,7 @@ func (b *BadgerDB) notifyKeyWatchers(key string, state *store.KVPair) {
 		}
 
 		kv[i] = e
-		i += 1
+		i++
 	}
 
 	b.keyWatchers[key] = kv[:i]
@@ -627,7 +656,7 @@ func (b *BadgerDB) notifyDirWatchers(key string) {
 		}
 
 		b.dirWatchers[i] = e
-		i += 1
+		i++
 	}
 
 	b.dirWatchers = b.dirWatchers[:i]

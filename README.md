@@ -11,7 +11,7 @@ The goal of `valkeyrie` is to abstract common store operations (Get/Put/List/etc
 
 This repository is a fork of the [docker/libkv](https://github.com/docker/libkv) project which includes many fixes/additional features and is maintained by an original project maintainer. This project is notably used by [containous/traefik](https://github.com/containous/traefik), [docker/swarm](https://github.com/docker/swarm) and [docker/libnetwork](https://github.com/docker/libnetwork).
 
-As of now, `valkeyrie` offers support for `Consul`, `Etcd`, `Zookeeper`, `Redis` (**Distributed** store) , `BoltDB` (**Local** store) and `BadgerDB` (**Local** store).
+As of now, `valkeyrie` offers support for `Consul`, `Etcd`, `Zookeeper`, `Redis` (**Distributed** store) , `BoltDB` and `BadgerDB` (**Local** store).
 
 ## Usage
 
