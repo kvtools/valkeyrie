@@ -2,6 +2,7 @@ package badgerdb
 
 import (
 	"bytes"
+	"encoding/binary"
 	"errors"
 	"strings"
 	"sync"
@@ -23,10 +24,13 @@ var (
 )
 
 const (
-	defaultUpdateMaxAttempts = 5
-	defaultGCInterval        = 5 * time.Minute
-	defaultGCDiscardRatio    = 0.7
-	defaultNotifyChannelSize = 16
+	defaultUpdateMaxAttempts        = 5
+	defaultGCInterval               = 5 * time.Minute
+	defaultGCDiscardRatio           = 0.7
+	defaultNotifyChannelSize        = 16
+	versionNumBytes                 = 8
+	defaultVersionSequenceKey       = "/valkeyrie/seqn"
+	defaultVersionSequenceBandwidth = 1024
 )
 
 type (
@@ -43,16 +47,19 @@ type (
 
 	// BadgerDB type implements the Store interface
 	BadgerDB struct {
-		db                  *badger.DB
-		opts                badger.Options
-		conflictMaxAttempts int
-		gcInterval          time.Duration
-		gcDiscardRatio      float64
+		db                       *badger.DB
+		opts                     badger.Options
+		conflictMaxAttempts      int
+		gcInterval               time.Duration
+		gcDiscardRatio           float64
+		versionSequenceKey       string
+		versionSequenceBandwidth uint64
 
-		lock        *sync.Mutex // for
-		closed      bool
-		keyWatchers map[string][]*keyWatcher
-		dirWatchers []*dirWatcher
+		versionSequence *badger.Sequence
+		lock            *sync.Mutex // for
+		closed          bool
+		keyWatchers     map[string][]*keyWatcher
+		dirWatchers     []*dirWatcher
 	}
 
 	// ConfigOpt allows optional configuration of BadgerDB
@@ -82,6 +89,13 @@ func WithGCDiscardRatio(r float64) ConfigOpt {
 	}
 }
 
+// WithVersionSequenceKey sets BadgerDB GC version sequence key
+func WithVersionSequenceKey(k string) ConfigOpt {
+	return func(b *BadgerDB) {
+		b.versionSequenceKey = k
+	}
+}
+
 // Register registers BadgerDB to valkeyrie
 func Register() {
 	valkeyrie.AddStore(store.BADGERDB, New)
@@ -103,12 +117,20 @@ func New(endpoints []string, _ *store.Config) (store.Store, error) {
 	}
 
 	b := &BadgerDB{
-		db:                  db,
-		conflictMaxAttempts: defaultUpdateMaxAttempts,
-		gcInterval:          defaultGCInterval,
-		gcDiscardRatio:      defaultGCDiscardRatio,
-		lock:                &sync.Mutex{},
-		keyWatchers:         make(map[string][]*keyWatcher),
+		db:                       db,
+		conflictMaxAttempts:      defaultUpdateMaxAttempts,
+		gcInterval:               defaultGCInterval,
+		gcDiscardRatio:           defaultGCDiscardRatio,
+		versionSequenceKey:       defaultVersionSequenceKey,
+		versionSequenceBandwidth: defaultVersionSequenceBandwidth,
+		lock:                     &sync.Mutex{},
+		keyWatchers:              make(map[string][]*keyWatcher),
+	}
+
+	b.versionSequence, err = b.db.GetSequence([]byte(b.versionSequenceKey), b.versionSequenceBandwidth)
+	if err != nil {
+		_ = db.Close()
+		return nil, err
 	}
 
 	go b.runGcLoop()
@@ -124,16 +146,24 @@ func NewBadgerDB(badgerOpts badger.Options, opts ...ConfigOpt) (*BadgerDB, error
 	}
 
 	b := &BadgerDB{
-		db:                  db,
-		conflictMaxAttempts: defaultUpdateMaxAttempts,
-		gcInterval:          defaultGCInterval,
-		gcDiscardRatio:      defaultGCDiscardRatio,
-		lock:                &sync.Mutex{},
-		keyWatchers:         make(map[string][]*keyWatcher),
+		db:                       db,
+		conflictMaxAttempts:      defaultUpdateMaxAttempts,
+		gcInterval:               defaultGCInterval,
+		gcDiscardRatio:           defaultGCDiscardRatio,
+		versionSequenceKey:       defaultVersionSequenceKey,
+		versionSequenceBandwidth: defaultVersionSequenceBandwidth,
+		lock:                     &sync.Mutex{},
+		keyWatchers:              make(map[string][]*keyWatcher),
 	}
 
 	for _, o := range opts {
 		o(b)
+	}
+
+	b.versionSequence, err = b.db.GetSequence([]byte(b.versionSequenceKey), b.versionSequenceBandwidth)
+	if err != nil {
+		_ = db.Close()
+		return nil, err
 	}
 
 	go b.runGcLoop()
@@ -186,7 +216,8 @@ func (b *BadgerDB) Get(key string, opts *store.ReadOptions) (*store.KVPair, erro
 			return err
 		}
 
-		kv.LastIndex = it.Version()
+		kv.LastIndex = binary.LittleEndian.Uint64(kv.Value[:versionNumBytes])
+		kv.Value = kv.Value[versionNumBytes:]
 
 		return nil
 	})
@@ -204,31 +235,28 @@ func (b *BadgerDB) Put(key string, value []byte, opts *store.WriteOptions) error
 		key = toDirectory(key)
 	}
 
-	var err error
-
 	for i := 0; i < b.conflictMaxAttempts; i++ {
 		res := &store.KVPair{Key: key}
 
 		err := b.db.Update(func(tx *badger.Txn) error {
 			k := []byte(key)
 
+			dbVal, v, err := b.joinValWithVersion(tx, value)
+			if err != nil {
+				return err
+			}
+
 			if opts != nil && opts.TTL > 0 {
-				err = tx.SetWithTTL(k, value, opts.TTL)
+				err = tx.SetWithTTL(k, dbVal, opts.TTL)
 			} else {
-				err = tx.Set(k, value)
+				err = tx.Set(k, dbVal)
 			}
 
 			if err != nil {
 				return err
 			}
 
-			// read again to get version
-			it, err := tx.Get(k)
-			if err != nil {
-				return err
-			}
-
-			res.LastIndex = it.Version()
+			res.LastIndex = v
 
 			return nil
 		})
@@ -309,17 +337,17 @@ func (b *BadgerDB) list(prefix string, checkRoot bool) ([]*store.KVPair, error) 
 				continue
 			}
 
-			kv := &store.KVPair{
-				Key:       string(k),
-				LastIndex: item.Version(),
-			}
-
 			body, err := item.ValueCopy(nil)
 			if err != nil {
 				return err
 			}
 
-			kv.Value = body
+			kv := &store.KVPair{
+				Key: string(k),
+			}
+
+			kv.Value, kv.LastIndex = b.splitToValueAndVersion(body)
+
 			kvs = append(kvs, kv)
 		}
 
@@ -350,7 +378,12 @@ func (b *BadgerDB) AtomicDelete(key string, previous *store.KVPair) (bool, error
 				return err
 			}
 
-			if it.Version() != previous.LastIndex {
+			body, err := it.Value()
+			if err != nil {
+				return err
+			}
+
+			if _, v := b.splitToValueAndVersion(body); v != previous.LastIndex {
 				return store.ErrKeyModified
 			}
 
@@ -398,27 +431,33 @@ func (b *BadgerDB) AtomicPut(key string, value []byte, previous *store.KVPair, o
 				return store.ErrKeyExists
 			}
 
-			if previous != nil && it.Version() != previous.LastIndex {
-				return store.ErrKeyModified
+			if previous != nil {
+				body, err := it.Value()
+				if err != nil {
+					return err
+				}
+
+				if _, v := b.splitToValueAndVersion(body); v != previous.LastIndex {
+					return store.ErrKeyModified
+				}
+			}
+
+			dbVal, v, err := b.joinValWithVersion(tx, value)
+			if err != nil {
+				return err
 			}
 
 			if opts != nil && opts.TTL > 0 {
-				err = tx.SetWithTTL(k, value, opts.TTL)
+				err = tx.SetWithTTL(k, dbVal, opts.TTL)
 			} else {
-				err = tx.Set(k, value)
+				err = tx.Set(k, dbVal)
 			}
 
 			if err != nil {
 				return err
 			}
 
-			// read again to get version
-			it, err = tx.Get(k)
-			if err != nil {
-				return err
-			}
-
-			kv.LastIndex = it.Version()
+			kv.LastIndex = v
 			return nil
 		})
 
@@ -453,6 +492,7 @@ func (b *BadgerDB) Close() {
 
 	b.closed = true
 
+	_ = b.versionSequence.Release()
 	_ = b.db.Close()
 
 	// close all watchers
@@ -600,6 +640,24 @@ func (b *BadgerDB) WatchTree(prefix string, stopCh <-chan struct{}, opts *store.
 	b.dirWatchers = append(b.dirWatchers, watcher)
 
 	return out, nil
+}
+
+func (b *BadgerDB) joinValWithVersion(tx *badger.Txn, value []byte) ([]byte, uint64, error) {
+	dbval := make([]byte, len(value)+versionNumBytes)
+
+	ver, err := b.versionSequence.Next()
+	if err != nil {
+		return nil, 0, err
+	}
+
+	binary.LittleEndian.PutUint64(dbval, ver)
+	copy(dbval[versionNumBytes:], value)
+
+	return dbval, ver, nil
+}
+
+func (b *BadgerDB) splitToValueAndVersion(value []byte) ([]byte, uint64) {
+	return value[versionNumBytes:], binary.LittleEndian.Uint64(value)
 }
 
 func (b *BadgerDB) notifyKeyWatchers(key string, state *store.KVPair) {

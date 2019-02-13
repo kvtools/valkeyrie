@@ -112,3 +112,43 @@ func checkPairNotNil(t *testing.T, pair *store.KVPair) {
 		t.Fatal("test failure, pair is nil")
 	}
 }
+
+func TestBadgerDB_VersionSequence(t *testing.T) {
+	kv, dir := makeBadgerBBClient(t)
+
+	defer os.RemoveAll(dir)
+
+	key := "/test"
+	val := []byte{1, 2, 3, 4, 5}
+	var prev *store.KVPair
+	var err error
+
+	for i := 0; i < 50; i++ {
+		_, prev, err = kv.AtomicPut(key, val, prev, nil)
+		require.NoError(t, err)
+	}
+
+	require.Equal(t, val, prev.Value)
+	require.EqualValues(t, 49, prev.LastIndex)
+
+	kv.Close()
+
+	// should reload last version sequence
+	kv, err = New([]string{dir}, nil)
+	require.NoError(t, err)
+
+	// put some random stuff
+	require.NoError(t, kv.Put("/abc", []byte{1, 2}, nil))
+
+	for i := 0; i < 50; i++ {
+		_, prev, err = kv.AtomicPut(key, val, prev, nil)
+		require.NoError(t, err)
+	}
+
+	require.Equal(t, val, prev.Value)
+	require.EqualValues(t, 100, prev.LastIndex)
+
+	prev, err = kv.Get(key, nil)
+	require.NoError(t, err)
+	require.EqualValues(t, 100, prev.LastIndex)
+}
