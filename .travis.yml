@@ -23,7 +23,7 @@ before_install:
 before_script:
   - script/travis_consul.sh 1.1.0
   - script/travis_etcd.sh 3.3.8
-  - script/travis_zk.sh 3.4.12
+  - script/travis_zk.sh 3.4.13
   - script/travis_redis.sh 4.0.10
   - script/travis_dynamodb_local.sh
 
