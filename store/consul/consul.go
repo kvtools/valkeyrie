@@ -83,6 +83,10 @@ func New(endpoints []string, options *store.Config) (store.Store, error) {
 		if options.ConnectionTimeout != 0 {
 			s.setTimeout(options.ConnectionTimeout)
 		}
+
+		if options.Token != "" {
+			s.setToken(options.Token)
+		}
 	}
 
 	// Creates a new client
@@ -106,6 +110,11 @@ func (s *Consul) setTLS(tls *tls.Config) {
 // SetTimeout sets the timeout for connecting to Consul
 func (s *Consul) setTimeout(time time.Duration) {
 	s.config.WaitTime = time
+}
+
+// SetTimeout sets the timeout for connecting to Consul
+func (s *Consul) setToken(token string) {
+	s.config.Token = token
 }
 
 // Normalize the key for usage in Consul
