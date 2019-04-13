@@ -1,7 +1,7 @@
 module github.com/abronan/valkeyrie
 
 require (
-	github.com/aws/aws-sdk-go v1.16.23 // indirect
+	github.com/aws/aws-sdk-go v1.16.23
 	github.com/coreos/etcd v3.3.11+incompatible
 	github.com/coreos/go-semver v0.2.0 // indirect
 	github.com/gogo/protobuf v1.2.0 // indirect

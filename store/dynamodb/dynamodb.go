@@ -1,6 +1,7 @@
 package dynamodb
 
 import (
+	"context"
 	"encoding/base64"
 	"errors"
 	"fmt"
@@ -33,8 +34,9 @@ const (
 	ttlAttribute          = "expiration_time"
 	lockAttribute         = "lock"
 
-	noExpiration   = time.Duration(0)
-	defaultLockTTL = 20 * time.Second
+	noExpiration           = time.Duration(0)
+	defaultLockTTL         = 20 * time.Second
+	dynamodbDefaultTimeout = 10 * time.Second
 )
 
 var (
@@ -226,24 +228,40 @@ func (ddb *DynamoDB) List(directory string, options *store.ReadOptions) ([]*stor
 
 	filterExp := fmt.Sprintf("begins_with(%s, :namePrefix)", partitionKey)
 
-	res, err := ddb.dynamoSvc.Scan(&dynamodb.ScanInput{
+	si := &dynamodb.ScanInput{
 		TableName:                 aws.String(ddb.tableName),
 		FilterExpression:          aws.String(filterExp),
 		ExpressionAttributeValues: expAttr,
 		ConsistentRead:            aws.Bool(options.Consistent),
-	})
+	}
+
+	items := []map[string]*dynamodb.AttributeValue{}
+	ctcx, cancel := context.WithTimeout(context.Background(), dynamodbDefaultTimeout)
+
+	err := ddb.dynamoSvc.ScanPagesWithContext(ctcx, si,
+		func(page *dynamodb.ScanOutput, lastPage bool) bool {
+			items = append(items, page.Items...)
+
+			if lastPage {
+				cancel()
+				return false
+			}
+
+			return true
+		})
+
 	if err != nil {
 		return nil, err
 	}
 
-	if len(res.Items) == 0 {
+	if len(items) == 0 {
 		return nil, store.ErrKeyNotFound
 	}
 
 	kvArray := []*store.KVPair{}
 	val := new(store.KVPair)
 
-	for _, item := range res.Items {
+	for _, item := range items {
 		val, err = decodeItem(item)
 		if err != nil {
 			return nil, err
