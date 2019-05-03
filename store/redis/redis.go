@@ -59,6 +59,9 @@ func newRedis(endpoints []string, password string) (*Redis, error) {
 		Password:     password,
 	})
 
+	// Listen to Keyspace events
+	client.ConfigSet("notify-keyspace-events", "KEA")
+
 	return &Redis{
 		client: client,
 		script: redis.NewScript(luaScript()),
@@ -207,13 +210,19 @@ func watchLoop(msgCh chan *redis.Message, stopCh <-chan struct{}, get getter, pu
 	}
 	push(pair)
 
-	for range msgCh {
+	for m := range msgCh {
 		// retrieve and send back
 		pair, err := get()
-		if err != nil {
+		if err != nil && err != store.ErrKeyNotFound {
 			return err
 		}
-		push(pair)
+
+		// in case of watching a key that has been expired or deleted return and empty KV
+		if err == store.ErrKeyNotFound && (m.Payload == "expire" || m.Payload == "del") {
+			push(&store.KVPair{})
+		} else {
+			push(pair)
+		}
 	}
 
 	return nil
