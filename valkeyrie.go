@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"sort"
 	"strings"
+	"sync"
 
 	"github.com/abronan/valkeyrie/store"
 )
@@ -13,7 +14,8 @@ type Initialize func(addrs []string, options *store.Config) (store.Store, error)
 
 var (
 	// Backend initializers
-	initializers = make(map[store.Backend]Initialize)
+	initializers      = make(map[store.Backend]Initialize)
+	initializersMutex sync.RWMutex
 
 	supportedBackend = func() string {
 		keys := make([]string, 0, len(initializers))
@@ -27,6 +29,9 @@ var (
 
 // NewStore creates an instance of store
 func NewStore(backend store.Backend, addrs []string, options *store.Config) (store.Store, error) {
+	initializersMutex.Lock()
+	defer initializersMutex.Unlock()
+
 	if init, exists := initializers[backend]; exists {
 		return init(addrs, options)
 	}
@@ -36,5 +41,8 @@ func NewStore(backend store.Backend, addrs []string, options *store.Config) (sto
 
 // AddStore adds a new store backend to valkeyrie
 func AddStore(store store.Backend, init Initialize) {
+	initializersMutex.Lock()
+	defer initializersMutex.Unlock()
+
 	initializers[store] = init
 }
