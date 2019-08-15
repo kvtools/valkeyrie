@@ -108,6 +108,4 @@ func (l *Lock) Unlock() error {
 }
 
 // Close mock
-func (s *Mock) Close() {
-	return
-}
+func (s *Mock) Close() {}

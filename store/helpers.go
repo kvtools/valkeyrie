@@ -31,7 +31,7 @@ func GetDirectory(key string) string {
 	return "/" + join(parts)
 }
 
-// SplitKey splits the key to extract path informations
+// SplitKey splits the key to extract path information
 func SplitKey(key string) (path []string) {
 	if strings.Contains(key, "/") {
 		path = strings.Split(key, "/")

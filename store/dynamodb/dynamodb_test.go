@@ -28,9 +28,8 @@ func TestRegister(t *testing.T) {
 	assert.NoError(t, err)
 	assert.NotNil(t, kv)
 
-	if ddb, ok := kv.(*DynamoDB); !ok {
+	if _, ok := kv.(*DynamoDB); !ok {
 		t.Fatal("Error registering and initializing DynamoDB")
-		ddb.createTable()
 	}
 
 }

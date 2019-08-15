@@ -126,7 +126,7 @@ func (b *BoltDB) releaseDBhandle() {
 }
 
 // Get the value at "key". BoltDB doesn't provide an inbuilt last modified index with every kv pair. Its implemented by
-// by a atomic counter maintained by the valkeyrie and appened to the value passed by the client.
+// by a atomic counter maintained by the valkeyrie and appended to the value passed by the client.
 func (b *BoltDB) Get(key string, opts *store.ReadOptions) (*store.KVPair, error) {
 	var (
 		val []byte
@@ -164,10 +164,10 @@ func (b *BoltDB) Get(key string, opts *store.ReadOptions) (*store.KVPair, error)
 	dbIndex := binary.LittleEndian.Uint64(val[:metadatalen])
 	val = val[metadatalen:]
 
-	return &store.KVPair{Key: key, Value: val, LastIndex: (dbIndex)}, nil
+	return &store.KVPair{Key: key, Value: val, LastIndex: dbIndex}, nil
 }
 
-//Put the key, value pair. index number metadata is prepended to the value
+// Put the key, value pair. index number metadata is prepended to the value
 func (b *BoltDB) Put(key string, value []byte, opts *store.WriteOptions) error {
 	var (
 		dbIndex uint64
@@ -203,7 +203,7 @@ func (b *BoltDB) Put(key string, value []byte, opts *store.WriteOptions) error {
 	return err
 }
 
-//Delete the value for the given key.
+// Delete the value for the given key.
 func (b *BoltDB) Delete(key string) error {
 	var (
 		db  *bbolt.DB
@@ -400,7 +400,7 @@ func (b *BoltDB) AtomicPut(key string, value []byte, previous *store.KVPair, opt
 		dbIndex = atomic.AddUint64(&b.dbIndex, 1)
 		binary.LittleEndian.PutUint64(dbval, b.dbIndex)
 		dbval = append(dbval, value...)
-		return (bucket.Put([]byte(key), dbval))
+		return bucket.Put([]byte(key), dbval)
 	})
 	if err != nil {
 		return false, nil, err
@@ -425,7 +425,6 @@ func (b *BoltDB) Close() {
 	} else {
 		b.client.Close()
 	}
-	return
 }
 
 // DeleteTree deletes a range of keys with a given prefix
@@ -452,7 +451,7 @@ func (b *BoltDB) DeleteTree(keyPrefix string) error {
 		prefix := []byte(keyPrefix)
 
 		for key, _ := cursor.Seek(prefix); bytes.HasPrefix(key, prefix); key, _ = cursor.Next() {
-			_ = bucket.Delete([]byte(key))
+			_ = bucket.Delete(key)
 		}
 		return nil
 	})

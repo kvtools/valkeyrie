@@ -599,7 +599,7 @@ func testListLockKey(t *testing.T, kv store.Store) {
 	assert.Equal(t, 4, len(pairs))
 
 	for _, pair := range pairs {
-		if strings.Contains(string(pair.Key), "___lock") {
+		if strings.Contains(pair.Key, "___lock") {
 			assert.FailNow(t, "tesListLockKey: found a key containing lock suffix '___lock'")
 		}
 	}

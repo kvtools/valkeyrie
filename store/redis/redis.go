@@ -201,7 +201,7 @@ type getter func() (interface{}, error)
 // pusher defines a func type which pushes data blob into watch channel
 type pusher func(interface{})
 
-func watchLoop(msgCh chan *redis.Message, stopCh <-chan struct{}, get getter, push pusher) error {
+func watchLoop(msgCh chan *redis.Message, _ <-chan struct{}, get getter, push pusher) error {
 
 	// deliver the original data before we setup any events
 	pair, err := get()
@@ -387,7 +387,7 @@ func (l *redisLock) Lock(stopCh chan struct{}) (<-chan struct{}, error) {
 // and return false, nil when it can't lock now,
 // and return false, err if any unespected error happened underlying
 func (l *redisLock) tryLock(lockHeld, stopChan chan struct{}) (bool, error) {
-	success, new, err := l.redis.AtomicPut(
+	success, item, err := l.redis.AtomicPut(
 		l.key,
 		l.value,
 		l.last,
@@ -395,7 +395,7 @@ func (l *redisLock) tryLock(lockHeld, stopChan chan struct{}) (bool, error) {
 			TTL: l.ttl,
 		})
 	if success {
-		l.last = new
+		l.last = item
 		// keep holding
 		go l.holdLock(lockHeld, stopChan)
 		return true, nil
@@ -410,7 +410,7 @@ func (l *redisLock) holdLock(lockHeld, stopChan chan struct{}) {
 	defer close(lockHeld)
 
 	hold := func() error {
-		_, new, err := l.redis.AtomicPut(
+		_, item, err := l.redis.AtomicPut(
 			l.key,
 			l.value,
 			l.last,
@@ -418,7 +418,7 @@ func (l *redisLock) holdLock(lockHeld, stopChan chan struct{}) {
 				TTL: l.ttl,
 			})
 		if err == nil {
-			l.last = new
+			l.last = item
 		}
 		return err
 	}
@@ -635,7 +635,7 @@ func (r *Redis) cad(key string, old *store.KVPair) error {
 
 // Close the store connection
 func (r *Redis) Close() {
-	r.client.Close()
+	_ = r.client.Close()
 }
 
 func scanRegex(directory string) string {
