@@ -259,7 +259,7 @@ func (ddb *DynamoDB) List(directory string, options *store.ReadOptions) ([]*stor
 	}
 
 	kvArray := []*store.KVPair{}
-	val := new(store.KVPair)
+	var val *store.KVPair
 
 	for _, item := range items {
 		val, err = decodeItem(item)
@@ -415,6 +415,7 @@ func (ddb *DynamoDB) AtomicDelete(key string, previous *store.KVPair) (bool, err
 	}
 
 	expAttr := make(map[string]*dynamodb.AttributeValue)
+	// FIXME previous.LastIndex may lead to a nil pointer dereference
 	expAttr[":lastRevision"] = &dynamodb.AttributeValue{N: aws.String(strconv.FormatUint(previous.LastIndex, 10))}
 
 	req := &dynamodb.DeleteItemInput{
@@ -498,7 +499,7 @@ func (l *dynamodbLock) Unlock() error {
 }
 
 func (l *dynamodbLock) tryLock(lockHeld chan struct{}, stopChan chan struct{}) (bool, error) {
-	success, new, err := l.ddb.AtomicPut(
+	success, item, err := l.ddb.AtomicPut(
 		l.key,
 		l.value,
 		l.last,
@@ -512,7 +513,7 @@ func (l *dynamodbLock) tryLock(lockHeld chan struct{}, stopChan chan struct{}) (
 		return false, err
 	}
 	if success {
-		l.last = new
+		l.last = item
 		// keep holding
 		go l.holdLock(lockHeld, stopChan)
 		return true, nil
@@ -525,7 +526,7 @@ func (l *dynamodbLock) holdLock(lockHeld, stopChan chan struct{}) {
 	defer close(lockHeld)
 
 	hold := func() error {
-		_, new, err := l.ddb.AtomicPut(
+		_, item, err := l.ddb.AtomicPut(
 			l.key,
 			l.value,
 			l.last,
@@ -533,7 +534,7 @@ func (l *dynamodbLock) holdLock(lockHeld, stopChan chan struct{}) {
 				TTL: l.ttl,
 			})
 		if err == nil {
-			l.last = new
+			l.last = item
 		}
 		return err
 	}

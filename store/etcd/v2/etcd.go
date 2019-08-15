@@ -1,6 +1,7 @@
 package etcd
 
 import (
+	"context"
 	"crypto/tls"
 	"errors"
 	"log"
@@ -9,8 +10,6 @@ import (
 	"strings"
 	"sync"
 	"time"
-
-	"golang.org/x/net/context"
 
 	"github.com/abronan/valkeyrie"
 	"github.com/abronan/valkeyrie/store"
@@ -99,7 +98,7 @@ func New(addrs []string, options *store.Config) (store.Store, error) {
 	if options != nil && options.SyncPeriod != 0 {
 		go func() {
 			for {
-				c.AutoSync(context.Background(), options.SyncPeriod)
+				_ = c.AutoSync(context.Background(), options.SyncPeriod)
 			}
 		}()
 	}
@@ -114,10 +113,10 @@ func setTLS(cfg *etcd.Config, tls *tls.Config, addrs []string) {
 
 	// Set transport
 	t := http.Transport{
-		Dial: (&net.Dialer{
+		DialContext: (&net.Dialer{
 			Timeout:   30 * time.Second,
 			KeepAlive: 30 * time.Second,
-		}).Dial,
+		}).DialContext,
 		TLSHandshakeTimeout: 10 * time.Second,
 		TLSClientConfig:     tls,
 	}
@@ -384,11 +383,9 @@ func (s *Etcd) AtomicDelete(key string, previous *store.KVPair) (bool, error) {
 
 	delOpts := &etcd.DeleteOptions{}
 
-	if previous != nil {
-		delOpts.PrevIndex = previous.LastIndex
-		if previous.Value != nil {
-			delOpts.PrevValue = string(previous.Value)
-		}
+	delOpts.PrevIndex = previous.LastIndex
+	if previous.Value != nil {
+		delOpts.PrevValue = string(previous.Value)
 	}
 
 	_, err := s.client.Delete(context.Background(), s.normalize(key), delOpts)
@@ -448,7 +445,7 @@ func (s *Etcd) List(directory string, opts *store.ReadOptions) ([]*store.KVPair,
 		}
 
 		// Filter out etcd mutex side keys with `___lock` suffix
-		if strings.Contains(string(n.Key), lockSuffix) {
+		if strings.Contains(n.Key, lockSuffix) {
 			continue
 		}
 
@@ -652,6 +649,4 @@ func (l *etcdLock) Unlock() error {
 }
 
 // Close closes the client connection
-func (s *Etcd) Close() {
-	return
-}
+func (s *Etcd) Close() {}

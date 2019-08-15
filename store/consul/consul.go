@@ -153,7 +153,7 @@ func (s *Consul) renewSession(pair *api.KVPair, ttl time.Duration) error {
 		// ephemeral behavior
 		lock, _ := s.client.LockOpts(lockOpts)
 		if lock != nil {
-			lock.Lock(nil)
+			_, _ = lock.Lock(nil)
 		}
 	}
 
@@ -438,7 +438,9 @@ func (s *Consul) NewLock(key string, options *store.LockOptions) (store.Locker, 
 
 	// Place the session and renew chan on lock
 	lockOpts.Session = session
-	lock.renewCh = options.RenewLock
+	if options != nil {
+		lock.renewCh = options.RenewLock
+	}
 
 	l, err := s.client.LockOpts(lockOpts)
 	if err != nil {
@@ -446,7 +448,9 @@ func (s *Consul) NewLock(key string, options *store.LockOptions) (store.Locker, 
 	}
 
 	// Renew the session ttl lock periodically
-	s.renewLockSession(entry.TTL, session, options.RenewLock)
+	if options != nil {
+		s.renewLockSession(entry.TTL, session, options.RenewLock)
+	}
 
 	lock.lock = l
 	return lock, nil
@@ -579,6 +583,4 @@ func (s *Consul) AtomicDelete(key string, previous *store.KVPair) (bool, error) 
 }
 
 // Close closes the client connection
-func (s *Consul) Close() {
-	return
-}
+func (s *Consul) Close() {}

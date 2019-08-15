@@ -135,7 +135,7 @@ func (s *EtcdV3) Get(key string, opts *store.ReadOptions) (pair *store.KVPair, e
 	for _, pair := range result.Kvs {
 		kvs = append(kvs, &store.KVPair{
 			Key:       string(pair.Key),
-			Value:     []byte(pair.Value),
+			Value:     pair.Value,
 			LastIndex: uint64(pair.ModRevision),
 		})
 	}
@@ -183,6 +183,9 @@ func (s *EtcdV3) Put(key string, value []byte, opts *store.WriteOptions) (err er
 // Delete a value at "key"
 func (s *EtcdV3) Delete(key string) error {
 	resp, err := s.client.KV.Delete(context.Background(), s.normalize(key))
+	if resp == nil {
+		return err
+	}
 	if resp.Deleted == 0 {
 		return store.ErrKeyNotFound
 	}
@@ -238,7 +241,7 @@ func (s *EtcdV3) Watch(key string, stopCh <-chan struct{}, opts *store.ReadOptio
 			for _, ev := range resp.Events {
 				respCh <- &store.KVPair{
 					Key:       key,
-					Value:     []byte(ev.Kv.Value),
+					Value:     ev.Kv.Value,
 					LastIndex: uint64(ev.Kv.ModRevision),
 				}
 			}
@@ -288,7 +291,7 @@ func (s *EtcdV3) WatchTree(directory string, stopCh <-chan struct{}, opts *store
 			for i, ev := range resp.Events {
 				list[i] = &store.KVPair{
 					Key:       string(ev.Kv.Key),
-					Value:     []byte(ev.Kv.Value),
+					Value:     ev.Kv.Value,
 					LastIndex: uint64(ev.Kv.ModRevision),
 				}
 			}
@@ -437,8 +440,7 @@ func (s *EtcdV3) NewLock(key string, options *store.LockOptions) (lock store.Loc
 
 	go func() {
 		<-renewCh
-		session.Close()
-		return
+		_ = session.Close()
 	}()
 
 	// A Mutex is a simple key that can only be held by a single process.
@@ -511,7 +513,7 @@ func (l *etcdLock) Unlock() error {
 
 // Close closes the client connection
 func (s *EtcdV3) Close() {
-	s.client.Close()
+	_ = s.client.Close()
 }
 
 // list child nodes of a given directory and return revision number
@@ -551,7 +553,7 @@ func (s *EtcdV3) list(directory string, opts *store.ReadOptions) (int64, []*stor
 
 		kv = append(kv, &store.KVPair{
 			Key:       string(n.Key),
-			Value:     []byte(n.Value),
+			Value:     n.Value,
 			LastIndex: uint64(n.ModRevision),
 		})
 	}

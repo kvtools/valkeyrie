@@ -6,7 +6,7 @@ import (
 
 	"github.com/abronan/valkeyrie"
 	"github.com/abronan/valkeyrie/store"
-	zk "github.com/samuel/go-zookeeper/zk"
+	"github.com/samuel/go-zookeeper/zk"
 )
 
 const (
@@ -121,9 +121,9 @@ func (s *Zookeeper) Put(key string, value []byte, opts *store.WriteOptions) erro
 
 	if !exists {
 		if opts != nil && opts.TTL > 0 {
-			s.createFullPath(store.SplitKey(strings.TrimSuffix(key, "/")), value, true)
+			_ = s.createFullPath(store.SplitKey(strings.TrimSuffix(key, "/")), value, true)
 		} else {
-			s.createFullPath(store.SplitKey(strings.TrimSuffix(key, "/")), value, false)
+			_ = s.createFullPath(store.SplitKey(strings.TrimSuffix(key, "/")), value, false)
 		}
 	} else {
 		_, err = s.client.Set(fkey, value, -1)
