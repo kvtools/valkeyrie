@@ -183,10 +183,7 @@ func (s *EtcdV3) Put(key string, value []byte, opts *store.WriteOptions) (err er
 // Delete a value at "key"
 func (s *EtcdV3) Delete(key string) error {
 	resp, err := s.client.KV.Delete(context.Background(), s.normalize(key))
-	if resp == nil {
-		return err
-	}
-	if resp.Deleted == 0 {
+	if resp != nil && resp.Deleted == 0 {
 		return store.ErrKeyNotFound
 	}
 	return err
