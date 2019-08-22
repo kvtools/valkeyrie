@@ -415,8 +415,9 @@ func (ddb *DynamoDB) AtomicDelete(key string, previous *store.KVPair) (bool, err
 	}
 
 	expAttr := make(map[string]*dynamodb.AttributeValue)
-	// FIXME previous.LastIndex may lead to a nil pointer dereference
-	expAttr[":lastRevision"] = &dynamodb.AttributeValue{N: aws.String(strconv.FormatUint(previous.LastIndex, 10))}
+	if previous != nil {
+		expAttr[":lastRevision"] = &dynamodb.AttributeValue{N: aws.String(strconv.FormatUint(previous.LastIndex, 10))}
+	}
 
 	req := &dynamodb.DeleteItemInput{
 		TableName: aws.String(ddb.tableName),
