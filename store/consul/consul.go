@@ -10,7 +10,7 @@ import (
 
 	"github.com/abronan/valkeyrie"
 	"github.com/abronan/valkeyrie/store"
-	api "github.com/hashicorp/consul/api"
+	"github.com/hashicorp/consul/api"
 )
 
 const (
