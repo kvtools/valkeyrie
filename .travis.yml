@@ -1,26 +1,44 @@
 language: go
 
-go:
-  - 1.11
-
 sudo: true
 
+go:
+  - 1.11.x
+  - 1.12.x
+  - 1.x
+
+cache:
+  directories:
+    - $GOPATH/pkg/mod
+
+env:
+  global:
+    - GO111MODULE=on
+    - GOPROXY=https://proxy.golang.org
+
+install:
+  - go mod tidy
+  - git diff --exit-code go.mod
+  - git diff --exit-code go.sum
+  - go mod download
+
+go_import_path: github.com/abronan/valkeyrie
+
 before_install:
-  # Symlink below is needed for Travis CI to work correctly on personal forks of valkeyrie
-  - ln -s $HOME/gopath/src/github.com/${TRAVIS_REPO_SLUG///valkeyrie/} $HOME/gopath/src/github.com/abronan
-  - go get golang.org/x/tools/cmd/cover
-  - go get github.com/mattn/goveralls
-  - go get golang.org/x/lint/golint
-  - go get github.com/GeertJohan/fgt
+  - GO111MODULE=off go get golang.org/x/tools/cmd/cover
+  - GO111MODULE=off go get github.com/mattn/goveralls
+  - GO111MODULE=off go get golang.org/x/lint/golint
+  - GO111MODULE=off go get github.com/GeertJohan/fgt
   # ca-certificates is needed for wget to work properly
   - sudo apt-get install ca-certificates
 
 before_script:
   - script/travis_consul.sh 1.1.0
   - script/travis_etcd.sh 3.3.8
-  - script/travis_zk.sh 3.4.12
+  - script/travis_zk.sh 3.4.14
   - script/travis_redis.sh 4.0.10
   - script/travis_aerospike.sh 4.4.0.4
+  - script/travis_dynamodb_local.sh
 
 script:
   - ./consul agent -server -bootstrap -advertise=127.0.0.1 -data-dir /tmp/consul -config-file=./config.json 1>/dev/null &
@@ -28,9 +46,10 @@ script:
   - ./zk/bin/zkServer.sh start ./zk/conf/zoo.cfg 1> /dev/null
   - ./redis/src/redis-server &
   - aerospike-server/bin/asd --instance 1 --config aerospike-server/etc/aerospike.conf
+  - java -Djava.library.path=./DynamoDBLocal_lib -jar DynamoDBLocal.jar -inMemory &
   - script/validate-gofmt
   - go vet ./...
   - fgt golint ./...
   - go test -v -race ./...
-  - script/coverage
+  - script/coverage || true
   - goveralls -service=travis-ci -coverprofile=goverage.report
