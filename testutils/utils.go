@@ -334,7 +334,11 @@ func testLockUnlock(t *testing.T, kv store.Store) {
 	value := []byte("bar")
 
 	// We should be able to create a new lock on key
-	lock, err := kv.NewLock(key, &store.LockOptions{Value: value, TTL: 2 * time.Second})
+	lock, err := kv.NewLock(key, &store.LockOptions{
+		Value:          value,
+		TTL:            2 * time.Second,
+		DeleteOnUnlock: true,
+	})
 	assert.NoError(t, err)
 	assert.NotNil(t, lock)
 

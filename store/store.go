@@ -137,9 +137,10 @@ type ReadOptions struct {
 
 // LockOptions contains optional request parameters
 type LockOptions struct {
-	Value     []byte        // Optional, value to associate with the lock
-	TTL       time.Duration // Optional, expiration ttl associated with the lock
-	RenewLock chan struct{} // Optional, chan used to control and stop the session ttl renewal for the lock
+	Value          []byte        // Optional, value to associate with the lock
+	TTL            time.Duration // Optional, expiration ttl associated with the lock
+	RenewLock      chan struct{} // Optional, chan used to control and stop the session ttl renewal for the lock
+	DeleteOnUnlock bool          // If true, the value will be deleted when the lock is unlocked or expires
 }
 
 // Locker provides locking mechanism on top of the store.

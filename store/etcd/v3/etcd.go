@@ -32,10 +32,11 @@ type etcdLock struct {
 	mutex   *concurrency.Mutex
 	session *concurrency.Session
 
-	mutexKey string // mutexKey is the key to write appended with a "_lock" suffix
-	writeKey string // writeKey is the actual key to update protected by the mutexKey
-	value    string
-	ttl      time.Duration
+	mutexKey       string // mutexKey is the key to write appended with a "_lock" suffix
+	writeKey       string // writeKey is the actual key to update protected by the mutexKey
+	value          string
+	ttl            time.Duration
+	deleteOnUnlock bool
 }
 
 // Register registers etcd to valkeyrie
@@ -401,6 +402,7 @@ func (s *EtcdV3) NewLock(key string, options *store.LockOptions) (lock store.Loc
 	var value string
 	ttl := defaultLockTTL
 	renewCh := make(chan struct{})
+	var deleteOnUnlock bool
 
 	// Apply options on Lock
 	if options != nil {
@@ -413,6 +415,7 @@ func (s *EtcdV3) NewLock(key string, options *store.LockOptions) (lock store.Loc
 		if options.RenewLock != nil {
 			renewCh = options.RenewLock
 		}
+		deleteOnUnlock = options.DeleteOnUnlock
 	}
 
 	// Create Session for Mutex
@@ -437,13 +440,14 @@ func (s *EtcdV3) NewLock(key string, options *store.LockOptions) (lock store.Loc
 
 	// Create lock object
 	lock = &etcdLock{
-		store:    s,
-		mutex:    concurrency.NewMutex(session, mutexKey),
-		session:  session,
-		mutexKey: mutexKey,
-		writeKey: writeKey,
-		value:    value,
-		ttl:      ttl,
+		store:          s,
+		mutex:          concurrency.NewMutex(session, mutexKey),
+		session:        session,
+		mutexKey:       mutexKey,
+		writeKey:       writeKey,
+		value:          value,
+		ttl:            ttl,
+		deleteOnUnlock: deleteOnUnlock,
 	}
 
 	return lock, nil
@@ -469,7 +473,11 @@ func (l *etcdLock) Lock(stopChan chan struct{}) (<-chan struct{}, error) {
 		return nil, err
 	}
 
-	err = l.store.Put(l.writeKey, []byte(l.value), nil)
+	if l.deleteOnUnlock {
+		_, err = l.store.client.Put(ctx, l.writeKey, l.value, etcd.WithLease(l.session.Lease()))
+	} else {
+		_, err = l.store.client.Put(ctx, l.writeKey, l.value)
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -483,7 +491,11 @@ func (l *etcdLock) Unlock() error {
 	l.lock.Lock()
 	defer l.lock.Unlock()
 
-	return l.mutex.Unlock(context.Background())
+	ctx := context.Background()
+	if l.deleteOnUnlock {
+		l.store.client.Delete(ctx, l.writeKey)
+	}
+	return l.mutex.Unlock(ctx)
 }
 
 // Close closes the client connection
