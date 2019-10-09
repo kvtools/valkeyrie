@@ -2,10 +2,7 @@ language: go
 
 sudo: true
 
-go:
-  - 1.11.x
-  - 1.12.x
-  - 1.x
+go_import_path: github.com/abronan/valkeyrie
 
 cache:
   directories:
@@ -16,13 +13,16 @@ env:
     - GO111MODULE=on
     - GOPROXY=https://proxy.golang.org
 
-install:
-  - go mod tidy
-  - git diff --exit-code go.mod
-  - git diff --exit-code go.sum
-  - go mod download
-
-go_import_path: github.com/abronan/valkeyrie
+matrix:
+  fast_finish: true
+  include:
+    - go: 1.12.x
+    - go: 1.13.x
+      env: STABLE=true
+    - go: 1.x
+    - go: tip
+  allow_failures:
+    - go: tip
 
 before_install:
   - GO111MODULE=off go get golang.org/x/tools/cmd/cover
@@ -31,6 +31,12 @@ before_install:
   - GO111MODULE=off go get github.com/GeertJohan/fgt
   # ca-certificates is needed for wget to work properly
   - sudo apt-get install ca-certificates
+
+install:
+  - if [ "$STABLE" = true ]; then go mod tidy; fi
+  - if [ "$STABLE" = true ]; then git diff --exit-code go.mod; fi
+  - if [ "$STABLE" = true ]; then git diff --exit-code go.sum; fi
+  - go mod download
 
 before_script:
   - script/travis_consul.sh 1.1.0
