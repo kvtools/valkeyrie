@@ -1,7 +1,6 @@
 package redis
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 	"log"
@@ -36,21 +35,23 @@ func Register() {
 // New creates a new Redis client given a list
 // of endpoints and optional tls config
 func New(endpoints []string, options *store.Config) (store.Store, error) {
-	var password string
 	if len(endpoints) > 1 {
 		return nil, ErrMultipleEndpointsUnsupported
 	}
 	if options != nil && options.TLS != nil {
 		return nil, ErrTLSUnsupported
 	}
+
+	var password string
 	if options != nil && options.Password != "" {
 		password = options.Password
 	}
-	return newRedis(endpoints, password)
+
+	return newRedis(endpoints, password, &RawCodec{})
 }
 
-func newRedis(endpoints []string, password string) (*Redis, error) {
-	// TODO: use *redis.ClusterClient if we support miltiple endpoints
+func newRedis(endpoints []string, password string, codec Codec) (*Redis, error) {
+	// TODO: use *redis.ClusterClient if we support multiple endpoints
 	client := redis.NewClient(&redis.Options{
 		Addr:         endpoints[0],
 		DialTimeout:  5 * time.Second,
@@ -62,29 +63,23 @@ func newRedis(endpoints []string, password string) (*Redis, error) {
 	// Listen to Keyspace events
 	client.ConfigSet("notify-keyspace-events", "KEA")
 
+	var c Codec = &JSONCodec{}
+	if codec != nil {
+		c = codec
+	}
+
 	return &Redis{
 		client: client,
 		script: redis.NewScript(luaScript()),
-		codec:  defaultCodec{},
+		codec:  c,
 	}, nil
-}
-
-type defaultCodec struct{}
-
-func (c defaultCodec) encode(kv *store.KVPair) (string, error) {
-	b, err := json.Marshal(kv)
-	return string(b), err
-}
-
-func (c defaultCodec) decode(b string, kv *store.KVPair) error {
-	return json.Unmarshal([]byte(b), kv)
 }
 
 // Redis implements valkeyrie.Store interface with redis backend
 type Redis struct {
 	client *redis.Client
 	script *redis.Script
-	codec  defaultCodec
+	codec  Codec
 }
 
 const (
@@ -107,7 +102,7 @@ func (r *Redis) Put(key string, value []byte, options *store.WriteOptions) error
 }
 
 func (r *Redis) setTTL(key string, val *store.KVPair, ttl time.Duration) error {
-	valStr, err := r.codec.encode(val)
+	valStr, err := r.codec.Encode(val)
 	if err != nil {
 		return err
 	}
@@ -129,9 +124,14 @@ func (r *Redis) get(key string) (*store.KVPair, error) {
 		return nil, err
 	}
 	val := store.KVPair{}
-	if err := r.codec.decode(string(reply), &val); err != nil {
+	if err := r.codec.Decode(reply, &val); err != nil {
 		return nil, err
 	}
+
+	if val.Key == "" {
+		val.Key = key
+	}
+
 	return &val, nil
 }
 
@@ -505,7 +505,7 @@ func (r *Redis) mget(directory string, keys ...string) ([]*store.KVPair, error) 
 	}
 
 	pairs := []*store.KVPair{}
-	for _, reply := range replies {
+	for i, reply := range replies {
 		var sreply string
 		if _, ok := reply.(string); ok {
 			sreply = reply.(string)
@@ -515,12 +515,17 @@ func (r *Redis) mget(directory string, keys ...string) ([]*store.KVPair, error) 
 			continue
 		}
 
-		newkv := &store.KVPair{}
-		if err := r.codec.decode(sreply, newkv); err != nil {
+		pair := &store.KVPair{}
+		if err := r.codec.Decode([]byte(sreply), pair); err != nil {
 			return nil, err
 		}
-		if normalize(newkv.Key) != directory {
-			pairs = append(pairs, newkv)
+
+		if pair.Key == "" {
+			pair.Key = keys[i]
+		}
+
+		if normalize(pair.Key) != directory {
+			pairs = append(pairs, pair)
 		}
 	}
 	return pairs, nil
@@ -575,7 +580,7 @@ func (r *Redis) AtomicPut(key string, value []byte, previous *store.KVPair, opti
 }
 
 func (r *Redis) setNX(key string, val *store.KVPair, expirationAfter time.Duration) error {
-	valBlob, err := r.codec.encode(val)
+	valBlob, err := r.codec.Encode(val)
 	if err != nil {
 		return err
 	}
@@ -587,12 +592,12 @@ func (r *Redis) setNX(key string, val *store.KVPair, expirationAfter time.Durati
 }
 
 func (r *Redis) cas(key string, old, new *store.KVPair, secInStr string) error {
-	newVal, err := r.codec.encode(new)
+	newVal, err := r.codec.Encode(new)
 	if err != nil {
 		return err
 	}
 
-	oldVal, err := r.codec.encode(old)
+	oldVal, err := r.codec.Encode(old)
 	if err != nil {
 		return err
 	}
@@ -616,7 +621,7 @@ func (r *Redis) AtomicDelete(key string, previous *store.KVPair) (bool, error) {
 }
 
 func (r *Redis) cad(key string, old *store.KVPair) error {
-	oldVal, err := r.codec.encode(old)
+	oldVal, err := r.codec.Encode(old)
 	if err != nil {
 		return err
 	}
