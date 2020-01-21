@@ -653,7 +653,8 @@ func (r *Redis) runScript(args ...interface{}) error {
 }
 
 func normalize(key string) string {
-	return store.Normalize(key)
+	key = store.Normalize(key)
+	return strings.TrimPrefix(key, "/")
 }
 
 func formatSec(dur time.Duration) string {
