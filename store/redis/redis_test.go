@@ -14,7 +14,7 @@ var (
 )
 
 func makeRedisClient(t *testing.T) store.Store {
-	kv, err := newRedis([]string{client}, "")
+	kv, err := newRedis([]string{client}, "", nil)
 	if err != nil {
 		t.Fatalf("cannot create store: %v", err)
 	}
