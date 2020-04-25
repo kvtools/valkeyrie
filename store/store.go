@@ -123,6 +123,10 @@ type KVPair struct {
 type WriteOptions struct {
 	IsDir bool
 	TTL   time.Duration
+
+	// If true, the client will keep the lease alive in the background
+	// for stores that are allowing it.
+	KeepAlive bool
 }
 
 // ReadOptions contains optional request parameters
