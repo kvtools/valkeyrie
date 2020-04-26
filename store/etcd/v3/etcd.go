@@ -150,12 +150,23 @@ func (s *EtcdV3) Put(key string, value []byte, opts *store.WriteOptions) (err er
 
 	if opts != nil && opts.TTL > 0 {
 		lease := etcd.NewLease(s.client)
-		resp, err := lease.Grant(context.Background(), int64(opts.TTL/time.Second))
+		grant, err := lease.Grant(context.Background(), int64(opts.TTL/time.Second))
 		if err != nil {
 			cancel()
 			return err
 		}
-		pr.Then(etcd.OpPut(key, string(value), etcd.WithLease(resp.ID)))
+
+		if opts.KeepAlive {
+			// We do not consume the channel here. Client will keep
+			// renewing the lease in the background this way.
+			_, err = lease.KeepAlive(context.Background(), grant.ID)
+			if err != nil {
+				cancel()
+				return err
+			}
+		}
+
+		pr.Then(etcd.OpPut(key, string(value), etcd.WithLease(grant.ID)))
 	} else {
 		pr.Then(etcd.OpPut(key, string(value)))
 	}
