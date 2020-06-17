@@ -44,7 +44,13 @@ func New(endpoints []string, options *store.Config) (store.Store, error) {
 	}
 
 	// Connect to Zookeeper.
-	conn, _, err := zk.Connect(endpoints, s.timeout)
+	var conn *zk.Conn
+	var err error
+	if options != nil && options.MaxBufferSize > 0 {
+		conn, _, err = zk.Connect(endpoints, s.timeout, zk.WithMaxConnBufferSize(options.MaxBufferSize))
+	} else {
+		conn, _, err = zk.Connect(endpoints, s.timeout)
+	}
 	if err != nil {
 		return nil, err
 	}
