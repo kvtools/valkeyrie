@@ -40,6 +40,11 @@ func Register() {
 
 // New creates a new Redis client given a list  of endpoints and optional tls config.
 func New(endpoints []string, options *store.Config) (store.Store, error) {
+	return NewWithCodec(endpoints, options, &RawCodec{})
+}
+
+// NewWithCodec creates a new Redis client with codec config.
+func NewWithCodec(endpoints []string, options *store.Config, codec Codec) (store.Store, error) {
 	if len(endpoints) > 1 {
 		return nil, ErrMultipleEndpointsUnsupported
 	}
@@ -52,7 +57,7 @@ func New(endpoints []string, options *store.Config) (store.Store, error) {
 		password = options.Password
 	}
 
-	return newRedis(context.Background(), endpoints, password, &RawCodec{}), nil
+	return newRedis(context.Background(), endpoints, password, codec), nil
 }
 
 func newRedis(ctx context.Context, endpoints []string, password string, codec Codec) *Redis {
@@ -450,9 +455,14 @@ type pusher func(interface{})
 func watchLoop(msgCh chan *redis.Message, _ <-chan struct{}, get getter, push pusher) error {
 	// deliver the original data before we setup any events.
 	pair, err := get()
-	if err != nil {
+	if err != nil && !errors.Is(err, store.ErrKeyNotFound) {
 		return err
 	}
+
+	if errors.Is(err, store.ErrKeyNotFound) {
+		pair = &store.KVPair{}
+	}
+
 	push(pair)
 
 	for m := range msgCh {
@@ -463,11 +473,11 @@ func watchLoop(msgCh chan *redis.Message, _ <-chan struct{}, get getter, push pu
 		}
 
 		// in case of watching a key that has been expired or deleted return and empty KV.
-		if errors.Is(err, store.ErrKeyNotFound) && (m.Payload == "expire" || m.Payload == "del") {
-			push(&store.KVPair{})
-		} else {
-			push(pair)
+		if errors.Is(err, store.ErrKeyNotFound) && (m.Payload == "expired" || m.Payload == "del") {
+			pair = &store.KVPair{}
 		}
+
+		push(pair)
 	}
 
 	return nil
