@@ -56,7 +56,11 @@ func New(endpoints []string, options *store.Config) (store.Store, error) {
 		return nil, err
 	}
 	s.client = conn
-
+	if options != nil {
+		if options.Username != "" {
+			s.client.AddAuth("digest", []byte(options.Username+":"+options.Password))
+		}
+	}
 	return s, nil
 }
 
