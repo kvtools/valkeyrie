@@ -13,7 +13,7 @@ import (
 
 	"github.com/abronan/valkeyrie"
 	"github.com/abronan/valkeyrie/store"
-	etcd "go.etcd.io/etcd/client"
+	etcd "go.etcd.io/etcd/client/v2"
 )
 
 const (
