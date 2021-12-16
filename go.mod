@@ -7,9 +7,8 @@ require (
 	github.com/aws/aws-sdk-go v1.16.23
 	github.com/go-zookeeper/zk v1.0.2
 	github.com/google/btree v1.0.0 // indirect
-	github.com/hashicorp/consul/api v1.1.0
+	github.com/hashicorp/consul/api v1.12.0
 	github.com/hashicorp/go-msgpack v0.5.5 // indirect
-	github.com/hashicorp/memberlist v0.1.4 // indirect
 	github.com/miekg/dns v1.1.45 // indirect
 	github.com/onsi/ginkgo v1.8.0 // indirect
 	github.com/onsi/gomega v1.5.0 // indirect
