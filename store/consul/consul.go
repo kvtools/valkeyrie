@@ -8,9 +8,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/abronan/valkeyrie"
-	"github.com/abronan/valkeyrie/store"
 	"github.com/hashicorp/consul/api"
+	"github.com/kvtools/valkeyrie"
+	"github.com/kvtools/valkeyrie/store"
 )
 
 const (

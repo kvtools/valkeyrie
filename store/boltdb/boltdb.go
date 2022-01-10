@@ -10,8 +10,8 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/abronan/valkeyrie"
-	"github.com/abronan/valkeyrie/store"
+	"github.com/kvtools/valkeyrie"
+	"github.com/kvtools/valkeyrie/store"
 	"go.etcd.io/bbolt"
 )
 
@@ -27,7 +27,7 @@ const (
 	filePerm os.FileMode = 0644
 )
 
-//BoltDB type implements the Store interface
+// BoltDB type implements the Store interface
 type BoltDB struct {
 	client     *bbolt.DB
 	boltBucket []byte

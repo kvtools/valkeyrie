@@ -3,7 +3,7 @@ package redis
 import (
 	"encoding/json"
 
-	"github.com/abronan/valkeyrie/store"
+	"github.com/kvtools/valkeyrie/store"
 )
 
 // Codec KVPair persistence interface.

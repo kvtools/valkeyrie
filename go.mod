@@ -1,4 +1,4 @@
-module github.com/abronan/valkeyrie
+module github.com/kvtools/valkeyrie
 
 go 1.16
 

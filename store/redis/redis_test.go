@@ -3,9 +3,9 @@ package redis
 import (
 	"testing"
 
-	"github.com/abronan/valkeyrie"
-	"github.com/abronan/valkeyrie/store"
-	"github.com/abronan/valkeyrie/testutils"
+	"github.com/kvtools/valkeyrie"
+	"github.com/kvtools/valkeyrie/store"
+	"github.com/kvtools/valkeyrie/testutils"
 	"github.com/stretchr/testify/assert"
 )
 

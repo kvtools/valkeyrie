@@ -3,15 +3,15 @@ package dynamodb
 import (
 	"testing"
 
-	"github.com/abronan/valkeyrie"
-	"github.com/abronan/valkeyrie/store"
-	"github.com/abronan/valkeyrie/testutils"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/dynamodb"
 	"github.com/aws/aws-sdk-go/service/dynamodb/dynamodbiface"
+	"github.com/kvtools/valkeyrie"
+	"github.com/kvtools/valkeyrie/store"
+	"github.com/kvtools/valkeyrie/testutils"
 	"github.com/stretchr/testify/assert"
 )
 
