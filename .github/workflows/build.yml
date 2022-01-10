@@ -11,7 +11,7 @@ jobs:
     runs-on: ubuntu-20.04
     strategy:
       matrix:
-        go: [1, 1.13]
+        go: [1.16, 1.x]
 
     steps:
       - name: Set up Go ${{ matrix.go }}
