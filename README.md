@@ -1,7 +1,7 @@
 # valkeyrie
 
 [![GoDoc](https://godoc.org/github.com/abronan/valkeyrie?status.png)](https://godoc.org/github.com/abronan/valkeyrie)
-[![Build Status](https://travis-ci.org/abronan/valkeyrie.svg?branch=master)](https://travis-ci.org/abronan/valkeyrie)
+[![Build Status](https://github.com/abronan/valkeyrie/actions/workflows/build.yml/badge.svg)](https://github.com/abronan/valkeyrie/actions/workflows/build.yml)
 [![Coverage Status](https://coveralls.io/repos/abronan/valkeyrie/badge.svg)](https://coveralls.io/r/abronan/valkeyrie)
 [![Go Report Card](https://goreportcard.com/badge/github.com/abronan/valkeyrie)](https://goreportcard.com/report/github.com/abronan/valkeyrie)
 
