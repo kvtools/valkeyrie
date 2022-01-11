@@ -56,6 +56,7 @@ type Config struct {
 	Username          string
 	Password          string
 	Token             string
+	Namespace         string
 }
 
 // ClientTLSConfig contains data for a Client TLS configuration in the form
