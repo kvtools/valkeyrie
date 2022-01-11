@@ -71,7 +71,7 @@ func checkPairNotNil(t *testing.T, pair *store.KVPair) {
 
 func testPutGetDeleteExists(t *testing.T, kv store.Store) {
 	// Get a not exist key should return ErrKeyNotFound
-	pair, err := kv.Get("testPutGetDelete_not_exist_key", nil)
+	_, err := kv.Get("testPutGetDelete_not_exist_key", nil)
 	assert.Equal(t, store.ErrKeyNotFound, err)
 
 	value := []byte("bar")
@@ -87,7 +87,7 @@ func testPutGetDeleteExists(t *testing.T, kv store.Store) {
 		assert.NoError(t, err)
 
 		// Get should return the value and an incremented index
-		pair, err = kv.Get(key, nil)
+		pair, err := kv.Get(key, nil)
 		assert.NoError(t, err)
 		checkPairNotNil(t, pair)
 		assert.Equal(t, pair.Value, value)
