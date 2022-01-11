@@ -152,7 +152,7 @@ func (s *Zookeeper) Exists(key string, opts *store.ReadOptions) (bool, error) {
 	return exists, nil
 }
 
-// Watch for changes on a "key"
+// Watch for changes on a "key".
 // It returns a channel that will receive changes or pass
 // on errors. Upon creation, the current value will first
 // be sent to the channel. Providing a non-nil stopCh can
@@ -192,10 +192,10 @@ func (s *Zookeeper) Watch(key string, stopCh <-chan struct{}, opts *store.ReadOp
 	return watchCh, nil
 }
 
-// WatchTree watches for changes on a "directory"
+// WatchTree watches for changes on a "directory".
 // It returns a channel that will receive changes or pass
 // on errors. Upon creating a watch, the current childs values
-// will be sent to the channel .Providing a non-nil stopCh can
+// will be sent to the channel. Providing a non-nil stopCh can
 // be used to stop watching.
 func (s *Zookeeper) WatchTree(directory string, stopCh <-chan struct{}, opts *store.ReadOptions) (<-chan []*store.KVPair, error) {
 	// Catch zk notifications and fire changes into the channel.
