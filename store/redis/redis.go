@@ -46,10 +46,10 @@ func New(endpoints []string, options *store.Config) (store.Store, error) {
 		password = options.Password
 	}
 
-	return newRedis(endpoints, password, &RawCodec{})
+	return newRedis(endpoints, password, &RawCodec{}), nil
 }
 
-func newRedis(endpoints []string, password string, codec Codec) (*Redis, error) {
+func newRedis(endpoints []string, password string, codec Codec) *Redis {
 	// TODO: use *redis.ClusterClient if we support multiple endpoints
 	client := redis.NewClient(&redis.Options{
 		Addr:         endpoints[0],
@@ -71,7 +71,7 @@ func newRedis(endpoints []string, password string, codec Codec) (*Redis, error) 
 		client: client,
 		script: redis.NewScript(luaScript()),
 		codec:  c,
-	}, nil
+	}
 }
 
 // Redis implements valkeyrie.Store interface with redis backend.

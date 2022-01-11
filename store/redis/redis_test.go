@@ -7,7 +7,6 @@ import (
 	"github.com/kvtools/valkeyrie/store"
 	"github.com/kvtools/valkeyrie/testutils"
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
 const client = "localhost:6379"
@@ -15,8 +14,7 @@ const client = "localhost:6379"
 func makeRedisClient(t *testing.T) store.Store {
 	t.Helper()
 
-	kv, err := newRedis([]string{client}, "", nil)
-	require.NoErrorf(t, err, "cannot create store")
+	kv := newRedis([]string{client}, "", nil)
 
 	// NOTE: please turn on redis's notification
 	// before you using watch/watchtree/lock related features

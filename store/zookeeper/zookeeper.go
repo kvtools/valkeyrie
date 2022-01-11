@@ -586,7 +586,7 @@ func (s *Zookeeper) getListWithPath(path string, keys []string, opts *store.Read
 //
 // This is generally used when we have a full list of keys with
 // their full path included.
-func (s *Zookeeper) getList(keys []string, opts *store.ReadOptions) ([]*store.KVPair, error) {
+func (s *Zookeeper) getList(keys []string, _ *store.ReadOptions) ([]*store.KVPair, error) {
 	kvs := []*store.KVPair{}
 
 	for _, key := range keys {

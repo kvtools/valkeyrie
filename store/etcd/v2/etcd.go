@@ -599,7 +599,7 @@ func (l *etcdLock) holdLock(key string, lockHeld chan struct{}, stopLocking <-ch
 }
 
 // WaitLock simply waits for the key to be available for creation.
-func (l *etcdLock) waitLock(key string, errorCh chan error, stopWatchCh chan bool, free chan<- bool) {
+func (l *etcdLock) waitLock(key string, errorCh chan error, _ chan bool, free chan<- bool) {
 	opts := &etcd.WatcherOptions{Recursive: false}
 	watcher := l.client.Watcher(key, opts)
 
