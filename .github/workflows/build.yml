@@ -21,9 +21,6 @@ jobs:
       - name: Check out code
         uses: actions/checkout@v2
 
-      - name: Install Test tools
-        run: sudo apt-get install ca-certificates
-
       - name: Cache Go modules
         uses: actions/cache@v2
         with:
@@ -42,24 +39,19 @@ jobs:
       - name: Install golangci-lint ${{ env.GOLANGCI_LINT_VERSION }}
         run: curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(go env GOPATH)/bin ${GOLANGCI_LINT_VERSION}
 
+      - name: Install Compose
+        uses: ndeloof/install-compose-action@v0.0.1
+        with:
+          legacy: true
+
       - name: Install golangci-lint
-        run: golangci-lint run
-
-      - name: Install stores
-        run: |
-          script/install_consul.sh 1.1.0
-          script/install_dynamodb_local.sh
-          script/install_etcd.sh 3.3.8
-          script/install_zk.sh 3.4.14
-          script/install_redis.sh 4.0.10
-
-      - name: Run stores
-        run: |
-          ./consul agent -server -bootstrap -advertise=127.0.0.1 -data-dir /tmp/consul -config-file=./config.json 1>/dev/null &
-          ./etcd/etcd --listen-client-urls 'http://0.0.0.0:4001' --advertise-client-urls 'http://127.0.0.1:4001' >/dev/null 2>&1 &
-          ./zk/bin/zkServer.sh start ./zk/conf/zoo.cfg 1> /dev/null
-          ./redis/src/redis-server &
-          java -Djava.library.path=./DynamoDBLocal_lib -jar DynamoDBLocal.jar -inMemory &
+        run: make validate
 
       - name: Run tests
-        run: go test -v -race ./...
+        run: make test
+        env:
+          TEST_ARGS: "--count=1" # disable go test cache
+
+      - name: Display docker-compose logs
+        if: failure()
+        run: docker-compose -f script/docker-compose.yml logs
