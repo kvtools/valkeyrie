@@ -172,7 +172,7 @@ func (r *Redis) Watch(key string, stopCh <-chan struct{}, opts *store.ReadOption
 	}
 
 	go func(sub *subscribe, stopCh <-chan struct{}, get getter, push pusher) {
-		defer sub.Close()
+		defer func() { _ = sub.Close() }()
 
 		msgCh := sub.Receive(stopCh)
 		if err := watchLoop(msgCh, stopCh, get, push); err != nil {
@@ -303,7 +303,7 @@ func (r *Redis) WatchTree(directory string, stopCh <-chan struct{}, opts *store.
 	}
 
 	go func(sub *subscribe, stopCh <-chan struct{}, get getter, push pusher) {
-		defer sub.Close()
+		defer func() { _ = sub.Close() }()
 
 		msgCh := sub.Receive(stopCh)
 		if err := watchLoop(msgCh, stopCh, get, push); err != nil {

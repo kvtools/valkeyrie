@@ -121,7 +121,7 @@ func (b *BoltDB) getDBhandle() (*bbolt.DB, error) {
 
 func (b *BoltDB) releaseDBhandle() {
 	if !b.PersistConnection {
-		b.client.Close()
+		_ = b.client.Close()
 	}
 }
 
@@ -423,7 +423,7 @@ func (b *BoltDB) Close() {
 	if !b.PersistConnection {
 		b.reset()
 	} else {
-		b.client.Close()
+		_ = b.client.Close()
 	}
 }
 

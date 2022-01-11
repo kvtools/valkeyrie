@@ -219,8 +219,10 @@ func (s *EtcdV3) Watch(key string, stopCh <-chan struct{}, opts *store.ReadOptio
 	}
 
 	go func() {
-		defer wc.Close()
-		defer close(respCh)
+		defer func() {
+			_ = wc.Close()
+			close(respCh)
+		}()
 
 		// Push the current value through the channel.
 		respCh <- pair
@@ -266,8 +268,10 @@ func (s *EtcdV3) WatchTree(directory string, stopCh <-chan struct{}, opts *store
 	}
 
 	go func() {
-		defer wc.Close()
-		defer close(respCh)
+		defer func() {
+			_ = wc.Close()
+			close(respCh)
+		}()
 
 		// Push the current value through the channel.
 		respCh <- pairs
@@ -503,7 +507,7 @@ func (l *etcdLock) Unlock() error {
 
 	ctx := context.Background()
 	if l.deleteOnUnlock {
-		l.store.client.Delete(ctx, l.writeKey)
+		_, _ = l.store.client.Delete(ctx, l.writeKey)
 	}
 	return l.mutex.Unlock(ctx)
 }
