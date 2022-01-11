@@ -13,6 +13,7 @@ import (
 	"github.com/kvtools/valkeyrie/store"
 	"github.com/kvtools/valkeyrie/testutils"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 const TestTableName = "test-1-valkeyrie"
@@ -37,7 +38,7 @@ func TestSetup(t *testing.T) {
 	ddb := newDynamoDBStore(t)
 	// ensure this is idempotent
 	err := ddb.createTable()
-	assert.Nil(t, err)
+	require.NoError(t, err)
 }
 
 func TestDynamoDBStore(t *testing.T) {
@@ -162,6 +163,8 @@ func newDynamoDB() *dynamodb.DynamoDB {
 }
 
 func newDynamoDBStore(t *testing.T) *DynamoDB {
+	t.Helper()
+
 	ddb := newDynamoDB()
 
 	ddbStore := &DynamoDB{
@@ -170,9 +173,9 @@ func newDynamoDBStore(t *testing.T) *DynamoDB {
 	}
 
 	err := deleteTable(ddb, TestTableName)
-	assert.Nil(t, err)
+	require.NoError(t, err)
 	err = ddbStore.createTable()
-	assert.Nil(t, err)
+	require.NoError(t, err)
 
 	return ddbStore
 }

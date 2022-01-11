@@ -9,13 +9,14 @@ import (
 	"github.com/kvtools/valkeyrie/store"
 	"github.com/kvtools/valkeyrie/testutils"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func makeBoltDBClient(t *testing.T) store.Store {
+	t.Helper()
+
 	kv, err := New([]string{"/tmp/not_exist_dir/__boltdbtest"}, &store.Config{Bucket: "boltDBTest"})
-	if err != nil {
-		t.Fatalf("cannot create store: %v", err)
-	}
+	require.NoErrorf(t, err, "cannot create store")
 
 	return kv
 }

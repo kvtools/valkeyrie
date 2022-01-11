@@ -14,15 +14,15 @@ import (
 const client = "localhost:8500"
 
 func makeConsulClient(t *testing.T) store.Store {
+	t.Helper()
+
 	kv, err := New(
 		[]string{client},
 		&store.Config{
 			ConnectionTimeout: 3 * time.Second,
 		},
 	)
-	if err != nil {
-		t.Fatalf("cannot create store: %v", err)
-	}
+	require.NoErrorf(t, err, "cannot create store")
 
 	return kv
 }

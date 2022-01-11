@@ -15,6 +15,8 @@ import (
 // RunTestCommon tests the minimal required APIs which
 // should be supported by all K/V backends.
 func RunTestCommon(t *testing.T, kv store.Store) {
+	t.Helper()
+
 	testPutGetDeleteExists(t, kv)
 	testList(t, kv)
 	testDeleteTree(t, kv)
@@ -23,12 +25,16 @@ func RunTestCommon(t *testing.T, kv store.Store) {
 // RunTestListLock tests the list output for mutexes
 // and checks that internal side keys are not listed.
 func RunTestListLock(t *testing.T, kv store.Store) {
+	t.Helper()
+
 	testListLockKey(t, kv)
 }
 
 // RunTestAtomic tests the Atomic operations by the K/V
 // backends.
 func RunTestAtomic(t *testing.T, kv store.Store) {
+	t.Helper()
+
 	testAtomicPut(t, kv)
 	testAtomicPutCreate(t, kv)
 	testAtomicPutWithSlashSuffixKey(t, kv)
@@ -38,6 +44,8 @@ func RunTestAtomic(t *testing.T, kv store.Store) {
 // RunTestWatch tests the watch/monitor APIs supported
 // by the K/V backends.
 func RunTestWatch(t *testing.T, kv store.Store) {
+	t.Helper()
+
 	testWatch(t, kv)
 	testWatchTree(t, kv)
 }
@@ -45,21 +53,29 @@ func RunTestWatch(t *testing.T, kv store.Store) {
 // RunTestLock tests the KV pair Lock/Unlock APIs supported
 // by the K/V backends.
 func RunTestLock(t *testing.T, kv store.Store) {
+	t.Helper()
+
 	testLockUnlock(t, kv)
 }
 
 // RunTestLockTTL tests the KV pair Lock with TTL APIs supported
 // by the K/V backends.
 func RunTestLockTTL(t *testing.T, kv store.Store, backup store.Store) {
+	t.Helper()
+
 	testLockTTL(t, kv, backup)
 }
 
 // RunTestTTL tests the TTL functionality of the K/V backend.
 func RunTestTTL(t *testing.T, kv store.Store, backup store.Store) {
+	t.Helper()
+
 	testPutTTL(t, kv, backup)
 }
 
 func checkPairNotNil(t *testing.T, pair *store.KVPair) {
+	t.Helper()
+
 	if assert.NotNil(t, pair) {
 		if !assert.NotNil(t, pair.Value) {
 			t.Fatal("test failure, value is nil")
@@ -70,6 +86,8 @@ func checkPairNotNil(t *testing.T, pair *store.KVPair) {
 }
 
 func testPutGetDeleteExists(t *testing.T, kv store.Store) {
+	t.Helper()
+
 	// Get a not exist key should return ErrKeyNotFound
 	_, err := kv.Get("testPutGetDelete_not_exist_key", nil)
 	assert.Equal(t, store.ErrKeyNotFound, err)
@@ -116,6 +134,8 @@ func testPutGetDeleteExists(t *testing.T, kv store.Store) {
 }
 
 func testWatch(t *testing.T, kv store.Store) {
+	t.Helper()
+
 	key := "testWatch"
 	value := []byte("world")
 	newValue := []byte("world!")
@@ -173,6 +193,8 @@ func testWatch(t *testing.T, kv store.Store) {
 }
 
 func testWatchTree(t *testing.T, kv store.Store) {
+	t.Helper()
+
 	dir := "testWatchTree"
 
 	node1 := "testWatchTree/node1"
@@ -229,6 +251,8 @@ func testWatchTree(t *testing.T, kv store.Store) {
 }
 
 func testAtomicPut(t *testing.T, kv store.Store) {
+	t.Helper()
+
 	key := "testAtomicPut"
 	value := []byte("world")
 
@@ -261,6 +285,8 @@ func testAtomicPut(t *testing.T, kv store.Store) {
 }
 
 func testAtomicPutCreate(t *testing.T, kv store.Store) {
+	t.Helper()
+
 	// Use a key in a new directory to ensure Stores will create directories
 	// that don't yet exist.
 	key := "testAtomicPutCreate/create"
@@ -289,13 +315,17 @@ func testAtomicPutCreate(t *testing.T, kv store.Store) {
 }
 
 func testAtomicPutWithSlashSuffixKey(t *testing.T, kv store.Store) {
+	t.Helper()
+
 	k1 := "testAtomicPutWithSlashSuffixKey/key/"
 	success, _, err := kv.AtomicPut(k1, []byte{}, nil, nil)
-	assert.Nil(t, err)
+	require.NoError(t, err)
 	assert.True(t, success)
 }
 
 func testAtomicDelete(t *testing.T, kv store.Store) {
+	t.Helper()
+
 	key := "testAtomicDelete"
 	value := []byte("world")
 
@@ -331,6 +361,8 @@ func testAtomicDelete(t *testing.T, kv store.Store) {
 }
 
 func testLockUnlock(t *testing.T, kv store.Store) {
+	t.Helper()
+
 	key := "testLockUnlock"
 	value := []byte("bar")
 
@@ -376,6 +408,8 @@ func testLockUnlock(t *testing.T, kv store.Store) {
 }
 
 func testLockTTL(t *testing.T, kv store.Store, otherConn store.Store) {
+	t.Helper()
+
 	key := "testLockTTL"
 	value := []byte("bar")
 
@@ -473,6 +507,8 @@ func testLockTTL(t *testing.T, kv store.Store, otherConn store.Store) {
 }
 
 func testPutTTL(t *testing.T, kv store.Store, otherConn store.Store) {
+	t.Helper()
+
 	firstKey := "testPutTTL"
 	firstValue := []byte("foo")
 
@@ -515,6 +551,8 @@ func testPutTTL(t *testing.T, kv store.Store, otherConn store.Store) {
 }
 
 func testList(t *testing.T, kv store.Store) {
+	t.Helper()
+
 	parentKey := "testList"
 	childKey := "testList/child"
 	subfolderKey := "testList/subfolder"
@@ -568,6 +606,8 @@ func testList(t *testing.T, kv store.Store) {
 }
 
 func testListLockKey(t *testing.T, kv store.Store) {
+	t.Helper()
+
 	listKey := "testListLockSide"
 
 	err := kv.Put(listKey, []byte("val"), &store.WriteOptions{IsDir: true})
@@ -607,6 +647,8 @@ func testListLockKey(t *testing.T, kv store.Store) {
 }
 
 func testDeleteTree(t *testing.T, kv store.Store) {
+	t.Helper()
+
 	prefix := "testDeleteTree"
 
 	firstKey := "testDeleteTree/first"
@@ -653,6 +695,8 @@ func testDeleteTree(t *testing.T, kv store.Store) {
 
 // RunCleanup cleans up keys introduced by the tests.
 func RunCleanup(t *testing.T, kv store.Store) {
+	t.Helper()
+
 	for _, key := range []string{
 		"testAtomicPutWithSlashSuffixKey",
 		"testPutGetDeleteExists",
