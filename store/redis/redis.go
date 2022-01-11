@@ -13,6 +13,11 @@ import (
 	"gopkg.in/redis.v5"
 )
 
+const (
+	noExpiration   = time.Duration(0)
+	defaultLockTTL = 60 * time.Second
+)
+
 var (
 	// ErrMultipleEndpointsUnsupported is thrown when there are
 	// multiple endpoints specified for Redis.
@@ -81,11 +86,6 @@ type Redis struct {
 	script *redis.Script
 	codec  Codec
 }
-
-const (
-	noExpiration   = time.Duration(0)
-	defaultLockTTL = 60 * time.Second
-)
 
 // Put a value at the specified key.
 func (r *Redis) Put(key string, value []byte, options *store.WriteOptions) error {
@@ -183,98 +183,6 @@ func (r *Redis) Watch(key string, stopCh <-chan struct{}, opts *store.ReadOption
 	return watchCh, nil
 }
 
-func regexWatch(key string, withChildren bool) string {
-	var regex string
-	if withChildren {
-		regex = fmt.Sprintf("__keyspace*:%s*", key)
-		// for all database and keys with $key prefix
-	} else {
-		regex = fmt.Sprintf("__keyspace*:%s", key)
-		// for all database and keys with $key
-	}
-	return regex
-}
-
-// getter defines a func type which retrieves data from remote storage.
-type getter func() (interface{}, error)
-
-// pusher defines a func type which pushes data blob into watch channel.
-type pusher func(interface{})
-
-func watchLoop(msgCh chan *redis.Message, _ <-chan struct{}, get getter, push pusher) error {
-	// deliver the original data before we setup any events
-	pair, err := get()
-	if err != nil {
-		return err
-	}
-	push(pair)
-
-	for m := range msgCh {
-		// retrieve and send back
-		pair, err := get()
-		if err != nil && !errors.Is(err, store.ErrKeyNotFound) {
-			return err
-		}
-
-		// in case of watching a key that has been expired or deleted return and empty KV
-		if errors.Is(err, store.ErrKeyNotFound) && (m.Payload == "expire" || m.Payload == "del") {
-			push(&store.KVPair{})
-		} else {
-			push(pair)
-		}
-	}
-
-	return nil
-}
-
-type subscribe struct {
-	pubsub  *redis.PubSub
-	closeCh chan struct{}
-}
-
-func newSubscribe(client *redis.Client, regex string) (*subscribe, error) {
-	ch, err := client.PSubscribe(regex)
-	if err != nil {
-		return nil, err
-	}
-	return &subscribe{
-		pubsub:  ch,
-		closeCh: make(chan struct{}),
-	}, nil
-}
-
-func (s *subscribe) Close() error {
-	close(s.closeCh)
-	return s.pubsub.Close()
-}
-
-func (s *subscribe) Receive(stopCh <-chan struct{}) chan *redis.Message {
-	msgCh := make(chan *redis.Message)
-	go s.receiveLoop(msgCh, stopCh)
-	return msgCh
-}
-
-func (s *subscribe) receiveLoop(msgCh chan *redis.Message, stopCh <-chan struct{}) {
-	defer close(msgCh)
-
-	for {
-		select {
-		case <-s.closeCh:
-			return
-		case <-stopCh:
-			return
-		default:
-			msg, err := s.pubsub.ReceiveMessage()
-			if err != nil {
-				return
-			}
-			if msg != nil {
-				msgCh <- msg
-			}
-		}
-	}
-}
-
 // WatchTree watches for changes on child nodes under
 // a given directory.
 func (r *Redis) WatchTree(directory string, stopCh <-chan struct{}, opts *store.ReadOptions) (<-chan []*store.KVPair, error) {
@@ -337,118 +245,6 @@ func (r *Redis) NewLock(key string, options *store.LockOptions) (store.Locker, e
 		ttl:      ttl,
 		unlockCh: make(chan struct{}),
 	}, nil
-}
-
-type redisLock struct {
-	redis    *Redis
-	last     *store.KVPair
-	unlockCh chan struct{}
-
-	key   string
-	value []byte
-	ttl   time.Duration
-}
-
-func (l *redisLock) Lock(stopCh chan struct{}) (<-chan struct{}, error) {
-	lockHeld := make(chan struct{})
-
-	success, err := l.tryLock(lockHeld, stopCh)
-	if err != nil {
-		return nil, err
-	}
-	if success {
-		return lockHeld, nil
-	}
-
-	// wait for changes on the key
-	watch, err := l.redis.Watch(l.key, stopCh, nil)
-	if err != nil {
-		return nil, err
-	}
-
-	for {
-		select {
-		case <-stopCh:
-			return nil, ErrAbortTryLock
-		case <-watch:
-			success, err := l.tryLock(lockHeld, stopCh)
-			if err != nil {
-				return nil, err
-			}
-			if success {
-				return lockHeld, nil
-			}
-		}
-	}
-}
-
-// tryLock return true, nil when it acquired and hold the lock
-// and return false, nil when it can't lock now,
-// and return false, err if any unespected error happened underlying.
-func (l *redisLock) tryLock(lockHeld, stopChan chan struct{}) (bool, error) {
-	success, item, err := l.redis.AtomicPut(
-		l.key,
-		l.value,
-		l.last,
-		&store.WriteOptions{
-			TTL: l.ttl,
-		})
-	if success {
-		l.last = item
-		// keep holding
-		go l.holdLock(lockHeld, stopChan)
-		return true, nil
-	}
-	if errors.Is(err, store.ErrKeyNotFound) || errors.Is(err, store.ErrKeyModified) || errors.Is(err, store.ErrKeyExists) {
-		return false, nil
-	}
-	return false, err
-}
-
-func (l *redisLock) holdLock(lockHeld, stopChan chan struct{}) {
-	defer close(lockHeld)
-
-	hold := func() error {
-		_, item, err := l.redis.AtomicPut(
-			l.key,
-			l.value,
-			l.last,
-			&store.WriteOptions{
-				TTL: l.ttl,
-			})
-		if err == nil {
-			l.last = item
-		}
-		return err
-	}
-
-	heartbeat := time.NewTicker(l.ttl / 3)
-	defer heartbeat.Stop()
-
-	for {
-		select {
-		case <-heartbeat.C:
-			if err := hold(); err != nil {
-				return
-			}
-		case <-l.unlockCh:
-			return
-		case <-stopChan:
-			return
-		}
-	}
-}
-
-func (l *redisLock) Unlock() error {
-	l.unlockCh <- struct{}{}
-
-	_, err := l.redis.AtomicDelete(l.key, l.last)
-	if err != nil {
-		return err
-	}
-	l.last = nil
-
-	return err
 }
 
 // List the content of a given prefix.
@@ -636,10 +432,6 @@ func (r *Redis) Close() {
 	_ = r.client.Close()
 }
 
-func scanRegex(directory string) string {
-	return fmt.Sprintf("%s*", directory)
-}
-
 func (r *Redis) runScript(args ...interface{}) error {
 	err := r.script.Run(
 		r.client,
@@ -653,6 +445,214 @@ func (r *Redis) runScript(args ...interface{}) error {
 		return store.ErrKeyModified
 	}
 	return err
+}
+
+func regexWatch(key string, withChildren bool) string {
+	var regex string
+	if withChildren {
+		regex = fmt.Sprintf("__keyspace*:%s*", key)
+		// for all database and keys with $key prefix
+	} else {
+		regex = fmt.Sprintf("__keyspace*:%s", key)
+		// for all database and keys with $key
+	}
+	return regex
+}
+
+// getter defines a func type which retrieves data from remote storage.
+type getter func() (interface{}, error)
+
+// pusher defines a func type which pushes data blob into watch channel.
+type pusher func(interface{})
+
+func watchLoop(msgCh chan *redis.Message, _ <-chan struct{}, get getter, push pusher) error {
+	// deliver the original data before we setup any events
+	pair, err := get()
+	if err != nil {
+		return err
+	}
+	push(pair)
+
+	for m := range msgCh {
+		// retrieve and send back
+		pair, err := get()
+		if err != nil && !errors.Is(err, store.ErrKeyNotFound) {
+			return err
+		}
+
+		// in case of watching a key that has been expired or deleted return and empty KV
+		if errors.Is(err, store.ErrKeyNotFound) && (m.Payload == "expire" || m.Payload == "del") {
+			push(&store.KVPair{})
+		} else {
+			push(pair)
+		}
+	}
+
+	return nil
+}
+
+type subscribe struct {
+	pubsub  *redis.PubSub
+	closeCh chan struct{}
+}
+
+func newSubscribe(client *redis.Client, regex string) (*subscribe, error) {
+	ch, err := client.PSubscribe(regex)
+	if err != nil {
+		return nil, err
+	}
+	return &subscribe{
+		pubsub:  ch,
+		closeCh: make(chan struct{}),
+	}, nil
+}
+
+func (s *subscribe) Close() error {
+	close(s.closeCh)
+	return s.pubsub.Close()
+}
+
+func (s *subscribe) Receive(stopCh <-chan struct{}) chan *redis.Message {
+	msgCh := make(chan *redis.Message)
+	go s.receiveLoop(msgCh, stopCh)
+	return msgCh
+}
+
+func (s *subscribe) receiveLoop(msgCh chan *redis.Message, stopCh <-chan struct{}) {
+	defer close(msgCh)
+
+	for {
+		select {
+		case <-s.closeCh:
+			return
+		case <-stopCh:
+			return
+		default:
+			msg, err := s.pubsub.ReceiveMessage()
+			if err != nil {
+				return
+			}
+			if msg != nil {
+				msgCh <- msg
+			}
+		}
+	}
+}
+
+type redisLock struct {
+	redis    *Redis
+	last     *store.KVPair
+	unlockCh chan struct{}
+
+	key   string
+	value []byte
+	ttl   time.Duration
+}
+
+func (l *redisLock) Lock(stopCh chan struct{}) (<-chan struct{}, error) {
+	lockHeld := make(chan struct{})
+
+	success, err := l.tryLock(lockHeld, stopCh)
+	if err != nil {
+		return nil, err
+	}
+	if success {
+		return lockHeld, nil
+	}
+
+	// wait for changes on the key
+	watch, err := l.redis.Watch(l.key, stopCh, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	for {
+		select {
+		case <-stopCh:
+			return nil, ErrAbortTryLock
+		case <-watch:
+			success, err := l.tryLock(lockHeld, stopCh)
+			if err != nil {
+				return nil, err
+			}
+			if success {
+				return lockHeld, nil
+			}
+		}
+	}
+}
+
+// tryLock return true, nil when it acquired and hold the lock
+// and return false, nil when it can't lock now,
+// and return false, err if any unespected error happened underlying.
+func (l *redisLock) tryLock(lockHeld, stopChan chan struct{}) (bool, error) {
+	success, item, err := l.redis.AtomicPut(
+		l.key,
+		l.value,
+		l.last,
+		&store.WriteOptions{
+			TTL: l.ttl,
+		})
+	if success {
+		l.last = item
+		// keep holding
+		go l.holdLock(lockHeld, stopChan)
+		return true, nil
+	}
+	if errors.Is(err, store.ErrKeyNotFound) || errors.Is(err, store.ErrKeyModified) || errors.Is(err, store.ErrKeyExists) {
+		return false, nil
+	}
+	return false, err
+}
+
+func (l *redisLock) holdLock(lockHeld, stopChan chan struct{}) {
+	defer close(lockHeld)
+
+	hold := func() error {
+		_, item, err := l.redis.AtomicPut(
+			l.key,
+			l.value,
+			l.last,
+			&store.WriteOptions{
+				TTL: l.ttl,
+			})
+		if err == nil {
+			l.last = item
+		}
+		return err
+	}
+
+	heartbeat := time.NewTicker(l.ttl / 3)
+	defer heartbeat.Stop()
+
+	for {
+		select {
+		case <-heartbeat.C:
+			if err := hold(); err != nil {
+				return
+			}
+		case <-l.unlockCh:
+			return
+		case <-stopChan:
+			return
+		}
+	}
+}
+
+func (l *redisLock) Unlock() error {
+	l.unlockCh <- struct{}{}
+
+	_, err := l.redis.AtomicDelete(l.key, l.last)
+	if err != nil {
+		return err
+	}
+	l.last = nil
+
+	return err
+}
+
+func scanRegex(directory string) string {
+	return fmt.Sprintf("%s*", directory)
 }
 
 func normalize(key string) string {

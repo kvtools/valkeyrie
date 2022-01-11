@@ -20,23 +20,16 @@ const (
 	syncRetryLimit = 5
 )
 
+// Register registers zookeeper to valkeyrie.
+func Register() {
+	valkeyrie.AddStore(store.ZK, New)
+}
+
 // Zookeeper is the receiver type for
 // the Store interface.
 type Zookeeper struct {
 	timeout time.Duration
 	client  *zk.Conn
-}
-
-type zookeeperLock struct {
-	client *zk.Conn
-	lock   *zk.Lock
-	key    string
-	value  []byte
-}
-
-// Register registers zookeeper to valkeyrie.
-func Register() {
-	valkeyrie.AddStore(store.ZK, New)
 }
 
 // New creates a new Zookeeper client given a
@@ -432,30 +425,6 @@ func (s *Zookeeper) NewLock(key string, options *store.LockOptions) (lock store.
 	return lock, err
 }
 
-// Lock attempts to acquire the lock and blocks while
-// doing so. It returns a channel that is closed if our
-// lock is lost or if an error occurs.
-func (l *zookeeperLock) Lock(stopChan chan struct{}) (<-chan struct{}, error) {
-	err := l.lock.Lock()
-
-	lostCh := make(chan struct{})
-	if err == nil {
-		// We hold the lock, we can set our value
-		_, err = l.client.Set(l.key, l.value, -1)
-		if err == nil {
-			go l.monitorLock(stopChan, lostCh)
-		}
-	}
-
-	return lostCh, err
-}
-
-// Unlock the "key". Calling unlock while
-// not holding the lock will throw an error.
-func (l *zookeeperLock) Unlock() error {
-	return l.lock.Unlock()
-}
-
 // Close closes the client connection.
 func (s *Zookeeper) Close() {
 	s.client.Close()
@@ -465,34 +434,6 @@ func (s *Zookeeper) Close() {
 func (s *Zookeeper) normalize(key string) string {
 	key = store.Normalize(key)
 	return strings.TrimSuffix(key, "/")
-}
-
-func (l *zookeeperLock) monitorLock(stopCh <-chan struct{}, lostCh chan struct{}) {
-	defer close(lostCh)
-
-	for {
-		_, _, eventCh, err := l.client.GetW(l.key)
-		if err != nil {
-			// We failed to set watch, relinquish the lock
-			return
-		}
-		select {
-		case e := <-eventCh:
-			if e.Type == zk.EventNotWatching ||
-				(e.Type == zk.EventSession && e.State == zk.StateExpired) {
-				// Either the session has been closed and our watch has been
-				// invalidated or the session has expired.
-				return
-			} else if e.Type == zk.EventNodeDataChanged {
-				// Somemone else has written to the lock node and believes
-				// that they have the lock.
-				return
-			}
-		case <-stopCh:
-			// The caller has requested that we relinquish our lock
-			return
-		}
-	}
 }
 
 func (s *Zookeeper) get(key string) ([]byte, *zk.Stat, error) {
@@ -605,4 +546,63 @@ func (s *Zookeeper) getList(keys []string, _ *store.ReadOptions) ([]*store.KVPai
 	}
 
 	return kvs, nil
+}
+
+type zookeeperLock struct {
+	client *zk.Conn
+	lock   *zk.Lock
+	key    string
+	value  []byte
+}
+
+// Lock attempts to acquire the lock and blocks while
+// doing so. It returns a channel that is closed if our
+// lock is lost or if an error occurs.
+func (l *zookeeperLock) Lock(stopChan chan struct{}) (<-chan struct{}, error) {
+	err := l.lock.Lock()
+
+	lostCh := make(chan struct{})
+	if err == nil {
+		// We hold the lock, we can set our value
+		_, err = l.client.Set(l.key, l.value, -1)
+		if err == nil {
+			go l.monitorLock(stopChan, lostCh)
+		}
+	}
+
+	return lostCh, err
+}
+
+// Unlock the "key". Calling unlock while
+// not holding the lock will throw an error.
+func (l *zookeeperLock) Unlock() error {
+	return l.lock.Unlock()
+}
+
+func (l *zookeeperLock) monitorLock(stopCh <-chan struct{}, lostCh chan struct{}) {
+	defer close(lostCh)
+
+	for {
+		_, _, eventCh, err := l.client.GetW(l.key)
+		if err != nil {
+			// We failed to set watch, relinquish the lock
+			return
+		}
+		select {
+		case e := <-eventCh:
+			if e.Type == zk.EventNotWatching ||
+				(e.Type == zk.EventSession && e.State == zk.StateExpired) {
+				// Either the session has been closed and our watch has been
+				// invalidated or the session has expired.
+				return
+			} else if e.Type == zk.EventNodeDataChanged {
+				// Somemone else has written to the lock node and believes
+				// that they have the lock.
+				return
+			}
+		case <-stopCh:
+			// The caller has requested that we relinquish our lock
+			return
+		}
+	}
 }

@@ -18,7 +18,8 @@ import (
 )
 
 const (
-	lockSuffix = "___lock"
+	lockSuffix     = "___lock"
+	defaultLockTTL = 20 * time.Second
 )
 
 // ErrAbortTryLock is thrown when a user stops trying to seek the lock
@@ -26,31 +27,15 @@ const (
 // operation succeeded.
 var ErrAbortTryLock = errors.New("lock operation aborted")
 
+// Register registers etcd to valkeyrie.
+func Register() {
+	valkeyrie.AddStore(store.ETCD, New)
+}
+
 // Etcd is the receiver type for the
 // Store interface.
 type Etcd struct {
 	client etcd.KeysAPI
-}
-
-type etcdLock struct {
-	lock   sync.Mutex
-	client etcd.KeysAPI
-
-	stopLock  chan struct{}
-	stopRenew chan struct{}
-
-	mutexKey string
-	writeKey string
-	value    string
-	last     *etcd.Response
-	ttl      time.Duration
-}
-
-const defaultLockTTL = 20 * time.Second
-
-// Register registers etcd to valkeyrie.
-func Register() {
-	valkeyrie.AddStore(store.ETCD, New)
 }
 
 // New creates a new Etcd client given a list
@@ -135,21 +120,6 @@ func setCredentials(cfg *etcd.Config, username, password string) {
 func (s *Etcd) normalize(key string) string {
 	key = store.Normalize(key)
 	return strings.TrimPrefix(key, "/")
-}
-
-// keyNotFound checks on the error returned by the KeysAPI
-// to verify if the key exists in the store or not.
-func keyNotFound(err error) bool {
-	if err != nil {
-		if etcdError, ok := err.(etcd.Error); ok {
-			if etcdError.Code == etcd.ErrorCodeKeyNotFound ||
-				etcdError.Code == etcd.ErrorCodeNotFile ||
-				etcdError.Code == etcd.ErrorCodeNotDir {
-				return true
-			}
-		}
-	}
-	return false
 }
 
 // Get the value at "key", returns the last modified
@@ -495,6 +465,23 @@ func (s *Etcd) NewLock(key string, options *store.LockOptions) (lock store.Locke
 	return lock, nil
 }
 
+// Close closes the client connection.
+func (s *Etcd) Close() {}
+
+type etcdLock struct {
+	lock   sync.Mutex
+	client etcd.KeysAPI
+
+	stopLock  chan struct{}
+	stopRenew chan struct{}
+
+	mutexKey string
+	writeKey string
+	value    string
+	last     *etcd.Response
+	ttl      time.Duration
+}
+
 // Lock attempts to acquire the lock and blocks while
 // doing so. It returns a channel that is closed if our
 // lock is lost or if an error occurs.
@@ -637,5 +624,17 @@ func (l *etcdLock) Unlock() error {
 	return nil
 }
 
-// Close closes the client connection.
-func (s *Etcd) Close() {}
+// keyNotFound checks on the error returned by the KeysAPI
+// to verify if the key exists in the store or not.
+func keyNotFound(err error) bool {
+	if err != nil {
+		if etcdError, ok := err.(etcd.Error); ok {
+			if etcdError.Code == etcd.ErrorCodeKeyNotFound ||
+				etcdError.Code == etcd.ErrorCodeNotFile ||
+				etcdError.Code == etcd.ErrorCodeNotDir {
+				return true
+			}
+		}
+	}
+	return false
+}

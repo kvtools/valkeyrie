@@ -434,120 +434,6 @@ func (ddb *DynamoDB) AtomicDelete(key string, previous *store.KVPair) (bool, err
 // Close nothing to see here.
 func (ddb *DynamoDB) Close() {}
 
-type dynamodbLock struct {
-	ddb      *DynamoDB
-	last     *store.KVPair
-	renewCh  chan struct{}
-	unlockCh chan struct{}
-
-	key   string
-	value []byte
-	ttl   time.Duration
-}
-
-func (l *dynamodbLock) Lock(stopChan chan struct{}) (<-chan struct{}, error) {
-	lockHeld := make(chan struct{})
-
-	success, err := l.tryLock(lockHeld, stopChan)
-	if err != nil {
-		return nil, err
-	}
-	if success {
-		return lockHeld, nil
-	}
-
-	// TODO: This really needs a jitter for backoff
-	ticker := time.NewTicker(3 * time.Second)
-
-	for {
-		select {
-		case <-ticker.C:
-			success, err := l.tryLock(lockHeld, stopChan)
-			if err != nil {
-				return nil, err
-			}
-			if success {
-				return lockHeld, nil
-			}
-		case <-stopChan:
-			return nil, ErrLockAcquireCancelled
-		}
-	}
-}
-
-func (l *dynamodbLock) Unlock() error {
-	l.unlockCh <- struct{}{}
-
-	_, err := l.ddb.AtomicDelete(l.key, l.last)
-	if err != nil {
-		return err
-	}
-	l.last = nil
-
-	return err
-}
-
-func (l *dynamodbLock) tryLock(lockHeld chan struct{}, stopChan chan struct{}) (bool, error) {
-	success, item, err := l.ddb.AtomicPut(
-		l.key,
-		l.value,
-		l.last,
-		&store.WriteOptions{
-			TTL: l.ttl,
-		})
-	if err != nil {
-		if errors.Is(err, store.ErrKeyNotFound) || errors.Is(err, store.ErrKeyModified) || errors.Is(err, store.ErrKeyExists) {
-			return false, nil
-		}
-		return false, err
-	}
-	if success {
-		l.last = item
-		// keep holding
-		go l.holdLock(lockHeld, stopChan)
-		return true, nil
-	}
-
-	return false, err
-}
-
-func (l *dynamodbLock) holdLock(lockHeld, stopChan chan struct{}) {
-	defer close(lockHeld)
-
-	hold := func() error {
-		_, item, err := l.ddb.AtomicPut(
-			l.key,
-			l.value,
-			l.last,
-			&store.WriteOptions{
-				TTL: l.ttl,
-			})
-		if err == nil {
-			l.last = item
-		}
-		return err
-	}
-
-	// may need a floor of 1 second set
-	heartbeat := time.NewTicker(l.ttl / 3)
-	defer heartbeat.Stop()
-
-	for {
-		select {
-		case <-heartbeat.C:
-			if err := hold(); err != nil {
-				return
-			}
-		case <-l.renewCh:
-			return
-		case <-l.unlockCh:
-			return
-		case <-stopChan:
-			return
-		}
-	}
-}
-
 // NewLock has to implemented at the library level since its not supported by DynamoDB.
 func (ddb *DynamoDB) NewLock(key string, options *store.LockOptions) (store.Locker, error) {
 	var (
@@ -672,6 +558,120 @@ func (ddb *DynamoDB) retryDeleteTree(items map[string][]*dynamodb.WriteRequest) 
 		case <-timeout:
 			// polling for table status has taken more than the timeout
 			return ErrDeleteTreeTimeout
+		}
+	}
+}
+
+type dynamodbLock struct {
+	ddb      *DynamoDB
+	last     *store.KVPair
+	renewCh  chan struct{}
+	unlockCh chan struct{}
+
+	key   string
+	value []byte
+	ttl   time.Duration
+}
+
+func (l *dynamodbLock) Lock(stopChan chan struct{}) (<-chan struct{}, error) {
+	lockHeld := make(chan struct{})
+
+	success, err := l.tryLock(lockHeld, stopChan)
+	if err != nil {
+		return nil, err
+	}
+	if success {
+		return lockHeld, nil
+	}
+
+	// TODO: This really needs a jitter for backoff
+	ticker := time.NewTicker(3 * time.Second)
+
+	for {
+		select {
+		case <-ticker.C:
+			success, err := l.tryLock(lockHeld, stopChan)
+			if err != nil {
+				return nil, err
+			}
+			if success {
+				return lockHeld, nil
+			}
+		case <-stopChan:
+			return nil, ErrLockAcquireCancelled
+		}
+	}
+}
+
+func (l *dynamodbLock) Unlock() error {
+	l.unlockCh <- struct{}{}
+
+	_, err := l.ddb.AtomicDelete(l.key, l.last)
+	if err != nil {
+		return err
+	}
+	l.last = nil
+
+	return err
+}
+
+func (l *dynamodbLock) tryLock(lockHeld chan struct{}, stopChan chan struct{}) (bool, error) {
+	success, item, err := l.ddb.AtomicPut(
+		l.key,
+		l.value,
+		l.last,
+		&store.WriteOptions{
+			TTL: l.ttl,
+		})
+	if err != nil {
+		if errors.Is(err, store.ErrKeyNotFound) || errors.Is(err, store.ErrKeyModified) || errors.Is(err, store.ErrKeyExists) {
+			return false, nil
+		}
+		return false, err
+	}
+	if success {
+		l.last = item
+		// keep holding
+		go l.holdLock(lockHeld, stopChan)
+		return true, nil
+	}
+
+	return false, err
+}
+
+func (l *dynamodbLock) holdLock(lockHeld, stopChan chan struct{}) {
+	defer close(lockHeld)
+
+	hold := func() error {
+		_, item, err := l.ddb.AtomicPut(
+			l.key,
+			l.value,
+			l.last,
+			&store.WriteOptions{
+				TTL: l.ttl,
+			})
+		if err == nil {
+			l.last = item
+		}
+		return err
+	}
+
+	// may need a floor of 1 second set
+	heartbeat := time.NewTicker(l.ttl / 3)
+	defer heartbeat.Stop()
+
+	for {
+		select {
+		case <-heartbeat.C:
+			if err := hold(); err != nil {
+				return
+			}
+		case <-l.renewCh:
+			return
+		case <-l.unlockCh:
+			return
+		case <-stopChan:
+			return
 		}
 	}
 }

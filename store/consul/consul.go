@@ -43,22 +43,17 @@ var (
 	ErrSessionRenew = errors.New("cannot set or renew session for ttl, unable to operate on sessions")
 )
 
+// Register registers consul to valkeyrie.
+func Register() {
+	valkeyrie.AddStore(store.CONSUL, New)
+}
+
 // Consul is the receiver type for the
 // Store interface.
 type Consul struct {
 	sync.Mutex // TODO unused
 	config     *api.Config
 	client     *api.Client
-}
-
-type consulLock struct {
-	lock    *api.Lock
-	renewCh chan struct{}
-}
-
-// Register registers consul to valkeyrie.
-func Register() {
-	valkeyrie.AddStore(store.CONSUL, New)
 }
 
 // New creates a new Consul client given a list
@@ -521,22 +516,6 @@ func (s *Consul) renewLockSession(initialTTL string, id string, stopRenew chan s
 	}()
 }
 
-// Lock attempts to acquire the lock and blocks while
-// doing so. It returns a channel that is closed if our
-// lock is lost or if an error occurs.
-func (l *consulLock) Lock(stopChan chan struct{}) (<-chan struct{}, error) {
-	return l.lock.Lock(stopChan)
-}
-
-// Unlock the "key". Calling unlock while
-// not holding the lock will throw an error.
-func (l *consulLock) Unlock() error {
-	if l.renewCh != nil {
-		close(l.renewCh)
-	}
-	return l.lock.Unlock()
-}
-
 // AtomicPut put a value at "key" if the key has not been
 // modified in the meantime, throws an error if this is the case.
 func (s *Consul) AtomicPut(key string, value []byte, previous *store.KVPair, options *store.WriteOptions) (bool, *store.KVPair, error) {
@@ -594,3 +573,24 @@ func (s *Consul) AtomicDelete(key string, previous *store.KVPair) (bool, error) 
 
 // Close closes the client connection.
 func (s *Consul) Close() {}
+
+type consulLock struct {
+	lock    *api.Lock
+	renewCh chan struct{}
+}
+
+// Lock attempts to acquire the lock and blocks while
+// doing so. It returns a channel that is closed if our
+// lock is lost or if an error occurs.
+func (l *consulLock) Lock(stopChan chan struct{}) (<-chan struct{}, error) {
+	return l.lock.Lock(stopChan)
+}
+
+// Unlock the "key". Calling unlock while
+// not holding the lock will throw an error.
+func (l *consulLock) Unlock() error {
+	if l.renewCh != nil {
+		close(l.renewCh)
+	}
+	return l.lock.Unlock()
+}

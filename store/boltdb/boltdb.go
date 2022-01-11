@@ -28,6 +28,16 @@ const (
 	filePerm os.FileMode = 0o644
 )
 
+const (
+	metadatalen      = 8
+	transientTimeout = time.Duration(10) * time.Second
+)
+
+// Register registers boltdb to valkeyrie.
+func Register() {
+	valkeyrie.AddStore(store.BOLTDB, New)
+}
+
 // BoltDB type implements the Store interface.
 type BoltDB struct {
 	client     *bbolt.DB
@@ -42,16 +52,6 @@ type BoltDB struct {
 	// ie: open the connection in New and use it till Close is called.
 	PersistConnection bool
 	sync.Mutex
-}
-
-const (
-	metadatalen      = 8
-	transientTimeout = time.Duration(10) * time.Second
-)
-
-// Register registers boltdb to valkeyrie.
-func Register() {
-	valkeyrie.AddStore(store.BOLTDB, New)
 }
 
 // New opens a new BoltDB connection to the specified path and bucket.

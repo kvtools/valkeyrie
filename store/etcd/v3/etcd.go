@@ -21,28 +21,14 @@ const (
 	lockSuffix         = "___lock"
 )
 
-// EtcdV3 is the receiver type for the Store interface.
-type EtcdV3 struct {
-	client *etcd.Client
-}
-
-type etcdLock struct {
-	lock  sync.Mutex
-	store *EtcdV3
-
-	mutex   *concurrency.Mutex
-	session *concurrency.Session
-
-	mutexKey       string // mutexKey is the key to write appended with a "_lock" suffix
-	writeKey       string // writeKey is the actual key to update protected by the mutexKey
-	value          string
-	ttl            time.Duration
-	deleteOnUnlock bool
-}
-
 // Register registers etcd to valkeyrie.
 func Register() {
 	valkeyrie.AddStore(store.ETCDV3, New)
+}
+
+// EtcdV3 is the receiver type for the Store interface.
+type EtcdV3 struct {
+	client *etcd.Client
 }
 
 // New creates a new Etcd client given a list
@@ -473,51 +459,6 @@ func (s *EtcdV3) NewLock(key string, options *store.LockOptions) (lock store.Loc
 	return lock, nil
 }
 
-// Lock attempts to acquire the lock and blocks while
-// doing so. It returns a channel that is closed if our
-// lock is lost or if an error occurs.
-func (l *etcdLock) Lock(stopChan chan struct{}) (<-chan struct{}, error) {
-	l.lock.Lock()
-	defer l.lock.Unlock()
-
-	ctx, cancel := context.WithCancel(context.Background())
-	go func() {
-		<-stopChan
-		cancel()
-	}()
-	err := l.mutex.Lock(ctx)
-	if err != nil {
-		if errors.Is(err, context.Canceled) {
-			return nil, nil
-		}
-		return nil, err
-	}
-
-	if l.deleteOnUnlock {
-		_, err = l.store.client.Put(ctx, l.writeKey, l.value, etcd.WithLease(l.session.Lease()))
-	} else {
-		_, err = l.store.client.Put(ctx, l.writeKey, l.value)
-	}
-	if err != nil {
-		return nil, err
-	}
-
-	return l.session.Done(), nil
-}
-
-// Unlock the "key". Calling unlock while
-// not holding the lock will throw an error.
-func (l *etcdLock) Unlock() error {
-	l.lock.Lock()
-	defer l.lock.Unlock()
-
-	ctx := context.Background()
-	if l.deleteOnUnlock {
-		_, _ = l.store.client.Delete(ctx, l.writeKey)
-	}
-	return l.mutex.Unlock(ctx)
-}
-
 // Close closes the client connection.
 func (s *EtcdV3) Close() {
 	_ = s.client.Close()
@@ -566,4 +507,63 @@ func (s *EtcdV3) list(directory string, opts *store.ReadOptions) (int64, []*stor
 	}
 
 	return resp.Header.Revision, kv, nil
+}
+
+type etcdLock struct {
+	lock  sync.Mutex
+	store *EtcdV3
+
+	mutex   *concurrency.Mutex
+	session *concurrency.Session
+
+	mutexKey       string // mutexKey is the key to write appended with a "_lock" suffix
+	writeKey       string // writeKey is the actual key to update protected by the mutexKey
+	value          string
+	ttl            time.Duration
+	deleteOnUnlock bool
+}
+
+// Lock attempts to acquire the lock and blocks while
+// doing so. It returns a channel that is closed if our
+// lock is lost or if an error occurs.
+func (l *etcdLock) Lock(stopChan chan struct{}) (<-chan struct{}, error) {
+	l.lock.Lock()
+	defer l.lock.Unlock()
+
+	ctx, cancel := context.WithCancel(context.Background())
+	go func() {
+		<-stopChan
+		cancel()
+	}()
+	err := l.mutex.Lock(ctx)
+	if err != nil {
+		if errors.Is(err, context.Canceled) {
+			return nil, nil
+		}
+		return nil, err
+	}
+
+	if l.deleteOnUnlock {
+		_, err = l.store.client.Put(ctx, l.writeKey, l.value, etcd.WithLease(l.session.Lease()))
+	} else {
+		_, err = l.store.client.Put(ctx, l.writeKey, l.value)
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	return l.session.Done(), nil
+}
+
+// Unlock the "key". Calling unlock while
+// not holding the lock will throw an error.
+func (l *etcdLock) Unlock() error {
+	l.lock.Lock()
+	defer l.lock.Unlock()
+
+	ctx := context.Background()
+	if l.deleteOnUnlock {
+		_, _ = l.store.client.Delete(ctx, l.writeKey)
+	}
+	return l.mutex.Unlock(ctx)
 }
