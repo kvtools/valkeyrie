@@ -99,7 +99,6 @@ func testPutGetDeleteExists(t *testing.T, kv store.Store) {
 		"testPutGetDeleteExists/testbar/",
 		"testPutGetDeleteExists/testbar/testfoobar",
 	} {
-
 		// Put the key
 		err = kv.Put(key, value, nil)
 		assert.NoError(t, err)
