@@ -13,7 +13,6 @@ import (
 
 func makeBoltDBClient(t *testing.T) store.Store {
 	kv, err := New([]string{"/tmp/not_exist_dir/__boltdbtest"}, &store.Config{Bucket: "boltDBTest"})
-
 	if err != nil {
 		t.Fatalf("cannot create store: %v", err)
 	}
@@ -48,7 +47,8 @@ func TestMultiplePersistConnection(t *testing.T) {
 		&store.Config{
 			Bucket:            "boltDBTest",
 			ConnectionTimeout: 1 * time.Second,
-			PersistConnection: true},
+			PersistConnection: true,
+		},
 	)
 	assert.NoError(t, err)
 	assert.NotNil(t, kv)
@@ -64,7 +64,8 @@ func TestMultiplePersistConnection(t *testing.T) {
 		&store.Config{
 			Bucket:            "boltDBTest",
 			ConnectionTimeout: 1 * time.Second,
-			PersistConnection: true},
+			PersistConnection: true,
+		},
 	)
 	assert.Error(t, err)
 
@@ -80,7 +81,8 @@ func TestConcurrentConnection(t *testing.T) {
 		[]string{"/tmp/__boltdbtest"},
 		&store.Config{
 			Bucket:            "boltDBTest",
-			ConnectionTimeout: 1 * time.Second},
+			ConnectionTimeout: 1 * time.Second,
+		},
 	)
 	assert.NoError(t, err1)
 	assert.NotNil(t, kv1)
@@ -88,8 +90,10 @@ func TestConcurrentConnection(t *testing.T) {
 	kv2, err2 := valkeyrie.NewStore(
 		store.BOLTDB,
 		[]string{"/tmp/__boltdbtest"},
-		&store.Config{Bucket: "boltDBTest",
-			ConnectionTimeout: 1 * time.Second},
+		&store.Config{
+			Bucket:            "boltDBTest",
+			ConnectionTimeout: 1 * time.Second,
+		},
 	)
 	assert.NoError(t, err2)
 	assert.NotNil(t, kv2)

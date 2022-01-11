@@ -10,9 +10,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-var (
-	client = "localhost:2181"
-)
+const client = "localhost:2181"
 
 func makeZkClient(t *testing.T) store.Store {
 	kv, err := New(
@@ -21,7 +19,6 @@ func makeZkClient(t *testing.T) store.Store {
 			ConnectionTimeout: 3 * time.Second,
 		},
 	)
-
 	if err != nil {
 		t.Fatalf("cannot create store: %v", err)
 	}

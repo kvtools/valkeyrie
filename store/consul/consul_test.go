@@ -11,19 +11,15 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-var (
-	client = "localhost:8500"
-)
+const client = "localhost:8500"
 
 func makeConsulClient(t *testing.T) store.Store {
-
 	kv, err := New(
 		[]string{client},
 		&store.Config{
 			ConnectionTimeout: 3 * time.Second,
 		},
 	)
-
 	if err != nil {
 		t.Fatalf("cannot create store: %v", err)
 	}

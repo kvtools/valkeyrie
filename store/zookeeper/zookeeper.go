@@ -76,7 +76,6 @@ func (s *Zookeeper) setTimeout(timeout time.Duration) {
 // Get the value at "key", returns the last modified index
 // to use in conjunction to Atomic calls.
 func (s *Zookeeper) Get(key string, opts *store.ReadOptions) (pair *store.KVPair, err error) {
-
 	resp, meta, err := s.get(key)
 	if err != nil {
 		return nil, err
@@ -169,7 +168,7 @@ func (s *Zookeeper) Watch(key string, stopCh <-chan struct{}, opts *store.ReadOp
 	go func() {
 		defer close(watchCh)
 
-		var fireEvt = true
+		fireEvt := true
 		for {
 			resp, meta, eventCh, err := s.getW(key)
 			if err != nil {
@@ -209,7 +208,7 @@ func (s *Zookeeper) WatchTree(directory string, stopCh <-chan struct{}, opts *st
 	go func() {
 		defer close(watchCh)
 
-		var fireEvt = true
+		fireEvt := true
 		for {
 		WATCH:
 			keys, _, eventCh, err := s.client.ChildrenW(s.normalize(directory))

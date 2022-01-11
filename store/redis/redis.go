@@ -201,7 +201,6 @@ type getter func() (interface{}, error)
 type pusher func(interface{})
 
 func watchLoop(msgCh chan *redis.Message, _ <-chan struct{}, get getter, push pusher) error {
-
 	// deliver the original data before we setup any events
 	pair, err := get()
 	if err != nil {
@@ -457,7 +456,6 @@ func (r *Redis) List(directory string, opts *store.ReadOptions) ([]*store.KVPair
 }
 
 func (r *Redis) list(directory string) ([]*store.KVPair, error) {
-
 	var allKeys []string
 	regex := scanRegex(directory) // for all keyed with $directory
 	allKeys, err := r.keys(regex)

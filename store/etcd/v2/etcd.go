@@ -20,12 +20,10 @@ const (
 	lockSuffix = "___lock"
 )
 
-var (
-	// ErrAbortTryLock is thrown when a user stops trying to seek the lock
-	// by sending a signal to the stop chan, this is used to verify if the
-	// operation succeeded.
-	ErrAbortTryLock = errors.New("lock operation aborted")
-)
+// ErrAbortTryLock is thrown when a user stops trying to seek the lock
+// by sending a signal to the stop chan, this is used to verify if the
+// operation succeeded.
+var ErrAbortTryLock = errors.New("lock operation aborted")
 
 // Etcd is the receiver type for the
 // Store interface.
@@ -254,7 +252,6 @@ func (s *Etcd) Watch(key string, stopCh <-chan struct{}, opts *store.ReadOptions
 			}
 
 			result, err := watcher.Next(context.Background())
-
 			if err != nil {
 				return
 			}
@@ -303,7 +300,6 @@ func (s *Etcd) WatchTree(directory string, stopCh <-chan struct{}, opts *store.R
 			}
 
 			_, err := watcher.Next(context.Background())
-
 			if err != nil {
 				return
 			}

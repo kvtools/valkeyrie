@@ -9,9 +9,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-var (
-	client = "localhost:6379"
-)
+const client = "localhost:6379"
 
 func makeRedisClient(t *testing.T) store.Store {
 	kv, err := newRedis([]string{client}, "", nil)

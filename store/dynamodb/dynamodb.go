@@ -57,7 +57,6 @@ func Register() {
 
 // New opens and creates a new table.
 func New(endpoints []string, options *store.Config) (store.Store, error) {
-
 	if len(endpoints) > 1 {
 		return nil, ErrMultipleEndpointsUnsupported
 	}
@@ -88,7 +87,6 @@ type DynamoDB struct {
 
 // Put a value at the specified key.
 func (ddb *DynamoDB) Put(key string, value []byte, options *store.WriteOptions) error {
-
 	keyAttr := make(map[string]*dynamodb.AttributeValue)
 	keyAttr[partitionKey] = &dynamodb.AttributeValue{S: aws.String(key)}
 
@@ -185,7 +183,6 @@ func (ddb *DynamoDB) Delete(key string) error {
 
 // Exists if a Key exists in the store.
 func (ddb *DynamoDB) Exists(key string, options *store.ReadOptions) (bool, error) {
-
 	res, err := ddb.dynamoSvc.GetItem(&dynamodb.GetItemInput{
 		TableName: aws.String(ddb.tableName),
 		Key: map[string]*dynamodb.AttributeValue{
@@ -194,7 +191,6 @@ func (ddb *DynamoDB) Exists(key string, options *store.ReadOptions) (bool, error
 			},
 		},
 	})
-
 	if err != nil {
 		return false, err
 	}
@@ -213,7 +209,6 @@ func (ddb *DynamoDB) Exists(key string, options *store.ReadOptions) (bool, error
 
 // List the content of a given prefix.
 func (ddb *DynamoDB) List(directory string, options *store.ReadOptions) ([]*store.KVPair, error) {
-
 	if options == nil {
 		options = &store.ReadOptions{
 			Consistent: true, // default to enabling read consistency
@@ -247,7 +242,6 @@ func (ddb *DynamoDB) List(directory string, options *store.ReadOptions) ([]*stor
 
 			return true
 		})
-
 	if err != nil {
 		return nil, err
 	}
@@ -318,7 +312,6 @@ func (ddb *DynamoDB) DeleteTree(keyPrefix string) error {
 
 // AtomicPut Atomic CAS operation on a single value.
 func (ddb *DynamoDB) AtomicPut(key string, value []byte, previous *store.KVPair, options *store.WriteOptions) (bool, *store.KVPair, error) {
-
 	getRes, err := ddb.getKey(key, &store.ReadOptions{
 		Consistent: true, // enable the read consistent flag
 	})
@@ -380,7 +373,6 @@ func (ddb *DynamoDB) AtomicPut(key string, value []byte, previous *store.KVPair,
 		ConditionExpression:       condExp,
 		ReturnValues:              aws.String(dynamodb.ReturnValueAllNew),
 	})
-
 	if err != nil {
 		if awsErr, ok := err.(awserr.Error); ok {
 			if awsErr.Code() == dynamodb.ErrCodeConditionalCheckFailedException {
@@ -400,7 +392,6 @@ func (ddb *DynamoDB) AtomicPut(key string, value []byte, previous *store.KVPair,
 
 // AtomicDelete delete of a single value.
 func (ddb *DynamoDB) AtomicDelete(key string, previous *store.KVPair) (bool, error) {
-
 	getRes, err := ddb.getKey(key, &store.ReadOptions{
 		Consistent: true, // enable the read consistent flag
 	})
@@ -482,7 +473,6 @@ func (l *dynamodbLock) Lock(stopChan chan struct{}) (<-chan struct{}, error) {
 			return nil, ErrLockAcquireCancelled
 		}
 	}
-
 }
 
 func (l *dynamodbLock) Unlock() error {
@@ -598,7 +588,6 @@ func (ddb *DynamoDB) WatchTree(directory string, stopCh <-chan struct{}, opts *s
 }
 
 func (ddb *DynamoDB) createTable() error {
-
 	_, err := ddb.dynamoSvc.CreateTable(&dynamodb.CreateTableInput{
 		AttributeDefinitions: []*dynamodb.AttributeDefinition{
 			{
@@ -643,7 +632,6 @@ func (ddb *DynamoDB) createTable() error {
 }
 
 func (ddb *DynamoDB) retryDeleteTree(items map[string][]*dynamodb.WriteRequest) error {
-
 	batchResult, err := ddb.dynamoSvc.BatchWriteItem(&dynamodb.BatchWriteItemInput{
 		RequestItems: items,
 	})
@@ -686,7 +674,6 @@ func (ddb *DynamoDB) retryDeleteTree(items map[string][]*dynamodb.WriteRequest) 
 			return ErrDeleteTreeTimeout
 		}
 	}
-
 }
 
 func isItemExpired(item map[string]*dynamodb.AttributeValue) bool {
@@ -701,7 +688,6 @@ func isItemExpired(item map[string]*dynamodb.AttributeValue) bool {
 }
 
 func decodeItem(item map[string]*dynamodb.AttributeValue) (*store.KVPair, error) {
-
 	var (
 		key          string
 		revision     int64

@@ -31,7 +31,6 @@ func TestRegister(t *testing.T) {
 	if _, ok := kv.(*DynamoDB); !ok {
 		t.Fatal("Error registering and initializing DynamoDB")
 	}
-
 }
 
 func TestSetup(t *testing.T) {
@@ -67,7 +66,6 @@ func TestDynamoDBStoreUnsupported(t *testing.T) {
 }
 
 func TestBatchWrite(t *testing.T) {
-
 	dynamodbSvc := newDynamoDB()
 
 	mock := &mockedBatchWrite{DynamoDBAPI: dynamodbSvc}
@@ -152,7 +150,6 @@ func (m *mockedBatchWrite) BatchWriteItem(in *dynamodb.BatchWriteItemInput) (*dy
 }
 
 func newDynamoDB() *dynamodb.DynamoDB {
-
 	creds := credentials.NewStaticCredentials("test", "test", "test")
 
 	config := aws.NewConfig().WithCredentials(creds)
@@ -165,7 +162,6 @@ func newDynamoDB() *dynamodb.DynamoDB {
 }
 
 func newDynamoDBStore(t *testing.T) *DynamoDB {
-
 	ddb := newDynamoDB()
 
 	ddbStore := &DynamoDB{

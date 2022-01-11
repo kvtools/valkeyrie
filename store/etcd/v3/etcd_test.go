@@ -10,9 +10,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-var (
-	client = "localhost:4001"
-)
+const client = "localhost:4001"
 
 func makeEtcdV3Client(t *testing.T) store.Store {
 	kv, err := New(
@@ -23,7 +21,6 @@ func makeEtcdV3Client(t *testing.T) store.Store {
 			Password:          "very-secure",
 		},
 	)
-
 	if err != nil {
 		t.Fatalf("cannot create store: %v", err)
 	}
