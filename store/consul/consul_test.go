@@ -8,6 +8,7 @@ import (
 	"github.com/kvtools/valkeyrie/store"
 	"github.com/kvtools/valkeyrie/testutils"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 var (
@@ -59,7 +60,8 @@ func TestConsulStore(t *testing.T) {
 func TestGetActiveSession(t *testing.T) {
 	kv := makeConsulClient(t)
 
-	consul := kv.(*Consul)
+	consul, ok := kv.(*Consul)
+	require.True(t, ok)
 
 	key := "foo"
 	value := []byte("bar")

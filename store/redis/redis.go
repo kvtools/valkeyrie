@@ -507,8 +507,8 @@ func (r *Redis) mget(directory string, keys ...string) ([]*store.KVPair, error) 
 	pairs := []*store.KVPair{}
 	for i, reply := range replies {
 		var sreply string
-		if _, ok := reply.(string); ok {
-			sreply = reply.(string)
+		if v, ok := reply.(string); ok {
+			sreply = v
 		}
 		if sreply == "" {
 			// empty reply
