@@ -10,7 +10,7 @@ import (
 )
 
 const (
-	// SOH control character
+	// SOH control character.
 	SOH = "\x01"
 
 	defaultTimeout = 10 * time.Second
@@ -19,7 +19,7 @@ const (
 )
 
 // Zookeeper is the receiver type for
-// the Store interface
+// the Store interface.
 type Zookeeper struct {
 	timeout time.Duration
 	client  *zk.Conn
@@ -32,13 +32,13 @@ type zookeeperLock struct {
 	value  []byte
 }
 
-// Register registers zookeeper to valkeyrie
+// Register registers zookeeper to valkeyrie.
 func Register() {
 	valkeyrie.AddStore(store.ZK, New)
 }
 
 // New creates a new Zookeeper client given a
-// list of endpoints and an optional tls config
+// list of endpoints and an optional tls config.
 func New(endpoints []string, options *store.Config) (store.Store, error) {
 	s := &Zookeeper{}
 	s.timeout = defaultTimeout
@@ -68,13 +68,13 @@ func New(endpoints []string, options *store.Config) (store.Store, error) {
 	return s, nil
 }
 
-// setTimeout sets the timeout for connecting to Zookeeper
+// setTimeout sets the timeout for connecting to Zookeeper.
 func (s *Zookeeper) setTimeout(timeout time.Duration) {
 	s.timeout = timeout
 }
 
 // Get the value at "key", returns the last modified index
-// to use in conjunction to Atomic calls
+// to use in conjunction to Atomic calls.
 func (s *Zookeeper) Get(key string, opts *store.ReadOptions) (pair *store.KVPair, err error) {
 
 	resp, meta, err := s.get(key)
@@ -93,7 +93,7 @@ func (s *Zookeeper) Get(key string, opts *store.ReadOptions) (pair *store.KVPair
 
 // createFullPath creates the entire path for a directory
 // that does not exist and sets the value of the last
-// znode to data
+// znode to data.
 func (s *Zookeeper) createFullPath(path []string, data []byte, ephemeral bool) error {
 	for i := 1; i <= len(path); i++ {
 		newpath := "/" + strings.Join(path[:i], "/")
@@ -118,7 +118,7 @@ func (s *Zookeeper) createFullPath(path []string, data []byte, ephemeral bool) e
 	return nil
 }
 
-// Put a value at "key"
+// Put a value at "key".
 func (s *Zookeeper) Put(key string, value []byte, opts *store.WriteOptions) error {
 	fkey := s.normalize(key)
 
@@ -140,7 +140,7 @@ func (s *Zookeeper) Put(key string, value []byte, opts *store.WriteOptions) erro
 	return err
 }
 
-// Delete a value at "key"
+// Delete a value at "key".
 func (s *Zookeeper) Delete(key string) error {
 	err := s.client.Delete(s.normalize(key), -1)
 	if err == zk.ErrNoNode {
@@ -149,7 +149,7 @@ func (s *Zookeeper) Delete(key string) error {
 	return err
 }
 
-// Exists checks if the key exists inside the store
+// Exists checks if the key exists inside the store.
 func (s *Zookeeper) Exists(key string, opts *store.ReadOptions) (bool, error) {
 	exists, _, err := s.client.Exists(s.normalize(key))
 	if err != nil {
@@ -241,7 +241,7 @@ func (s *Zookeeper) WatchTree(directory string, stopCh <-chan struct{}, opts *st
 	return watchCh, nil
 }
 
-// listChildren lists the direct children of a directory
+// listChildren lists the direct children of a directory.
 func (s *Zookeeper) listChildren(directory string) ([]string, error) {
 	children, _, err := s.client.Children(s.normalize(directory))
 	if err != nil {
@@ -278,7 +278,7 @@ func (s *Zookeeper) listChildrenRecursive(list *[]string, directory string) erro
 	return nil
 }
 
-// List child nodes of a given directory
+// List child nodes of a given directory.
 func (s *Zookeeper) List(directory string, opts *store.ReadOptions) ([]*store.KVPair, error) {
 	children := make([]string, 0)
 	err := s.listChildrenRecursive(&children, directory)
@@ -298,7 +298,7 @@ func (s *Zookeeper) List(directory string, opts *store.ReadOptions) ([]*store.KV
 	return kvs, nil
 }
 
-// DeleteTree deletes a range of keys under a given directory
+// DeleteTree deletes a range of keys under a given directory.
 func (s *Zookeeper) DeleteTree(directory string) error {
 	children, err := s.listChildren(directory)
 	if err != nil {
@@ -319,7 +319,7 @@ func (s *Zookeeper) DeleteTree(directory string) error {
 }
 
 // AtomicPut put a value at "key" if the key has not been
-// modified in the meantime, throws an error if this is the case
+// modified in the meantime, throws an error if this is the case.
 func (s *Zookeeper) AtomicPut(key string, value []byte, previous *store.KVPair, _ *store.WriteOptions) (bool, *store.KVPair, error) {
 	var lastIndex uint64
 
@@ -381,7 +381,7 @@ func (s *Zookeeper) AtomicPut(key string, value []byte, previous *store.KVPair, 
 
 // AtomicDelete deletes a value at "key" if the key
 // has not been modified in the meantime, throws an
-// error if this is the case
+// error if this is the case.
 func (s *Zookeeper) AtomicDelete(key string, previous *store.KVPair) (bool, error) {
 	if previous == nil {
 		return false, store.ErrPreviousNotSpecified
@@ -404,7 +404,7 @@ func (s *Zookeeper) AtomicDelete(key string, previous *store.KVPair) (bool, erro
 }
 
 // NewLock returns a handle to a lock struct which can
-// be used to provide mutual exclusion on a key
+// be used to provide mutual exclusion on a key.
 func (s *Zookeeper) NewLock(key string, options *store.LockOptions) (lock store.Locker, err error) {
 	value := []byte("")
 
@@ -427,7 +427,7 @@ func (s *Zookeeper) NewLock(key string, options *store.LockOptions) (lock store.
 
 // Lock attempts to acquire the lock and blocks while
 // doing so. It returns a channel that is closed if our
-// lock is lost or if an error occurs
+// lock is lost or if an error occurs.
 func (l *zookeeperLock) Lock(stopChan chan struct{}) (<-chan struct{}, error) {
 	err := l.lock.Lock()
 
@@ -444,17 +444,17 @@ func (l *zookeeperLock) Lock(stopChan chan struct{}) (<-chan struct{}, error) {
 }
 
 // Unlock the "key". Calling unlock while
-// not holding the lock will throw an error
+// not holding the lock will throw an error.
 func (l *zookeeperLock) Unlock() error {
 	return l.lock.Unlock()
 }
 
-// Close closes the client connection
+// Close closes the client connection.
 func (s *Zookeeper) Close() {
 	s.client.Close()
 }
 
-// Normalize the key for usage in Zookeeper
+// Normalize the key for usage in Zookeeper.
 func (s *Zookeeper) normalize(key string) string {
 	key = store.Normalize(key)
 	return strings.TrimSuffix(key, "/")

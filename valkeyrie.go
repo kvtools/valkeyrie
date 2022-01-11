@@ -8,11 +8,11 @@ import (
 	"github.com/kvtools/valkeyrie/store"
 )
 
-// Initialize creates a new Store object, initializing the client
+// Initialize creates a new Store object, initializing the client.
 type Initialize func(addrs []string, options *store.Config) (store.Store, error)
 
 var (
-	// Backend initializers
+	// Backend initializers.
 	initializers = make(map[store.Backend]Initialize)
 
 	supportedBackend = func() string {
@@ -25,7 +25,7 @@ var (
 	}()
 )
 
-// NewStore creates an instance of store
+// NewStore creates an instance of store.
 func NewStore(backend store.Backend, addrs []string, options *store.Config) (store.Store, error) {
 	if init, exists := initializers[backend]; exists {
 		return init(addrs, options)
@@ -34,7 +34,7 @@ func NewStore(backend store.Backend, addrs []string, options *store.Config) (sto
 	return nil, fmt.Errorf("%s %s", store.ErrBackendNotSupported.Error(), supportedBackend)
 }
 
-// AddStore adds a new store backend to valkeyrie
+// AddStore adds a new store backend to valkeyrie.
 func AddStore(backend store.Backend, init Initialize) {
 	initializers[backend] = init
 }

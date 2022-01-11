@@ -14,25 +14,25 @@ import (
 
 var (
 	// ErrMultipleEndpointsUnsupported is thrown when there are
-	// multiple endpoints specified for Redis
+	// multiple endpoints specified for Redis.
 	ErrMultipleEndpointsUnsupported = errors.New("redis: does not support multiple endpoints")
 
-	// ErrTLSUnsupported is thrown when tls config is given
+	// ErrTLSUnsupported is thrown when tls config is given.
 	ErrTLSUnsupported = errors.New("redis does not support tls")
 
 	// ErrAbortTryLock is thrown when a user stops trying to seek the lock
 	// by sending a signal to the stop chan, this is used to verify if the
-	// operation succeeded
+	// operation succeeded.
 	ErrAbortTryLock = errors.New("redis: lock operation aborted")
 )
 
-// Register registers Redis to valkeyrie
+// Register registers Redis to valkeyrie.
 func Register() {
 	valkeyrie.AddStore(store.REDIS, New)
 }
 
 // New creates a new Redis client given a list
-// of endpoints and optional tls config
+// of endpoints and optional tls config.
 func New(endpoints []string, options *store.Config) (store.Store, error) {
 	if len(endpoints) > 1 {
 		return nil, ErrMultipleEndpointsUnsupported
@@ -74,7 +74,7 @@ func newRedis(endpoints []string, password string, codec Codec) (*Redis, error) 
 	}, nil
 }
 
-// Redis implements valkeyrie.Store interface with redis backend
+// Redis implements valkeyrie.Store interface with redis backend.
 type Redis struct {
 	client *redis.Client
 	script *redis.Script
@@ -86,7 +86,7 @@ const (
 	defaultLockTTL = 60 * time.Second
 )
 
-// Put a value at the specified key
+// Put a value at the specified key.
 func (r *Redis) Put(key string, value []byte, options *store.WriteOptions) error {
 	expirationAfter := noExpiration
 	if options != nil && options.TTL != 0 {
@@ -109,7 +109,7 @@ func (r *Redis) setTTL(key string, val *store.KVPair, ttl time.Duration) error {
 	return r.client.Set(key, valStr, ttl).Err()
 }
 
-// Get a value given its key
+// Get a value given its key.
 func (r *Redis) Get(key string, opts *store.ReadOptions) (*store.KVPair, error) {
 	return r.get(normalize(key))
 }
@@ -134,19 +134,19 @@ func (r *Redis) get(key string) (*store.KVPair, error) {
 	return &val, nil
 }
 
-// Delete the value at the specified key
+// Delete the value at the specified key.
 func (r *Redis) Delete(key string) error {
 	return r.client.Del(normalize(key)).Err()
 }
 
-// Exists verify if a Key exists in the store
+// Exists verify if a Key exists in the store.
 func (r *Redis) Exists(key string, opts *store.ReadOptions) (bool, error) {
 	return r.client.Exists(normalize(key)).Result()
 }
 
 // Watch for changes on a key
 // glitch: we use notified-then-retrieve to retrieve *store.KVPair.
-// so the responses may sometimes inaccurate
+// so the responses may sometimes inaccurate.
 func (r *Redis) Watch(key string, stopCh <-chan struct{}, opts *store.ReadOptions) (<-chan *store.KVPair, error) {
 	watchCh := make(chan *store.KVPair)
 	nKey := normalize(key)
@@ -194,10 +194,10 @@ func regexWatch(key string, withChildren bool) string {
 	return regex
 }
 
-// getter defines a func type which retrieves data from remote storage
+// getter defines a func type which retrieves data from remote storage.
 type getter func() (interface{}, error)
 
-// pusher defines a func type which pushes data blob into watch channel
+// pusher defines a func type which pushes data blob into watch channel.
 type pusher func(interface{})
 
 func watchLoop(msgCh chan *redis.Message, _ <-chan struct{}, get getter, push pusher) error {
@@ -276,7 +276,7 @@ func (s *subscribe) receiveLoop(msgCh chan *redis.Message, stopCh <-chan struct{
 }
 
 // WatchTree watches for changes on child nodes under
-// a given directory
+// a given directory.
 func (r *Redis) WatchTree(directory string, stopCh <-chan struct{}, opts *store.ReadOptions) (<-chan []*store.KVPair, error) {
 	watchCh := make(chan []*store.KVPair)
 	nKey := normalize(directory)
@@ -384,7 +384,7 @@ func (l *redisLock) Lock(stopCh chan struct{}) (<-chan struct{}, error) {
 
 // tryLock return true, nil when it acquired and hold the lock
 // and return false, nil when it can't lock now,
-// and return false, err if any unespected error happened underlying
+// and return false, err if any unespected error happened underlying.
 func (l *redisLock) tryLock(lockHeld, stopChan chan struct{}) (bool, error) {
 	success, item, err := l.redis.AtomicPut(
 		l.key,
@@ -451,7 +451,7 @@ func (l *redisLock) Unlock() error {
 	return err
 }
 
-// List the content of a given prefix
+// List the content of a given prefix.
 func (r *Redis) List(directory string, opts *store.ReadOptions) ([]*store.KVPair, error) {
 	return r.list(normalize(directory))
 }
@@ -496,7 +496,7 @@ func (r *Redis) keys(regex string) ([]string, error) {
 	return allKeys, nil
 }
 
-// mget values given their keys
+// mget values given their keys.
 func (r *Redis) mget(directory string, keys ...string) ([]*store.KVPair, error) {
 	replies, err := r.client.MGet(keys...).Result()
 	if err != nil {
@@ -545,7 +545,7 @@ func (r *Redis) DeleteTree(directory string) error {
 
 // AtomicPut is an atomic CAS operation on a single value.
 // Pass previous = nil to create a new key.
-// we introduced script on this page, so atomicity is guaranteed
+// we introduced script on this page, so atomicity is guaranteed.
 func (r *Redis) AtomicPut(key string, value []byte, previous *store.KVPair, options *store.WriteOptions) (bool, *store.KVPair, error) {
 	expirationAfter := noExpiration
 	if options != nil && options.TTL != 0 {
@@ -611,7 +611,7 @@ func (r *Redis) cas(key string, oldPair, newPair *store.KVPair, secInStr string)
 }
 
 // AtomicDelete is an atomic delete operation on a single value
-// the value will be deleted if previous matched the one stored in db
+// the value will be deleted if previous matched the one stored in db.
 func (r *Redis) AtomicDelete(key string, previous *store.KVPair) (bool, error) {
 	if err := r.cad(normalize(key), previous); err != nil {
 		return false, err
@@ -632,7 +632,7 @@ func (r *Redis) cad(key string, old *store.KVPair) error {
 	)
 }
 
-// Close the store connection
+// Close the store connection.
 func (r *Redis) Close() {
 	_ = r.client.Close()
 }

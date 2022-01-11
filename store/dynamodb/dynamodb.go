@@ -19,13 +19,13 @@ import (
 )
 
 const (
-	// DefaultReadCapacityUnits default read capacity used to create table
+	// DefaultReadCapacityUnits default read capacity used to create table.
 	DefaultReadCapacityUnits = 2
-	// DefaultWriteCapacityUnits default write capacity used to create table
+	// DefaultWriteCapacityUnits default write capacity used to create table.
 	DefaultWriteCapacityUnits = 2
-	// TableCreateTimeoutSeconds the maximum time we wait for the AWS DynamoDB table to be created
+	// TableCreateTimeoutSeconds the maximum time we wait for the AWS DynamoDB table to be created.
 	TableCreateTimeoutSeconds = 30
-	// DeleteTreeTimeoutSeconds the maximum time we retry a write batch
+	// DeleteTreeTimeoutSeconds the maximum time we retry a write batch.
 	DeleteTreeTimeoutSeconds = 30
 
 	partitionKey          = "id"
@@ -38,24 +38,24 @@ const (
 )
 
 var (
-	// ErrBucketOptionMissing is returned when bucket config option is missing
+	// ErrBucketOptionMissing is returned when bucket config option is missing.
 	ErrBucketOptionMissing = errors.New("missing dynamodb bucket/table name")
-	// ErrMultipleEndpointsUnsupported is returned when more than one endpoint is provided
+	// ErrMultipleEndpointsUnsupported is returned when more than one endpoint is provided.
 	ErrMultipleEndpointsUnsupported = errors.New("dynamodb only supports one endpoint")
-	// ErrTableCreateTimeout table creation timed out
+	// ErrTableCreateTimeout table creation timed out.
 	ErrTableCreateTimeout = errors.New("dynamodb table creation timed out")
-	// ErrDeleteTreeTimeout delete batch timed out
+	// ErrDeleteTreeTimeout delete batch timed out.
 	ErrDeleteTreeTimeout = errors.New("delete batch timed out")
 	// ErrLockAcquireCancelled stop called before lock was acquired.
 	ErrLockAcquireCancelled = errors.New("stop called before lock was acquired")
 )
 
-// Register register a store provider in valkeyrie for AWS DynamoDB
+// Register register a store provider in valkeyrie for AWS DynamoDB.
 func Register() {
 	valkeyrie.AddStore(store.DYNAMODB, New)
 }
 
-// New opens and creates a new table
+// New opens and creates a new table.
 func New(endpoints []string, options *store.Config) (store.Store, error) {
 
 	if len(endpoints) > 1 {
@@ -80,13 +80,13 @@ func New(endpoints []string, options *store.Config) (store.Store, error) {
 	return ddb, nil
 }
 
-// DynamoDB store used to interact with AWS DynamoDB
+// DynamoDB store used to interact with AWS DynamoDB.
 type DynamoDB struct {
 	dynamoSvc dynamodbiface.DynamoDBAPI
 	tableName string
 }
 
-// Put a value at the specified key
+// Put a value at the specified key.
 func (ddb *DynamoDB) Put(key string, value []byte, options *store.WriteOptions) error {
 
 	keyAttr := make(map[string]*dynamodb.AttributeValue)
@@ -131,7 +131,7 @@ func (ddb *DynamoDB) Put(key string, value []byte, options *store.WriteOptions) 
 	return nil
 }
 
-// Get a value given its key
+// Get a value given its key.
 func (ddb *DynamoDB) Get(key string, options *store.ReadOptions) (*store.KVPair, error) {
 	if options == nil {
 		options = &store.ReadOptions{
@@ -166,7 +166,7 @@ func (ddb *DynamoDB) getKey(key string, options *store.ReadOptions) (*dynamodb.G
 	})
 }
 
-// Delete the value at the specified key
+// Delete the value at the specified key.
 func (ddb *DynamoDB) Delete(key string) error {
 	_, err := ddb.dynamoSvc.DeleteItem(&dynamodb.DeleteItemInput{
 		TableName: aws.String(ddb.tableName),
@@ -183,7 +183,7 @@ func (ddb *DynamoDB) Delete(key string) error {
 	return nil
 }
 
-// Exists if a Key exists in the store
+// Exists if a Key exists in the store.
 func (ddb *DynamoDB) Exists(key string, options *store.ReadOptions) (bool, error) {
 
 	res, err := ddb.dynamoSvc.GetItem(&dynamodb.GetItemInput{
@@ -211,7 +211,7 @@ func (ddb *DynamoDB) Exists(key string, options *store.ReadOptions) (bool, error
 	return true, nil
 }
 
-// List the content of a given prefix
+// List the content of a given prefix.
 func (ddb *DynamoDB) List(directory string, options *store.ReadOptions) ([]*store.KVPair, error) {
 
 	if options == nil {
@@ -280,7 +280,7 @@ func (ddb *DynamoDB) List(directory string, options *store.ReadOptions) ([]*stor
 	return kvArray, nil
 }
 
-// DeleteTree deletes a range of keys under a given directory
+// DeleteTree deletes a range of keys under a given directory.
 func (ddb *DynamoDB) DeleteTree(keyPrefix string) error {
 	expAttr := make(map[string]*dynamodb.AttributeValue)
 
@@ -398,7 +398,7 @@ func (ddb *DynamoDB) AtomicPut(key string, value []byte, previous *store.KVPair,
 	return true, item, nil
 }
 
-// AtomicDelete delete of a single value
+// AtomicDelete delete of a single value.
 func (ddb *DynamoDB) AtomicDelete(key string, previous *store.KVPair) (bool, error) {
 
 	getRes, err := ddb.getKey(key, &store.ReadOptions{
@@ -440,7 +440,7 @@ func (ddb *DynamoDB) AtomicDelete(key string, previous *store.KVPair) (bool, err
 	return true, nil
 }
 
-// Close nothing to see here
+// Close nothing to see here.
 func (ddb *DynamoDB) Close() {}
 
 type dynamodbLock struct {
@@ -558,7 +558,7 @@ func (l *dynamodbLock) holdLock(lockHeld, stopChan chan struct{}) {
 	}
 }
 
-// NewLock has to implemented at the library level since its not supported by DynamoDB
+// NewLock has to implemented at the library level since its not supported by DynamoDB.
 func (ddb *DynamoDB) NewLock(key string, options *store.LockOptions) (store.Locker, error) {
 	var (
 		value   []byte
@@ -587,12 +587,12 @@ func (ddb *DynamoDB) NewLock(key string, options *store.LockOptions) (store.Lock
 	}, nil
 }
 
-// Watch has to implemented at the library level since its not supported by DynamoDB
+// Watch has to implemented at the library level since its not supported by DynamoDB.
 func (ddb *DynamoDB) Watch(key string, stopCh <-chan struct{}, opts *store.ReadOptions) (<-chan *store.KVPair, error) {
 	return nil, store.ErrCallNotSupported
 }
 
-// WatchTree has to implemented at the library level since its not supported by DynamoDB
+// WatchTree has to implemented at the library level since its not supported by DynamoDB.
 func (ddb *DynamoDB) WatchTree(directory string, stopCh <-chan struct{}, opts *store.ReadOptions) (<-chan []*store.KVPair, error) {
 	return nil, store.ErrCallNotSupported
 }

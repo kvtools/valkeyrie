@@ -12,7 +12,7 @@ import (
 )
 
 // RunTestCommon tests the minimal required APIs which
-// should be supported by all K/V backends
+// should be supported by all K/V backends.
 func RunTestCommon(t *testing.T, kv store.Store) {
 	testPutGetDeleteExists(t, kv)
 	testList(t, kv)
@@ -20,13 +20,13 @@ func RunTestCommon(t *testing.T, kv store.Store) {
 }
 
 // RunTestListLock tests the list output for mutexes
-// and checks that internal side keys are not listed
+// and checks that internal side keys are not listed.
 func RunTestListLock(t *testing.T, kv store.Store) {
 	testListLockKey(t, kv)
 }
 
 // RunTestAtomic tests the Atomic operations by the K/V
-// backends
+// backends.
 func RunTestAtomic(t *testing.T, kv store.Store) {
 	testAtomicPut(t, kv)
 	testAtomicPutCreate(t, kv)
@@ -650,7 +650,7 @@ func testDeleteTree(t *testing.T, kv store.Store) {
 	assert.Nil(t, pair)
 }
 
-// RunCleanup cleans up keys introduced by the tests
+// RunCleanup cleans up keys introduced by the tests.
 func RunCleanup(t *testing.T, kv store.Store) {
 	for _, key := range []string{
 		"testAtomicPutWithSlashSuffixKey",

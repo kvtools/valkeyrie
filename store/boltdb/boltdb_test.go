@@ -40,7 +40,7 @@ func TestRegister(t *testing.T) {
 }
 
 // TestMultiplePersistConnection tests the second connection to a
-// BoltDB fails when one is already open with PersistConnection flag
+// BoltDB fails when one is already open with PersistConnection flag.
 func TestMultiplePersistConnection(t *testing.T) {
 	kv, err := valkeyrie.NewStore(
 		store.BOLTDB,

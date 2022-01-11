@@ -17,9 +17,9 @@ import (
 
 var (
 	// ErrMultipleEndpointsUnsupported is thrown when multiple endpoints specified for
-	// BoltDB. Endpoint has to be a local file path
+	// BoltDB. Endpoint has to be a local file path.
 	ErrMultipleEndpointsUnsupported = errors.New("boltdb supports one endpoint and should be a file path")
-	// ErrBoltBucketOptionMissing is thrown when boltBcuket config option is missing
+	// ErrBoltBucketOptionMissing is thrown when boltBcuket config option is missing.
 	ErrBoltBucketOptionMissing = errors.New("boltBucket config option missing")
 )
 
@@ -27,7 +27,7 @@ const (
 	filePerm os.FileMode = 0644
 )
 
-// BoltDB type implements the Store interface
+// BoltDB type implements the Store interface.
 type BoltDB struct {
 	client     *bbolt.DB
 	boltBucket []byte
@@ -48,12 +48,12 @@ const (
 	transientTimeout = time.Duration(10) * time.Second
 )
 
-// Register registers boltdb to valkeyrie
+// Register registers boltdb to valkeyrie.
 func Register() {
 	valkeyrie.AddStore(store.BOLTDB, New)
 }
 
-// New opens a new BoltDB connection to the specified path and bucket
+// New opens a new BoltDB connection to the specified path and bucket.
 func New(endpoints []string, options *store.Config) (store.Store, error) {
 	var (
 		db          *bbolt.DB
@@ -167,7 +167,7 @@ func (b *BoltDB) Get(key string, opts *store.ReadOptions) (*store.KVPair, error)
 	return &store.KVPair{Key: key, Value: val, LastIndex: dbIndex}, nil
 }
 
-// Put the key, value pair. index number metadata is prepended to the value
+// Put the key, value pair. index number metadata is prepended to the value.
 func (b *BoltDB) Put(key string, value []byte, opts *store.WriteOptions) error {
 	var (
 		dbIndex uint64
@@ -228,7 +228,7 @@ func (b *BoltDB) Delete(key string) error {
 	return err
 }
 
-// Exists checks if the key exists inside the store
+// Exists checks if the key exists inside the store.
 func (b *BoltDB) Exists(key string, opts *store.ReadOptions) (bool, error) {
 	var (
 		val []byte
@@ -260,7 +260,7 @@ func (b *BoltDB) Exists(key string, opts *store.ReadOptions) (bool, error) {
 	return true, err
 }
 
-// List returns the range of keys starting with the passed in prefix
+// List returns the range of keys starting with the passed in prefix.
 func (b *BoltDB) List(keyPrefix string, opts *store.ReadOptions) ([]*store.KVPair, error) {
 	var (
 		db  *bbolt.DB
@@ -310,7 +310,7 @@ func (b *BoltDB) List(keyPrefix string, opts *store.ReadOptions) ([]*store.KVPai
 
 // AtomicDelete deletes a value at "key" if the key
 // has not been modified in the meantime, throws an
-// error if this is the case
+// error if this is the case.
 func (b *BoltDB) AtomicDelete(key string, previous *store.KVPair) (bool, error) {
 	var (
 		val []byte
@@ -352,7 +352,7 @@ func (b *BoltDB) AtomicDelete(key string, previous *store.KVPair) (bool, error) 
 }
 
 // AtomicPut puts a value at "key" if the key has not been
-// modified since the last Put, throws an error if this is the case
+// modified since the last Put, throws an error if this is the case.
 func (b *BoltDB) AtomicPut(key string, value []byte, previous *store.KVPair, options *store.WriteOptions) (bool, *store.KVPair, error) {
 	var (
 		val     []byte
@@ -415,7 +415,7 @@ func (b *BoltDB) AtomicPut(key string, value []byte, previous *store.KVPair, opt
 	return true, updated, nil
 }
 
-// Close the db connection to the BoltDB
+// Close the db connection to the BoltDB.
 func (b *BoltDB) Close() {
 	b.Lock()
 	defer b.Unlock()
@@ -427,7 +427,7 @@ func (b *BoltDB) Close() {
 	}
 }
 
-// DeleteTree deletes a range of keys with a given prefix
+// DeleteTree deletes a range of keys with a given prefix.
 func (b *BoltDB) DeleteTree(keyPrefix string) error {
 	var (
 		db  *bbolt.DB
@@ -459,17 +459,17 @@ func (b *BoltDB) DeleteTree(keyPrefix string) error {
 	return err
 }
 
-// NewLock has to implemented at the library level since its not supported by BoltDB
+// NewLock has to implemented at the library level since its not supported by BoltDB.
 func (b *BoltDB) NewLock(key string, options *store.LockOptions) (store.Locker, error) {
 	return nil, store.ErrCallNotSupported
 }
 
-// Watch has to implemented at the library level since its not supported by BoltDB
+// Watch has to implemented at the library level since its not supported by BoltDB.
 func (b *BoltDB) Watch(key string, stopCh <-chan struct{}, opts *store.ReadOptions) (<-chan *store.KVPair, error) {
 	return nil, store.ErrCallNotSupported
 }
 
-// WatchTree has to implemented at the library level since its not supported by BoltDB
+// WatchTree has to implemented at the library level since its not supported by BoltDB.
 func (b *BoltDB) WatchTree(directory string, stopCh <-chan struct{}, opts *store.ReadOptions) (<-chan []*store.KVPair, error) {
 	return nil, store.ErrCallNotSupported
 }

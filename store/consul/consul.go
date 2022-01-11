@@ -20,30 +20,30 @@ const (
 	DefaultWatchWaitTime = 15 * time.Second
 
 	// RenewSessionRetryMax is the number of time we should try
-	// to renew the session before giving up and throwing an error
+	// to renew the session before giving up and throwing an error.
 	RenewSessionRetryMax = 5
 
 	// MaxSessionDestroyAttempts is the maximum times we will try
 	// to explicitly destroy the session attached to a lock after
-	// the connectivity to the store has been lost
+	// the connectivity to the store has been lost.
 	MaxSessionDestroyAttempts = 5
 
-	// defaultLockTTL is the default ttl for the consul lock
+	// defaultLockTTL is the default ttl for the consul lock.
 	defaultLockTTL = 20 * time.Second
 )
 
 var (
 	// ErrMultipleEndpointsUnsupported is thrown when there are
-	// multiple endpoints specified for Consul
+	// multiple endpoints specified for Consul.
 	ErrMultipleEndpointsUnsupported = errors.New("consul does not support multiple endpoints")
 
 	// ErrSessionRenew is thrown when the session can't be
-	// renewed because the Consul version does not support sessions
+	// renewed because the Consul version does not support sessions.
 	ErrSessionRenew = errors.New("cannot set or renew session for ttl, unable to operate on sessions")
 )
 
 // Consul is the receiver type for the
-// Store interface
+// Store interface.
 type Consul struct {
 	sync.Mutex
 	config *api.Config
@@ -55,13 +55,13 @@ type consulLock struct {
 	renewCh chan struct{}
 }
 
-// Register registers consul to valkeyrie
+// Register registers consul to valkeyrie.
 func Register() {
 	valkeyrie.AddStore(store.CONSUL, New)
 }
 
 // New creates a new Consul client given a list
-// of endpoints and optional tls config
+// of endpoints and optional tls config.
 func New(endpoints []string, options *store.Config) (store.Store, error) {
 	if len(endpoints) > 1 {
 		return nil, ErrMultipleEndpointsUnsupported
@@ -104,7 +104,7 @@ func New(endpoints []string, options *store.Config) (store.Store, error) {
 	return s, nil
 }
 
-// SetTLS sets Consul TLS options
+// SetTLS sets Consul TLS options.
 func (s *Consul) setTLS(tlsCfg *tls.Config) {
 	s.config.HttpClient.Transport = &http.Transport{
 		TLSClientConfig: tlsCfg,
@@ -112,22 +112,22 @@ func (s *Consul) setTLS(tlsCfg *tls.Config) {
 	s.config.Scheme = "https"
 }
 
-// SetTimeout sets the timeout for connecting to Consul
+// SetTimeout sets the timeout for connecting to Consul.
 func (s *Consul) setTimeout(timeout time.Duration) {
 	s.config.WaitTime = timeout
 }
 
-// SetTimeout sets the timeout for connecting to Consul
+// SetTimeout sets the timeout for connecting to Consul.
 func (s *Consul) setToken(token string) {
 	s.config.Token = token
 }
 
-// SetNamespace sets the namespace for connecting to Consul
+// SetNamespace sets the namespace for connecting to Consul.
 func (s *Consul) setNamespace(namespace string) {
 	s.config.Namespace = namespace
 }
 
-// Normalize the key for usage in Consul
+// Normalize the key for usage in Consul.
 func (s *Consul) normalize(key string) string {
 	key = store.Normalize(key)
 	return strings.TrimPrefix(key, "/")
@@ -172,7 +172,7 @@ func (s *Consul) renewSession(pair *api.KVPair, ttl time.Duration) error {
 }
 
 // getActiveSession checks if the key already has
-// a session attached
+// a session attached.
 func (s *Consul) getActiveSession(key string) (string, error) {
 	pair, _, err := s.client.KV().Get(key, nil)
 	if err != nil {
@@ -185,7 +185,7 @@ func (s *Consul) getActiveSession(key string) (string, error) {
 }
 
 // Get the value at "key", returns the last modified index
-// to use in conjunction to CAS calls
+// to use in conjunction to CAS calls.
 func (s *Consul) Get(key string, opts *store.ReadOptions) (*store.KVPair, error) {
 	options := &api.QueryOptions{
 		AllowStale:        false,
@@ -210,7 +210,7 @@ func (s *Consul) Get(key string, opts *store.ReadOptions) (*store.KVPair, error)
 	return &store.KVPair{Key: pair.Key, Value: pair.Value, LastIndex: meta.LastIndex}, nil
 }
 
-// Put a value at "key"
+// Put a value at "key".
 func (s *Consul) Put(key string, value []byte, opts *store.WriteOptions) error {
 	key = s.normalize(key)
 
@@ -238,7 +238,7 @@ func (s *Consul) Put(key string, value []byte, opts *store.WriteOptions) error {
 	return err
 }
 
-// Delete a value at "key"
+// Delete a value at "key".
 func (s *Consul) Delete(key string) error {
 	if _, err := s.Get(key, nil); err != nil {
 		return err
@@ -247,7 +247,7 @@ func (s *Consul) Delete(key string) error {
 	return err
 }
 
-// Exists checks that the key exists inside the store
+// Exists checks that the key exists inside the store.
 func (s *Consul) Exists(key string, opts *store.ReadOptions) (bool, error) {
 	_, err := s.Get(key, opts)
 	if err != nil {
@@ -259,7 +259,7 @@ func (s *Consul) Exists(key string, opts *store.ReadOptions) (bool, error) {
 	return true, nil
 }
 
-// List child nodes of a given directory
+// List child nodes of a given directory.
 func (s *Consul) List(directory string, opts *store.ReadOptions) ([]*store.KVPair, error) {
 	options := &api.QueryOptions{
 		AllowStale:        false,
@@ -297,7 +297,7 @@ func (s *Consul) List(directory string, opts *store.ReadOptions) ([]*store.KVPai
 	return kv, nil
 }
 
-// DeleteTree deletes a range of keys under a given directory
+// DeleteTree deletes a range of keys under a given directory.
 func (s *Consul) DeleteTree(directory string) error {
 	if _, err := s.List(directory, nil); err != nil {
 		return err
@@ -413,7 +413,7 @@ func (s *Consul) WatchTree(directory string, stopCh <-chan struct{}, opts *store
 }
 
 // NewLock returns a handle to a lock struct which can
-// be used to provide mutual exclusion on a key
+// be used to provide mutual exclusion on a key.
 func (s *Consul) NewLock(key string, options *store.LockOptions) (store.Locker, error) {
 	lockOpts := &api.LockOptions{
 		Key: s.normalize(key),
@@ -522,13 +522,13 @@ func (s *Consul) renewLockSession(initialTTL string, id string, stopRenew chan s
 
 // Lock attempts to acquire the lock and blocks while
 // doing so. It returns a channel that is closed if our
-// lock is lost or if an error occurs
+// lock is lost or if an error occurs.
 func (l *consulLock) Lock(stopChan chan struct{}) (<-chan struct{}, error) {
 	return l.lock.Lock(stopChan)
 }
 
 // Unlock the "key". Calling unlock while
-// not holding the lock will throw an error
+// not holding the lock will throw an error.
 func (l *consulLock) Unlock() error {
 	if l.renewCh != nil {
 		close(l.renewCh)
@@ -537,7 +537,7 @@ func (l *consulLock) Unlock() error {
 }
 
 // AtomicPut put a value at "key" if the key has not been
-// modified in the meantime, throws an error if this is the case
+// modified in the meantime, throws an error if this is the case.
 func (s *Consul) AtomicPut(key string, value []byte, previous *store.KVPair, options *store.WriteOptions) (bool, *store.KVPair, error) {
 
 	p := &api.KVPair{Key: s.normalize(key), Value: value, Flags: api.LockFlagValue}
@@ -569,7 +569,7 @@ func (s *Consul) AtomicPut(key string, value []byte, previous *store.KVPair, opt
 }
 
 // AtomicDelete deletes a value at "key" if the key has not
-// been modified in the meantime, throws an error if this is the case
+// been modified in the meantime, throws an error if this is the case.
 func (s *Consul) AtomicDelete(key string, previous *store.KVPair) (bool, error) {
 	if previous == nil {
 		return false, store.ErrPreviousNotSpecified
@@ -592,5 +592,5 @@ func (s *Consul) AtomicDelete(key string, previous *store.KVPair) (bool, error) 
 	return true, nil
 }
 
-// Close closes the client connection
+// Close closes the client connection.
 func (s *Consul) Close() {}

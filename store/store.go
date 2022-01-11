@@ -6,46 +6,46 @@ import (
 	"time"
 )
 
-// Backend represents a KV Store Backend
+// Backend represents a KV Store Backend.
 type Backend string
 
 const (
-	// CONSUL backend
+	// CONSUL backend.
 	CONSUL Backend = "consul"
-	// ETCD backend with v2 client (backward compatibility)
+	// ETCD backend with v2 client (backward compatibility).
 	ETCD Backend = "etcd"
-	// ETCDV3 backend with v3 client
+	// ETCDV3 backend with v3 client.
 	ETCDV3 Backend = "etcdv3"
-	// ZK backend
+	// ZK backend.
 	ZK Backend = "zk"
-	// BOLTDB backend
+	// BOLTDB backend.
 	BOLTDB Backend = "boltdb"
-	// REDIS backend
+	// REDIS backend.
 	REDIS Backend = "redis"
-	// DYNAMODB backend
+	// DYNAMODB backend.
 	DYNAMODB Backend = "dynamodb"
 )
 
 var (
-	// ErrBackendNotSupported is thrown when the backend k/v store is not supported by valkeyrie
+	// ErrBackendNotSupported is thrown when the backend k/v store is not supported by valkeyrie.
 	ErrBackendNotSupported = errors.New("Backend storage not supported yet, please choose one of")
-	// ErrCallNotSupported is thrown when a method is not implemented/supported by the current backend
+	// ErrCallNotSupported is thrown when a method is not implemented/supported by the current backend.
 	ErrCallNotSupported = errors.New("The current call is not supported with this backend")
-	// ErrNotReachable is thrown when the API cannot be reached for issuing common store operations
+	// ErrNotReachable is thrown when the API cannot be reached for issuing common store operations.
 	ErrNotReachable = errors.New("Api not reachable")
-	// ErrCannotLock is thrown when there is an error acquiring a lock on a key
+	// ErrCannotLock is thrown when there is an error acquiring a lock on a key.
 	ErrCannotLock = errors.New("Error acquiring the lock")
-	// ErrKeyModified is thrown during an atomic operation if the index does not match the one in the store
+	// ErrKeyModified is thrown during an atomic operation if the index does not match the one in the store.
 	ErrKeyModified = errors.New("Unable to complete atomic operation, key modified")
-	// ErrKeyNotFound is thrown when the key is not found in the store during a Get operation
+	// ErrKeyNotFound is thrown when the key is not found in the store during a Get operation.
 	ErrKeyNotFound = errors.New("Key not found in store")
-	// ErrPreviousNotSpecified is thrown when the previous value is not specified for an atomic operation
+	// ErrPreviousNotSpecified is thrown when the previous value is not specified for an atomic operation.
 	ErrPreviousNotSpecified = errors.New("Previous K/V pair should be provided for the Atomic operation")
-	// ErrKeyExists is thrown when the previous value exists in the case of an AtomicPut
+	// ErrKeyExists is thrown when the previous value exists in the case of an AtomicPut.
 	ErrKeyExists = errors.New("Previous K/V pair exists, cannot complete Atomic operation")
 )
 
-// Config contains the options for a storage client
+// Config contains the options for a storage client.
 type Config struct {
 	ClientTLS         *ClientTLSConfig
 	TLS               *tls.Config
@@ -70,7 +70,7 @@ type ClientTLSConfig struct {
 // Store represents the backend K/V storage
 // Each store should support every call listed
 // here. Or it couldn't be implemented as a K/V
-// backend for valkeyrie
+// backend for valkeyrie.
 type Store interface {
 	// Put a value at the specified key
 	Put(key string, value []byte, options *WriteOptions) error
@@ -113,14 +113,14 @@ type Store interface {
 	Close()
 }
 
-// KVPair represents {Key, Value, Lastindex} tuple
+// KVPair represents {Key, Value, Lastindex} tuple.
 type KVPair struct {
 	Key       string
 	Value     []byte
 	LastIndex uint64
 }
 
-// WriteOptions contains optional request parameters
+// WriteOptions contains optional request parameters.
 type WriteOptions struct {
 	IsDir bool
 	TTL   time.Duration
@@ -130,7 +130,7 @@ type WriteOptions struct {
 	KeepAlive bool
 }
 
-// ReadOptions contains optional request parameters
+// ReadOptions contains optional request parameters.
 type ReadOptions struct {
 	// Consistent defines if the behavior of a Get operation is
 	// linearizable or not. Linearizability allows us to 'see'
@@ -140,7 +140,7 @@ type ReadOptions struct {
 	Consistent bool
 }
 
-// LockOptions contains optional request parameters
+// LockOptions contains optional request parameters.
 type LockOptions struct {
 	Value          []byte        // Optional, value to associate with the lock
 	TTL            time.Duration // Optional, expiration ttl associated with the lock
