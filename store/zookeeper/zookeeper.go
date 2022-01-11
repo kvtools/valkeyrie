@@ -1,6 +1,8 @@
+// Package zookeeper contains the ZooKeeper store implementation.
 package zookeeper
 
 import (
+	"errors"
 	"strings"
 	"time"
 
@@ -10,7 +12,7 @@ import (
 )
 
 const (
-	// SOH control character
+	// SOH control character.
 	SOH = "\x01"
 
 	defaultTimeout = 10 * time.Second
@@ -18,27 +20,20 @@ const (
 	syncRetryLimit = 5
 )
 
+// Register registers zookeeper to valkeyrie.
+func Register() {
+	valkeyrie.AddStore(store.ZK, New)
+}
+
 // Zookeeper is the receiver type for
-// the Store interface
+// the Store interface.
 type Zookeeper struct {
 	timeout time.Duration
 	client  *zk.Conn
 }
 
-type zookeeperLock struct {
-	client *zk.Conn
-	lock   *zk.Lock
-	key    string
-	value  []byte
-}
-
-// Register registers zookeeper to valkeyrie
-func Register() {
-	valkeyrie.AddStore(store.ZK, New)
-}
-
 // New creates a new Zookeeper client given a
-// list of endpoints and an optional tls config
+// list of endpoints and an optional tls config.
 func New(endpoints []string, options *store.Config) (store.Store, error) {
 	s := &Zookeeper{}
 	s.timeout = defaultTimeout
@@ -57,7 +52,7 @@ func New(endpoints []string, options *store.Config) (store.Store, error) {
 	}
 
 	s.client = conn
-	
+
 	if options != nil && options.Username != "" {
 		err := s.client.AddAuth("digest", []byte(options.Username+":"+options.Password))
 		if err != nil {
@@ -68,15 +63,14 @@ func New(endpoints []string, options *store.Config) (store.Store, error) {
 	return s, nil
 }
 
-// setTimeout sets the timeout for connecting to Zookeeper
-func (s *Zookeeper) setTimeout(time time.Duration) {
-	s.timeout = time
+// setTimeout sets the timeout for connecting to Zookeeper.
+func (s *Zookeeper) setTimeout(timeout time.Duration) {
+	s.timeout = timeout
 }
 
 // Get the value at "key", returns the last modified index
-// to use in conjunction to Atomic calls
+// to use in conjunction to Atomic calls.
 func (s *Zookeeper) Get(key string, opts *store.ReadOptions) (pair *store.KVPair, err error) {
-
 	resp, meta, err := s.get(key)
 	if err != nil {
 		return nil, err
@@ -93,7 +87,7 @@ func (s *Zookeeper) Get(key string, opts *store.ReadOptions) (pair *store.KVPair
 
 // createFullPath creates the entire path for a directory
 // that does not exist and sets the value of the last
-// znode to data
+// znode to data.
 func (s *Zookeeper) createFullPath(path []string, data []byte, ephemeral bool) error {
 	for i := 1; i <= len(path); i++ {
 		newpath := "/" + strings.Join(path[:i], "/")
@@ -110,7 +104,7 @@ func (s *Zookeeper) createFullPath(path []string, data []byte, ephemeral bool) e
 		_, err := s.client.Create(newpath, []byte{}, 0, zk.WorldACL(zk.PermAll))
 		if err != nil {
 			// Skip if node already exists
-			if err != zk.ErrNodeExists {
+			if !errors.Is(err, zk.ErrNodeExists) {
 				return err
 			}
 		}
@@ -118,7 +112,7 @@ func (s *Zookeeper) createFullPath(path []string, data []byte, ephemeral bool) e
 	return nil
 }
 
-// Put a value at "key"
+// Put a value at "key".
 func (s *Zookeeper) Put(key string, value []byte, opts *store.WriteOptions) error {
 	fkey := s.normalize(key)
 
@@ -140,16 +134,16 @@ func (s *Zookeeper) Put(key string, value []byte, opts *store.WriteOptions) erro
 	return err
 }
 
-// Delete a value at "key"
+// Delete a value at "key".
 func (s *Zookeeper) Delete(key string) error {
 	err := s.client.Delete(s.normalize(key), -1)
-	if err == zk.ErrNoNode {
+	if errors.Is(err, zk.ErrNoNode) {
 		return store.ErrKeyNotFound
 	}
 	return err
 }
 
-// Exists checks if the key exists inside the store
+// Exists checks if the key exists inside the store.
 func (s *Zookeeper) Exists(key string, opts *store.ReadOptions) (bool, error) {
 	exists, _, err := s.client.Exists(s.normalize(key))
 	if err != nil {
@@ -158,7 +152,7 @@ func (s *Zookeeper) Exists(key string, opts *store.ReadOptions) (bool, error) {
 	return exists, nil
 }
 
-// Watch for changes on a "key"
+// Watch for changes on a "key".
 // It returns a channel that will receive changes or pass
 // on errors. Upon creation, the current value will first
 // be sent to the channel. Providing a non-nil stopCh can
@@ -169,7 +163,7 @@ func (s *Zookeeper) Watch(key string, stopCh <-chan struct{}, opts *store.ReadOp
 	go func() {
 		defer close(watchCh)
 
-		var fireEvt = true
+		fireEvt := true
 		for {
 			resp, meta, eventCh, err := s.getW(key)
 			if err != nil {
@@ -198,10 +192,10 @@ func (s *Zookeeper) Watch(key string, stopCh <-chan struct{}, opts *store.ReadOp
 	return watchCh, nil
 }
 
-// WatchTree watches for changes on a "directory"
+// WatchTree watches for changes on a "directory".
 // It returns a channel that will receive changes or pass
 // on errors. Upon creating a watch, the current childs values
-// will be sent to the channel .Providing a non-nil stopCh can
+// will be sent to the channel. Providing a non-nil stopCh can
 // be used to stop watching.
 func (s *Zookeeper) WatchTree(directory string, stopCh <-chan struct{}, opts *store.ReadOptions) (<-chan []*store.KVPair, error) {
 	// Catch zk notifications and fire changes into the channel.
@@ -209,7 +203,7 @@ func (s *Zookeeper) WatchTree(directory string, stopCh <-chan struct{}, opts *st
 	go func() {
 		defer close(watchCh)
 
-		var fireEvt = true
+		fireEvt := true
 		for {
 		WATCH:
 			keys, _, eventCh, err := s.client.ChildrenW(s.normalize(directory))
@@ -241,11 +235,11 @@ func (s *Zookeeper) WatchTree(directory string, stopCh <-chan struct{}, opts *st
 	return watchCh, nil
 }
 
-// listChildren lists the direct children of a directory
+// listChildren lists the direct children of a directory.
 func (s *Zookeeper) listChildren(directory string) ([]string, error) {
 	children, _, err := s.client.Children(s.normalize(directory))
 	if err != nil {
-		if err == zk.ErrNoNode {
+		if errors.Is(err, zk.ErrNoNode) {
 			return nil, store.ErrKeyNotFound
 		}
 		return nil, err
@@ -269,7 +263,7 @@ func (s *Zookeeper) listChildrenRecursive(list *[]string, directory string) erro
 	for _, c := range children {
 		c = strings.TrimSuffix(directory, "/") + "/" + c
 		err := s.listChildrenRecursive(list, c)
-		if err != nil && err != zk.ErrNoChildrenForEphemerals {
+		if err != nil && !errors.Is(err, zk.ErrNoChildrenForEphemerals) {
 			return err
 		}
 		*list = append(*list, c)
@@ -278,7 +272,7 @@ func (s *Zookeeper) listChildrenRecursive(list *[]string, directory string) erro
 	return nil
 }
 
-// List child nodes of a given directory
+// List child nodes of a given directory.
 func (s *Zookeeper) List(directory string, opts *store.ReadOptions) ([]*store.KVPair, error) {
 	children := make([]string, 0)
 	err := s.listChildrenRecursive(&children, directory)
@@ -289,7 +283,7 @@ func (s *Zookeeper) List(directory string, opts *store.ReadOptions) ([]*store.KV
 	kvs, err := s.getList(children, opts)
 	if err != nil {
 		// If node is not found: List is out of date, retry
-		if err == store.ErrKeyNotFound {
+		if errors.Is(err, store.ErrKeyNotFound) {
 			return s.List(directory, opts)
 		}
 		return nil, err
@@ -298,7 +292,7 @@ func (s *Zookeeper) List(directory string, opts *store.ReadOptions) ([]*store.KV
 	return kvs, nil
 }
 
-// DeleteTree deletes a range of keys under a given directory
+// DeleteTree deletes a range of keys under a given directory.
 func (s *Zookeeper) DeleteTree(directory string) error {
 	children, err := s.listChildren(directory)
 	if err != nil {
@@ -319,61 +313,67 @@ func (s *Zookeeper) DeleteTree(directory string) error {
 }
 
 // AtomicPut put a value at "key" if the key has not been
-// modified in the meantime, throws an error if this is the case
+// modified in the meantime, throws an error if this is the case.
 func (s *Zookeeper) AtomicPut(key string, value []byte, previous *store.KVPair, _ *store.WriteOptions) (bool, *store.KVPair, error) {
-	var lastIndex uint64
-
 	if previous != nil {
 		meta, err := s.client.Set(s.normalize(key), value, int32(previous.LastIndex))
 		if err != nil {
 			// Compare Failed
-			if err == zk.ErrBadVersion {
+			if errors.Is(err, zk.ErrBadVersion) {
 				return false, nil, store.ErrKeyModified
 			}
 			return false, nil, err
 		}
-		lastIndex = uint64(meta.Version)
-	} else {
-		// Interpret previous == nil as create operation.
+
+		pair := &store.KVPair{
+			Key:       key,
+			Value:     value,
+			LastIndex: uint64(meta.Version),
+		}
+
+		return true, pair, nil
+	}
+
+	// Interpret previous == nil as create operation.
+	_, err := s.client.Create(s.normalize(key), value, 0, zk.WorldACL(zk.PermAll))
+	if err != nil { // nolint:nestif // require a deep refactor.
+		// Node Exists error (when previous nil)
+		if errors.Is(err, zk.ErrNodeExists) {
+			return false, nil, store.ErrKeyExists
+		}
+
+		// Unhandled error
+		if !errors.Is(err, zk.ErrNoNode) {
+			return false, nil, err
+		}
+
+		// Directory does not exist
+
+		// Create the directory
+		parts := store.SplitKey(strings.TrimSuffix(key, "/"))
+		parts = parts[:len(parts)-1]
+
+		err = s.createFullPath(parts, []byte{}, false)
+		if err != nil {
+			// Failed to create the directory.
+			return false, nil, err
+		}
+
+		// Create the node
 		_, err := s.client.Create(s.normalize(key), value, 0, zk.WorldACL(zk.PermAll))
 		if err != nil {
-			// Directory does not exist
-			if err == zk.ErrNoNode {
-
-				// Create the directory
-				parts := store.SplitKey(strings.TrimSuffix(key, "/"))
-				parts = parts[:len(parts)-1]
-				if err = s.createFullPath(parts, []byte{}, false); err != nil {
-					// Failed to create the directory.
-					return false, nil, err
-				}
-
-				// Create the node
-				if _, err := s.client.Create(s.normalize(key), value, 0, zk.WorldACL(zk.PermAll)); err != nil {
-					// Node exist error (when previous nil)
-					if err == zk.ErrNodeExists {
-						return false, nil, store.ErrKeyExists
-					}
-					return false, nil, err
-				}
-
-			} else {
-				// Node Exists error (when previous nil)
-				if err == zk.ErrNodeExists {
-					return false, nil, store.ErrKeyExists
-				}
-
-				// Unhandled error
-				return false, nil, err
+			// Node exist error (when previous nil)
+			if errors.Is(err, zk.ErrNodeExists) {
+				return false, nil, store.ErrKeyExists
 			}
+			return false, nil, err
 		}
-		lastIndex = 0 // Newly created nodes have version 0.
 	}
 
 	pair := &store.KVPair{
 		Key:       key,
 		Value:     value,
-		LastIndex: lastIndex,
+		LastIndex: 0, // Newly created nodes have version 0.
 	}
 
 	return true, pair, nil
@@ -381,7 +381,7 @@ func (s *Zookeeper) AtomicPut(key string, value []byte, previous *store.KVPair, 
 
 // AtomicDelete deletes a value at "key" if the key
 // has not been modified in the meantime, throws an
-// error if this is the case
+// error if this is the case.
 func (s *Zookeeper) AtomicDelete(key string, previous *store.KVPair) (bool, error) {
 	if previous == nil {
 		return false, store.ErrPreviousNotSpecified
@@ -390,11 +390,11 @@ func (s *Zookeeper) AtomicDelete(key string, previous *store.KVPair) (bool, erro
 	err := s.client.Delete(s.normalize(key), int32(previous.LastIndex))
 	if err != nil {
 		// Key not found
-		if err == zk.ErrNoNode {
+		if errors.Is(err, zk.ErrNoNode) {
 			return false, store.ErrKeyNotFound
 		}
 		// Compare failed
-		if err == zk.ErrBadVersion {
+		if errors.Is(err, zk.ErrBadVersion) {
 			return false, store.ErrKeyModified
 		}
 		// General store error
@@ -404,7 +404,7 @@ func (s *Zookeeper) AtomicDelete(key string, previous *store.KVPair) (bool, erro
 }
 
 // NewLock returns a handle to a lock struct which can
-// be used to provide mutual exclusion on a key
+// be used to provide mutual exclusion on a key.
 func (s *Zookeeper) NewLock(key string, options *store.LockOptions) (lock store.Locker, err error) {
 	value := []byte("")
 
@@ -425,67 +425,15 @@ func (s *Zookeeper) NewLock(key string, options *store.LockOptions) (lock store.
 	return lock, err
 }
 
-// Lock attempts to acquire the lock and blocks while
-// doing so. It returns a channel that is closed if our
-// lock is lost or if an error occurs
-func (l *zookeeperLock) Lock(stopChan chan struct{}) (<-chan struct{}, error) {
-	err := l.lock.Lock()
-
-	lostCh := make(chan struct{})
-	if err == nil {
-		// We hold the lock, we can set our value
-		_, err = l.client.Set(l.key, l.value, -1)
-		if err == nil {
-			go l.monitorLock(stopChan, lostCh)
-		}
-	}
-
-	return lostCh, err
-}
-
-// Unlock the "key". Calling unlock while
-// not holding the lock will throw an error
-func (l *zookeeperLock) Unlock() error {
-	return l.lock.Unlock()
-}
-
-// Close closes the client connection
+// Close closes the client connection.
 func (s *Zookeeper) Close() {
 	s.client.Close()
 }
 
-// Normalize the key for usage in Zookeeper
+// normalize the key for usage in Zookeeper.
 func (s *Zookeeper) normalize(key string) string {
 	key = store.Normalize(key)
 	return strings.TrimSuffix(key, "/")
-}
-
-func (l *zookeeperLock) monitorLock(stopCh <-chan struct{}, lostCh chan struct{}) {
-	defer close(lostCh)
-
-	for {
-		_, _, eventCh, err := l.client.GetW(l.key)
-		if err != nil {
-			// We failed to set watch, relinquish the lock
-			return
-		}
-		select {
-		case e := <-eventCh:
-			if e.Type == zk.EventNotWatching ||
-				(e.Type == zk.EventSession && e.State == zk.StateExpired) {
-				// Either the session has been closed and our watch has been
-				// invalidated or the session has expired.
-				return
-			} else if e.Type == zk.EventNodeDataChanged {
-				// Somemone else has written to the lock node and believes
-				// that they have the lock.
-				return
-			}
-		case <-stopCh:
-			// The caller has requested that we relinquish our lock
-			return
-		}
-	}
 }
 
 func (s *Zookeeper) get(key string) ([]byte, *zk.Stat, error) {
@@ -501,13 +449,13 @@ func (s *Zookeeper) get(key string) ([]byte, *zk.Stat, error) {
 		resp, meta, err = s.client.Get(s.normalize(key))
 
 		if err != nil {
-			if err == zk.ErrNoNode {
+			if errors.Is(err, zk.ErrNoNode) {
 				return nil, nil, store.ErrKeyNotFound
 			}
 			return nil, nil, err
 		}
 
-		if string(resp) != SOH && string(resp) != "" {
+		if string(resp) != SOH && len(resp) != 0 {
 			return resp, meta, nil
 		}
 
@@ -534,13 +482,13 @@ func (s *Zookeeper) getW(key string) ([]byte, *zk.Stat, <-chan zk.Event, error) 
 		resp, meta, ech, err = s.client.GetW(s.normalize(key))
 
 		if err != nil {
-			if err == zk.ErrNoNode {
+			if errors.Is(err, zk.ErrNoNode) {
 				return nil, nil, nil, store.ErrKeyNotFound
 			}
 			return nil, nil, nil, err
 		}
 
-		if string(resp) != SOH && string(resp) != "" {
+		if string(resp) != SOH && len(resp) != 0 {
 			return resp, meta, ech, nil
 		}
 
@@ -581,7 +529,7 @@ func (s *Zookeeper) getListWithPath(path string, keys []string, opts *store.Read
 //
 // This is generally used when we have a full list of keys with
 // their full path included.
-func (s *Zookeeper) getList(keys []string, opts *store.ReadOptions) ([]*store.KVPair, error) {
+func (s *Zookeeper) getList(keys []string, _ *store.ReadOptions) ([]*store.KVPair, error) {
 	kvs := []*store.KVPair{}
 
 	for _, key := range keys {
@@ -598,4 +546,63 @@ func (s *Zookeeper) getList(keys []string, opts *store.ReadOptions) ([]*store.KV
 	}
 
 	return kvs, nil
+}
+
+type zookeeperLock struct {
+	client *zk.Conn
+	lock   *zk.Lock
+	key    string
+	value  []byte
+}
+
+// Lock attempts to acquire the lock and blocks while
+// doing so. It returns a channel that is closed if our
+// lock is lost or if an error occurs.
+func (l *zookeeperLock) Lock(stopChan chan struct{}) (<-chan struct{}, error) {
+	err := l.lock.Lock()
+
+	lostCh := make(chan struct{})
+	if err == nil {
+		// We hold the lock, we can set our value
+		_, err = l.client.Set(l.key, l.value, -1)
+		if err == nil {
+			go l.monitorLock(stopChan, lostCh)
+		}
+	}
+
+	return lostCh, err
+}
+
+// Unlock the "key". Calling unlock while
+// not holding the lock will throw an error.
+func (l *zookeeperLock) Unlock() error {
+	return l.lock.Unlock()
+}
+
+func (l *zookeeperLock) monitorLock(stopCh <-chan struct{}, lostCh chan struct{}) {
+	defer close(lostCh)
+
+	for {
+		_, _, eventCh, err := l.client.GetW(l.key)
+		if err != nil {
+			// We failed to set watch, relinquish the lock
+			return
+		}
+		select {
+		case e := <-eventCh:
+			if e.Type == zk.EventNotWatching ||
+				(e.Type == zk.EventSession && e.State == zk.StateExpired) {
+				// Either the session has been closed and our watch has been
+				// invalidated or the session has expired.
+				return
+			} else if e.Type == zk.EventNodeDataChanged {
+				// Somemone else has written to the lock node and believes
+				// that they have the lock.
+				return
+			}
+		case <-stopCh:
+			// The caller has requested that we relinquish our lock
+			return
+		}
+	}
 }

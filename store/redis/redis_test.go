@@ -7,17 +7,15 @@ import (
 	"github.com/kvtools/valkeyrie/store"
 	"github.com/kvtools/valkeyrie/testutils"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
-var (
-	client = "localhost:6379"
-)
+const client = "localhost:6379"
 
 func makeRedisClient(t *testing.T) store.Store {
-	kv, err := newRedis([]string{client}, "", nil)
-	if err != nil {
-		t.Fatalf("cannot create store: %v", err)
-	}
+	t.Helper()
+
+	kv := newRedis([]string{client}, "", nil)
 
 	// NOTE: please turn on redis's notification
 	// before you using watch/watchtree/lock related features
@@ -30,7 +28,7 @@ func TestRegister(t *testing.T) {
 	Register()
 
 	kv, err := valkeyrie.NewStore(store.REDIS, []string{client}, nil)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.NotNil(t, kv)
 
 	if _, ok := kv.(*Redis); !ok {

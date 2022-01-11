@@ -9,14 +9,14 @@ import (
 	"github.com/kvtools/valkeyrie/store"
 	"github.com/kvtools/valkeyrie/testutils"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func makeBoltDBClient(t *testing.T) store.Store {
-	kv, err := New([]string{"/tmp/not_exist_dir/__boltdbtest"}, &store.Config{Bucket: "boltDBTest"})
+	t.Helper()
 
-	if err != nil {
-		t.Fatalf("cannot create store: %v", err)
-	}
+	kv, err := New([]string{"/tmp/not_exist_dir/__boltdbtest"}, &store.Config{Bucket: "boltDBTest"})
+	require.NoErrorf(t, err, "cannot create store")
 
 	return kv
 }
@@ -29,7 +29,7 @@ func TestRegister(t *testing.T) {
 		[]string{"/tmp/not_exist_dir/__boltdbtest"},
 		&store.Config{Bucket: "boltDBTest"},
 	)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.NotNil(t, kv)
 
 	if _, ok := kv.(*BoltDB); !ok {
@@ -40,7 +40,7 @@ func TestRegister(t *testing.T) {
 }
 
 // TestMultiplePersistConnection tests the second connection to a
-// BoltDB fails when one is already open with PersistConnection flag
+// BoltDB fails when one is already open with PersistConnection flag.
 func TestMultiplePersistConnection(t *testing.T) {
 	kv, err := valkeyrie.NewStore(
 		store.BOLTDB,
@@ -48,9 +48,10 @@ func TestMultiplePersistConnection(t *testing.T) {
 		&store.Config{
 			Bucket:            "boltDBTest",
 			ConnectionTimeout: 1 * time.Second,
-			PersistConnection: true},
+			PersistConnection: true,
+		},
 	)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.NotNil(t, kv)
 
 	if _, ok := kv.(*BoltDB); !ok {
@@ -64,7 +65,8 @@ func TestMultiplePersistConnection(t *testing.T) {
 		&store.Config{
 			Bucket:            "boltDBTest",
 			ConnectionTimeout: 1 * time.Second,
-			PersistConnection: true},
+			PersistConnection: true,
+		},
 	)
 	assert.Error(t, err)
 
@@ -74,45 +76,47 @@ func TestMultiplePersistConnection(t *testing.T) {
 // TestConcurrentConnection tests simultaneous get/put using
 // two handles.
 func TestConcurrentConnection(t *testing.T) {
-	var err error
-	kv1, err1 := valkeyrie.NewStore(
+	kv1, err := valkeyrie.NewStore(
 		store.BOLTDB,
 		[]string{"/tmp/__boltdbtest"},
 		&store.Config{
 			Bucket:            "boltDBTest",
-			ConnectionTimeout: 1 * time.Second},
+			ConnectionTimeout: 1 * time.Second,
+		},
 	)
-	assert.NoError(t, err1)
+	require.NoError(t, err)
 	assert.NotNil(t, kv1)
 
-	kv2, err2 := valkeyrie.NewStore(
+	kv2, err := valkeyrie.NewStore(
 		store.BOLTDB,
 		[]string{"/tmp/__boltdbtest"},
-		&store.Config{Bucket: "boltDBTest",
-			ConnectionTimeout: 1 * time.Second},
+		&store.Config{
+			Bucket:            "boltDBTest",
+			ConnectionTimeout: 1 * time.Second,
+		},
 	)
-	assert.NoError(t, err2)
+	require.NoError(t, err)
 	assert.NotNil(t, kv2)
 
 	key1 := "TestKV1"
 	value1 := []byte("TestVal1")
 	err = kv1.Put(key1, value1, nil)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	key2 := "TestKV2"
 	value2 := []byte("TestVal2")
 	err = kv2.Put(key2, value2, nil)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	pair1, err1 := kv1.Get(key1, nil)
-	assert.NoError(t, err1)
+	require.NoError(t, err1)
 	if assert.NotNil(t, pair1) {
 		assert.NotNil(t, pair1.Value)
 	}
 	assert.Equal(t, pair1.Value, value1)
 
 	pair2, err2 := kv2.Get(key2, nil)
-	assert.NoError(t, err2)
+	require.NoError(t, err2)
 	if assert.NotNil(t, pair2) {
 		assert.NotNil(t, pair2.Value)
 	}
@@ -120,10 +124,10 @@ func TestConcurrentConnection(t *testing.T) {
 
 	// AtomicPut using kv1 and kv2 should succeed
 	_, _, err = kv1.AtomicPut(key1, []byte("TestnewVal1"), pair1, nil)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	_, _, err = kv2.AtomicPut(key2, []byte("TestnewVal2"), pair2, nil)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	testutils.RunTestCommon(t, kv1)
 	testutils.RunTestCommon(t, kv2)

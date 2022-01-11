@@ -8,23 +8,21 @@ import (
 	"github.com/kvtools/valkeyrie/store"
 	"github.com/kvtools/valkeyrie/testutils"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
-var (
-	client = "localhost:2181"
-)
+const client = "localhost:2181"
 
 func makeZkClient(t *testing.T) store.Store {
+	t.Helper()
+
 	kv, err := New(
 		[]string{client},
 		&store.Config{
 			ConnectionTimeout: 3 * time.Second,
 		},
 	)
-
-	if err != nil {
-		t.Fatalf("cannot create store: %v", err)
-	}
+	require.NoErrorf(t, err, "cannot create store")
 
 	return kv
 }
@@ -33,7 +31,7 @@ func TestRegister(t *testing.T) {
 	Register()
 
 	kv, err := valkeyrie.NewStore(store.ZK, []string{client}, nil)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.NotNil(t, kv)
 
 	if _, ok := kv.(*Zookeeper); !ok {

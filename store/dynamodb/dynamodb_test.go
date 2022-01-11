@@ -13,6 +13,7 @@ import (
 	"github.com/kvtools/valkeyrie/store"
 	"github.com/kvtools/valkeyrie/testutils"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 const TestTableName = "test-1-valkeyrie"
@@ -25,20 +26,19 @@ func TestRegister(t *testing.T) {
 		[]string{},
 		&store.Config{Bucket: "test-1-valkeyrie"},
 	)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.NotNil(t, kv)
 
 	if _, ok := kv.(*DynamoDB); !ok {
 		t.Fatal("Error registering and initializing DynamoDB")
 	}
-
 }
 
 func TestSetup(t *testing.T) {
 	ddb := newDynamoDBStore(t)
 	// ensure this is idempotent
 	err := ddb.createTable()
-	assert.Nil(t, err)
+	require.NoError(t, err)
 }
 
 func TestDynamoDBStore(t *testing.T) {
@@ -67,7 +67,6 @@ func TestDynamoDBStoreUnsupported(t *testing.T) {
 }
 
 func TestBatchWrite(t *testing.T) {
-
 	dynamodbSvc := newDynamoDB()
 
 	mock := &mockedBatchWrite{DynamoDBAPI: dynamodbSvc}
@@ -103,14 +102,14 @@ func TestBatchWrite(t *testing.T) {
 
 	// Put the first key
 	err := kv.Put(firstKey, firstValue, nil)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	// Put the second key
 	err = kv.Put(secondKey, secondValue, nil)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	err = kv.DeleteTree(prefix)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 }
 
 type mockedBatchWrite struct {
@@ -133,7 +132,7 @@ func TestDecodeItem(t *testing.T) {
 	}
 
 	kv, err := decodeItem(data)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Equal(t, &store.KVPair{Key: "abc123", Value: []uint8{0x61, 0x62, 0x63, 0x31, 0x32, 0x33, 0xa}, LastIndex: 0xa}, kv)
 
 	data[encodedValueAttribute] = &dynamodb.AttributeValue{S: aws.String("not base64")}
@@ -152,7 +151,6 @@ func (m *mockedBatchWrite) BatchWriteItem(in *dynamodb.BatchWriteItemInput) (*dy
 }
 
 func newDynamoDB() *dynamodb.DynamoDB {
-
 	creds := credentials.NewStaticCredentials("test", "test", "test")
 
 	config := aws.NewConfig().WithCredentials(creds)
@@ -165,6 +163,7 @@ func newDynamoDB() *dynamodb.DynamoDB {
 }
 
 func newDynamoDBStore(t *testing.T) *DynamoDB {
+	t.Helper()
 
 	ddb := newDynamoDB()
 
@@ -174,9 +173,9 @@ func newDynamoDBStore(t *testing.T) *DynamoDB {
 	}
 
 	err := deleteTable(ddb, TestTableName)
-	assert.Nil(t, err)
+	require.NoError(t, err)
 	err = ddbStore.createTable()
-	assert.Nil(t, err)
+	require.NoError(t, err)
 
 	return ddbStore
 }

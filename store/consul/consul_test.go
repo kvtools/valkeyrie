@@ -8,13 +8,13 @@ import (
 	"github.com/kvtools/valkeyrie/store"
 	"github.com/kvtools/valkeyrie/testutils"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
-var (
-	client = "localhost:8500"
-)
+const client = "localhost:8500"
 
 func makeConsulClient(t *testing.T) store.Store {
+	t.Helper()
 
 	kv, err := New(
 		[]string{client},
@@ -22,10 +22,7 @@ func makeConsulClient(t *testing.T) store.Store {
 			ConnectionTimeout: 3 * time.Second,
 		},
 	)
-
-	if err != nil {
-		t.Fatalf("cannot create store: %v", err)
-	}
+	require.NoErrorf(t, err, "cannot create store")
 
 	return kv
 }
@@ -34,7 +31,7 @@ func TestRegister(t *testing.T) {
 	Register()
 
 	kv, err := valkeyrie.NewStore(store.CONSUL, []string{client}, nil)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.NotNil(t, kv)
 
 	if _, ok := kv.(*Consul); !ok {
@@ -59,26 +56,27 @@ func TestConsulStore(t *testing.T) {
 func TestGetActiveSession(t *testing.T) {
 	kv := makeConsulClient(t)
 
-	consul := kv.(*Consul)
+	consul, ok := kv.(*Consul)
+	require.True(t, ok)
 
 	key := "foo"
 	value := []byte("bar")
 
 	// Put the first key with the Ephemeral flag
 	err := kv.Put(key, value, &store.WriteOptions{TTL: 2 * time.Second})
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	// Session should not be empty
 	session, err := consul.getActiveSession(key)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.NotEqual(t, session, "")
 
 	// Delete the key
 	err = kv.Delete(key)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	// Check the session again, it should return nothing
 	session, err = consul.getActiveSession(key)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Equal(t, session, "")
 }

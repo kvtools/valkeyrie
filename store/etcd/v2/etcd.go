@@ -1,3 +1,4 @@
+// Package etcd contains the etcd v2 store implementation.
 package etcd
 
 import (
@@ -17,48 +18,28 @@ import (
 )
 
 const (
-	lockSuffix = "___lock"
+	lockSuffix     = "___lock"
+	defaultLockTTL = 20 * time.Second
 )
 
-var (
-	// ErrAbortTryLock is thrown when a user stops trying to seek the lock
-	// by sending a signal to the stop chan, this is used to verify if the
-	// operation succeeded
-	ErrAbortTryLock = errors.New("lock operation aborted")
-)
+// ErrAbortTryLock is thrown when a user stops trying to seek the lock
+// by sending a signal to the stop chan, this is used to verify if the
+// operation succeeded.
+var ErrAbortTryLock = errors.New("lock operation aborted")
 
-// Etcd is the receiver type for the
-// Store interface
-type Etcd struct {
-	client etcd.KeysAPI
-}
-
-type etcdLock struct {
-	lock   sync.Mutex
-	client etcd.KeysAPI
-
-	stopLock  chan struct{}
-	stopRenew chan struct{}
-
-	mutexKey string
-	writeKey string
-	value    string
-	last     *etcd.Response
-	ttl      time.Duration
-}
-
-const (
-	defaultLockTTL    = 20 * time.Second
-	defaultUpdateTime = 5 * time.Second
-)
-
-// Register registers etcd to valkeyrie
+// Register registers etcd to valkeyrie.
 func Register() {
 	valkeyrie.AddStore(store.ETCD, New)
 }
 
+// Etcd is the receiver type for the
+// Store interface.
+type Etcd struct {
+	client etcd.KeysAPI
+}
+
 // New creates a new Etcd client given a list
-// of endpoints and an optional tls config
+// of endpoints and an optional tls config.
 func New(addrs []string, options *store.Config) (store.Store, error) {
 	s := &Etcd{}
 
@@ -106,8 +87,8 @@ func New(addrs []string, options *store.Config) (store.Store, error) {
 	return s, nil
 }
 
-// SetTLS sets the tls configuration given a tls.Config scheme
-func setTLS(cfg *etcd.Config, tls *tls.Config, addrs []string) {
+// setTLS sets the tls configuration given a tls.Config scheme.
+func setTLS(cfg *etcd.Config, tlsCfg *tls.Config, addrs []string) {
 	entries := store.CreateEndpoints(addrs, "https")
 	cfg.Endpoints = entries
 
@@ -118,46 +99,31 @@ func setTLS(cfg *etcd.Config, tls *tls.Config, addrs []string) {
 			KeepAlive: 30 * time.Second,
 		}).DialContext,
 		TLSHandshakeTimeout: 10 * time.Second,
-		TLSClientConfig:     tls,
+		TLSClientConfig:     tlsCfg,
 	}
 
 	cfg.Transport = &t
 }
 
-// setTimeout sets the timeout used for connecting to the store
-func setTimeout(cfg *etcd.Config, time time.Duration) {
-	cfg.HeaderTimeoutPerRequest = time
+// setTimeout sets the timeout used for connecting to the store.
+func setTimeout(cfg *etcd.Config, timeout time.Duration) {
+	cfg.HeaderTimeoutPerRequest = timeout
 }
 
-// setCredentials sets the username/password credentials for connecting to Etcd
+// setCredentials sets the username/password credentials for connecting to Etcd.
 func setCredentials(cfg *etcd.Config, username, password string) {
 	cfg.Username = username
 	cfg.Password = password
 }
 
-// Normalize the key for usage in Etcd
+// normalize the key for usage in Etcd.
 func (s *Etcd) normalize(key string) string {
 	key = store.Normalize(key)
 	return strings.TrimPrefix(key, "/")
 }
 
-// keyNotFound checks on the error returned by the KeysAPI
-// to verify if the key exists in the store or not
-func keyNotFound(err error) bool {
-	if err != nil {
-		if etcdError, ok := err.(etcd.Error); ok {
-			if etcdError.Code == etcd.ErrorCodeKeyNotFound ||
-				etcdError.Code == etcd.ErrorCodeNotFile ||
-				etcdError.Code == etcd.ErrorCodeNotDir {
-				return true
-			}
-		}
-	}
-	return false
-}
-
 // Get the value at "key", returns the last modified
-// index to use in conjunction to Atomic calls
+// index to use in conjunction to Atomic calls.
 func (s *Etcd) Get(key string, opts *store.ReadOptions) (pair *store.KVPair, err error) {
 	getOpts := &etcd.GetOptions{
 		Quorum: true,
@@ -185,7 +151,7 @@ func (s *Etcd) Get(key string, opts *store.ReadOptions) (pair *store.KVPair, err
 	return pair, nil
 }
 
-// Put a value at "key"
+// Put a value at "key".
 func (s *Etcd) Put(key string, value []byte, opts *store.WriteOptions) error {
 	setOpts := &etcd.SetOptions{}
 
@@ -199,7 +165,7 @@ func (s *Etcd) Put(key string, value []byte, opts *store.WriteOptions) error {
 	return err
 }
 
-// Delete a value at "key"
+// Delete a value at "key".
 func (s *Etcd) Delete(key string) error {
 	opts := &etcd.DeleteOptions{
 		Recursive: false,
@@ -212,11 +178,11 @@ func (s *Etcd) Delete(key string) error {
 	return err
 }
 
-// Exists checks if the key exists inside the store
+// Exists checks if the key exists inside the store.
 func (s *Etcd) Exists(key string, opts *store.ReadOptions) (bool, error) {
 	_, err := s.Get(key, opts)
 	if err != nil {
-		if err == store.ErrKeyNotFound {
+		if errors.Is(err, store.ErrKeyNotFound) {
 			return false, nil
 		}
 		return false, err
@@ -257,7 +223,6 @@ func (s *Etcd) Watch(key string, stopCh <-chan struct{}, opts *store.ReadOptions
 			}
 
 			result, err := watcher.Next(context.Background())
-
 			if err != nil {
 				return
 			}
@@ -306,7 +271,6 @@ func (s *Etcd) WatchTree(directory string, stopCh <-chan struct{}, opts *store.R
 			}
 
 			_, err := watcher.Next(context.Background())
-
 			if err != nil {
 				return
 			}
@@ -324,13 +288,8 @@ func (s *Etcd) WatchTree(directory string, stopCh <-chan struct{}, opts *store.R
 }
 
 // AtomicPut puts a value at "key" if the key has not been
-// modified in the meantime, throws an error if this is the case
+// modified in the meantime, throws an error if this is the case.
 func (s *Etcd) AtomicPut(key string, value []byte, previous *store.KVPair, opts *store.WriteOptions) (bool, *store.KVPair, error) {
-	var (
-		meta *etcd.Response
-		err  error
-	)
-
 	setOpts := &etcd.SetOptions{}
 
 	if previous != nil {
@@ -349,15 +308,16 @@ func (s *Etcd) AtomicPut(key string, value []byte, previous *store.KVPair, opts 
 		}
 	}
 
-	meta, err = s.client.Set(context.Background(), s.normalize(key), string(value), setOpts)
+	meta, err := s.client.Set(context.Background(), s.normalize(key), string(value), setOpts)
 	if err != nil {
 		if etcdError, ok := err.(etcd.Error); ok {
+			switch etcdError.Code {
 			// Compare failed
-			if etcdError.Code == etcd.ErrorCodeTestFailed {
+			case etcd.ErrorCodeTestFailed:
 				return false, nil, store.ErrKeyModified
-			}
+
 			// Node exists error (when PrevNoExist)
-			if etcdError.Code == etcd.ErrorCodeNodeExist {
+			case etcd.ErrorCodeNodeExist:
 				return false, nil, store.ErrKeyExists
 			}
 		}
@@ -375,7 +335,7 @@ func (s *Etcd) AtomicPut(key string, value []byte, previous *store.KVPair, opts 
 
 // AtomicDelete deletes a value at "key" if the key
 // has not been modified in the meantime, throws an
-// error if this is the case
+// error if this is the case.
 func (s *Etcd) AtomicDelete(key string, previous *store.KVPair) (bool, error) {
 	if previous == nil {
 		return false, store.ErrPreviousNotSpecified
@@ -391,12 +351,13 @@ func (s *Etcd) AtomicDelete(key string, previous *store.KVPair) (bool, error) {
 	_, err := s.client.Delete(context.Background(), s.normalize(key), delOpts)
 	if err != nil {
 		if etcdError, ok := err.(etcd.Error); ok {
+			switch etcdError.Code {
 			// Key Not Found
-			if etcdError.Code == etcd.ErrorCodeKeyNotFound {
+			case etcd.ErrorCodeKeyNotFound:
 				return false, store.ErrKeyNotFound
-			}
+
 			// Compare failed
-			if etcdError.Code == etcd.ErrorCodeTestFailed {
+			case etcd.ErrorCodeTestFailed:
 				return false, store.ErrKeyModified
 			}
 		}
@@ -406,7 +367,7 @@ func (s *Etcd) AtomicDelete(key string, previous *store.KVPair) (bool, error) {
 	return true, nil
 }
 
-// List child nodes of a given directory
+// List child nodes of a given directory.
 func (s *Etcd) List(directory string, opts *store.ReadOptions) ([]*store.KVPair, error) {
 	getOpts := &etcd.GetOptions{
 		Quorum:    true,
@@ -458,7 +419,7 @@ func (s *Etcd) List(directory string, opts *store.ReadOptions) ([]*store.KVPair,
 	return kv, nil
 }
 
-// DeleteTree deletes a range of keys under a given directory
+// DeleteTree deletes a range of keys under a given directory.
 func (s *Etcd) DeleteTree(directory string) error {
 	delOpts := &etcd.DeleteOptions{
 		Recursive: true,
@@ -472,7 +433,7 @@ func (s *Etcd) DeleteTree(directory string) error {
 }
 
 // NewLock returns a handle to a lock struct which can
-// be used to provide mutual exclusion on a key
+// be used to provide mutual exclusion on a key.
 func (s *Etcd) NewLock(key string, options *store.LockOptions) (lock store.Locker, err error) {
 	var value string
 	ttl := defaultLockTTL
@@ -504,9 +465,26 @@ func (s *Etcd) NewLock(key string, options *store.LockOptions) (lock store.Locke
 	return lock, nil
 }
 
+// Close closes the client connection.
+func (s *Etcd) Close() {}
+
+type etcdLock struct {
+	lock   sync.Mutex
+	client etcd.KeysAPI
+
+	stopLock  chan struct{}
+	stopRenew chan struct{}
+
+	mutexKey string
+	writeKey string
+	value    string
+	last     *etcd.Response
+	ttl      time.Duration
+}
+
 // Lock attempts to acquire the lock and blocks while
 // doing so. It returns a channel that is closed if our
-// lock is lost or if an error occurs
+// lock is lost or if an error occurs.
 func (l *etcdLock) Lock(stopChan chan struct{}) (<-chan struct{}, error) {
 	l.lock.Lock()
 	defer l.lock.Unlock()
@@ -515,12 +493,11 @@ func (l *etcdLock) Lock(stopChan chan struct{}) (<-chan struct{}, error) {
 	lockHeld := make(chan struct{})
 	stopLocking := l.stopRenew
 
-	setOpts := &etcd.SetOptions{
-		TTL: l.ttl,
-	}
+	setOpts := &etcd.SetOptions{TTL: l.ttl}
 
 	for {
 		setOpts.PrevExist = etcd.PrevNoExist
+
 		resp, err := l.client.Set(context.Background(), l.mutexKey, "", setOpts)
 		if err != nil {
 			if etcdError, ok := err.(etcd.Error); ok {
@@ -534,8 +511,8 @@ func (l *etcdLock) Lock(stopChan chan struct{}) (<-chan struct{}, error) {
 		}
 
 		setOpts.PrevExist = etcd.PrevExist
-		l.last, err = l.client.Set(context.Background(), l.mutexKey, "", setOpts)
 
+		l.last, err = l.client.Set(context.Background(), l.mutexKey, "", setOpts)
 		if err == nil {
 			// Leader section
 			l.stopLock = stopLocking
@@ -548,43 +525,42 @@ func (l *etcdLock) Lock(stopChan chan struct{}) (<-chan struct{}, error) {
 			}
 
 			break
-		} else {
-			// If this is a legitimate error, return
-			if etcdError, ok := err.(etcd.Error); ok {
-				if etcdError.Code != etcd.ErrorCodeTestFailed {
-					return nil, err
-				}
-			}
-
-			// Seeker section
-			errorCh := make(chan error)
-			chWStop := make(chan bool)
-			free := make(chan bool)
-
-			go l.waitLock(l.mutexKey, errorCh, chWStop, free)
-
-			// Wait for the key to be available or for
-			// a signal to stop trying to lock the key
-			select {
-			case <-free:
-				break
-			case err := <-errorCh:
-				return nil, err
-			case <-stopChan:
-				return nil, ErrAbortTryLock
-			}
-
-			// Delete or Expire event occurred
-			// Retry
 		}
+
+		// If this is a legitimate error, return
+		if etcdError, ok := err.(etcd.Error); ok {
+			if etcdError.Code != etcd.ErrorCodeTestFailed {
+				return nil, err
+			}
+		}
+
+		// Seeker section
+		errorCh := make(chan error)
+		chWStop := make(chan bool)
+		free := make(chan bool)
+
+		go l.waitLock(l.mutexKey, errorCh, chWStop, free)
+
+		// Wait for the key to be available or for
+		// a signal to stop trying to lock the key
+		select {
+		case <-free:
+		case err := <-errorCh:
+			return nil, err
+		case <-stopChan:
+			return nil, ErrAbortTryLock
+		}
+
+		// Delete or Expire event occurred
+		// Retry
 	}
 
 	return lockHeld, nil
 }
 
-// Hold the lock as long as we can
-// Updates the key ttl periodically until we receive
-// an explicit stop signal from the Unlock method
+// holdLock holds the lock as long as we can
+// update the key ttl periodically until we receive
+// an explicit stop signal from the Unlock method.
 func (l *etcdLock) holdLock(key string, lockHeld chan struct{}, stopLocking <-chan struct{}) {
 	defer close(lockHeld)
 
@@ -609,8 +585,8 @@ func (l *etcdLock) holdLock(key string, lockHeld chan struct{}, stopLocking <-ch
 	}
 }
 
-// WaitLock simply waits for the key to be available for creation
-func (l *etcdLock) waitLock(key string, errorCh chan error, stopWatchCh chan bool, free chan<- bool) {
+// waitLock simply waits for the key to be available for creation.
+func (l *etcdLock) waitLock(key string, errorCh chan error, _ chan bool, free chan<- bool) {
 	opts := &etcd.WatcherOptions{Recursive: false}
 	watcher := l.client.Watcher(key, opts)
 
@@ -628,7 +604,7 @@ func (l *etcdLock) waitLock(key string, errorCh chan error, stopWatchCh chan boo
 }
 
 // Unlock the "key". Calling unlock while
-// not holding the lock will throw an error
+// not holding the lock will throw an error.
 func (l *etcdLock) Unlock() error {
 	l.lock.Lock()
 	defer l.lock.Unlock()
@@ -648,5 +624,17 @@ func (l *etcdLock) Unlock() error {
 	return nil
 }
 
-// Close closes the client connection
-func (s *Etcd) Close() {}
+// keyNotFound checks on the error returned by the KeysAPI
+// to verify if the key exists in the store or not.
+func keyNotFound(err error) bool {
+	if err != nil {
+		if etcdError, ok := err.(etcd.Error); ok {
+			if etcdError.Code == etcd.ErrorCodeKeyNotFound ||
+				etcdError.Code == etcd.ErrorCodeNotFile ||
+				etcdError.Code == etcd.ErrorCodeNotDir {
+				return true
+			}
+		}
+	}
+	return false
+}

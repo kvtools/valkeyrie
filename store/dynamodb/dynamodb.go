@@ -1,3 +1,4 @@
+// Package dynamodb contains the DynamoDB store implementation.
 package dynamodb
 
 import (
@@ -19,52 +20,49 @@ import (
 )
 
 const (
-	// DefaultReadCapacityUnits default read capacity used to create table
+	// DefaultReadCapacityUnits default read capacity used to create table.
 	DefaultReadCapacityUnits = 2
-	// DefaultWriteCapacityUnits default write capacity used to create table
+	// DefaultWriteCapacityUnits default write capacity used to create table.
 	DefaultWriteCapacityUnits = 2
-	// TableCreateTimeoutSeconds the maximum time we wait for the AWS DynamoDB table to be created
+	// TableCreateTimeoutSeconds the maximum time we wait for the AWS DynamoDB table to be created.
 	TableCreateTimeoutSeconds = 30
-	// DeleteTreeTimeoutSeconds the maximum time we retry a write batch
+	// DeleteTreeTimeoutSeconds the maximum time we retry a write batch.
 	DeleteTreeTimeoutSeconds = 30
 
 	partitionKey          = "id"
 	revisionAttribute     = "version"
 	encodedValueAttribute = "encoded_value"
 	ttlAttribute          = "expiration_time"
-	lockAttribute         = "lock"
 
-	noExpiration           = time.Duration(0)
 	defaultLockTTL         = 20 * time.Second
 	dynamodbDefaultTimeout = 10 * time.Second
 )
 
 var (
-	// ErrBucketOptionMissing is returned when bucket config option is missing
+	// ErrBucketOptionMissing is returned when bucket config option is missing.
 	ErrBucketOptionMissing = errors.New("missing dynamodb bucket/table name")
-	// ErrMultipleEndpointsUnsupported is returned when more than one endpoint is provided
+	// ErrMultipleEndpointsUnsupported is returned when more than one endpoint is provided.
 	ErrMultipleEndpointsUnsupported = errors.New("dynamodb only supports one endpoint")
-	// ErrTableCreateTimeout table creation timed out
+	// ErrTableCreateTimeout table creation timed out.
 	ErrTableCreateTimeout = errors.New("dynamodb table creation timed out")
-	// ErrDeleteTreeTimeout delete batch timed out
+	// ErrDeleteTreeTimeout delete batch timed out.
 	ErrDeleteTreeTimeout = errors.New("delete batch timed out")
 	// ErrLockAcquireCancelled stop called before lock was acquired.
 	ErrLockAcquireCancelled = errors.New("stop called before lock was acquired")
 )
 
-// Register register a store provider in valkeyrie for AWS DynamoDB
+// Register register a store provider in valkeyrie for AWS DynamoDB.
 func Register() {
 	valkeyrie.AddStore(store.DYNAMODB, New)
 }
 
-// New opens and creates a new table
+// New opens and creates a new table.
 func New(endpoints []string, options *store.Config) (store.Store, error) {
-
 	if len(endpoints) > 1 {
 		return nil, ErrMultipleEndpointsUnsupported
 	}
 
-	if (options == nil) || (len(options.Bucket) == 0) {
+	if options == nil || options.Bucket == "" {
 		return nil, ErrBucketOptionMissing
 	}
 	var config *aws.Config
@@ -82,15 +80,14 @@ func New(endpoints []string, options *store.Config) (store.Store, error) {
 	return ddb, nil
 }
 
-// DynamoDB store used to interact with AWS DynamoDB
+// DynamoDB store used to interact with AWS DynamoDB.
 type DynamoDB struct {
 	dynamoSvc dynamodbiface.DynamoDBAPI
 	tableName string
 }
 
-// Put a value at the specified key
+// Put a value at the specified key.
 func (ddb *DynamoDB) Put(key string, value []byte, options *store.WriteOptions) error {
-
 	keyAttr := make(map[string]*dynamodb.AttributeValue)
 	keyAttr[partitionKey] = &dynamodb.AttributeValue{S: aws.String(key)}
 
@@ -133,7 +130,7 @@ func (ddb *DynamoDB) Put(key string, value []byte, options *store.WriteOptions) 
 	return nil
 }
 
-// Get a value given its key
+// Get a value given its key.
 func (ddb *DynamoDB) Get(key string, options *store.ReadOptions) (*store.KVPair, error) {
 	if options == nil {
 		options = &store.ReadOptions{
@@ -168,7 +165,7 @@ func (ddb *DynamoDB) getKey(key string, options *store.ReadOptions) (*dynamodb.G
 	})
 }
 
-// Delete the value at the specified key
+// Delete the value at the specified key.
 func (ddb *DynamoDB) Delete(key string) error {
 	_, err := ddb.dynamoSvc.DeleteItem(&dynamodb.DeleteItemInput{
 		TableName: aws.String(ddb.tableName),
@@ -185,9 +182,8 @@ func (ddb *DynamoDB) Delete(key string) error {
 	return nil
 }
 
-// Exists if a Key exists in the store
+// Exists if a Key exists in the store.
 func (ddb *DynamoDB) Exists(key string, options *store.ReadOptions) (bool, error) {
-
 	res, err := ddb.dynamoSvc.GetItem(&dynamodb.GetItemInput{
 		TableName: aws.String(ddb.tableName),
 		Key: map[string]*dynamodb.AttributeValue{
@@ -196,7 +192,6 @@ func (ddb *DynamoDB) Exists(key string, options *store.ReadOptions) (bool, error
 			},
 		},
 	})
-
 	if err != nil {
 		return false, err
 	}
@@ -213,9 +208,8 @@ func (ddb *DynamoDB) Exists(key string, options *store.ReadOptions) (bool, error
 	return true, nil
 }
 
-// List the content of a given prefix
+// List the content of a given prefix.
 func (ddb *DynamoDB) List(directory string, options *store.ReadOptions) ([]*store.KVPair, error) {
-
 	if options == nil {
 		options = &store.ReadOptions{
 			Consistent: true, // default to enabling read consistency
@@ -249,7 +243,6 @@ func (ddb *DynamoDB) List(directory string, options *store.ReadOptions) ([]*stor
 
 			return true
 		})
-
 	if err != nil {
 		return nil, err
 	}
@@ -282,7 +275,7 @@ func (ddb *DynamoDB) List(directory string, options *store.ReadOptions) ([]*stor
 	return kvArray, nil
 }
 
-// DeleteTree deletes a range of keys under a given directory
+// DeleteTree deletes a range of keys under a given directory.
 func (ddb *DynamoDB) DeleteTree(keyPrefix string) error {
 	expAttr := make(map[string]*dynamodb.AttributeValue)
 
@@ -320,7 +313,6 @@ func (ddb *DynamoDB) DeleteTree(keyPrefix string) error {
 
 // AtomicPut Atomic CAS operation on a single value.
 func (ddb *DynamoDB) AtomicPut(key string, value []byte, previous *store.KVPair, options *store.WriteOptions) (bool, *store.KVPair, error) {
-
 	getRes, err := ddb.getKey(key, &store.ReadOptions{
 		Consistent: true, // enable the read consistent flag
 	})
@@ -365,7 +357,6 @@ func (ddb *DynamoDB) AtomicPut(key string, value []byte, previous *store.KVPair,
 	var condExp *string
 
 	if previous != nil {
-
 		exAttr[":lastRevision"] = &dynamodb.AttributeValue{N: aws.String(strconv.FormatUint(previous.LastIndex, 10))}
 		exAttr[":timeNow"] = &dynamodb.AttributeValue{N: aws.String(strconv.FormatInt(time.Now().Unix(), 10))}
 
@@ -382,7 +373,6 @@ func (ddb *DynamoDB) AtomicPut(key string, value []byte, previous *store.KVPair,
 		ConditionExpression:       condExp,
 		ReturnValues:              aws.String(dynamodb.ReturnValueAllNew),
 	})
-
 	if err != nil {
 		if awsErr, ok := err.(awserr.Error); ok {
 			if awsErr.Code() == dynamodb.ErrCodeConditionalCheckFailedException {
@@ -400,9 +390,8 @@ func (ddb *DynamoDB) AtomicPut(key string, value []byte, previous *store.KVPair,
 	return true, item, nil
 }
 
-// AtomicDelete delete of a single value
+// AtomicDelete delete of a single value.
 func (ddb *DynamoDB) AtomicDelete(key string, previous *store.KVPair) (bool, error) {
-
 	getRes, err := ddb.getKey(key, &store.ReadOptions{
 		Consistent: true, // enable the read consistent flag
 	})
@@ -442,8 +431,136 @@ func (ddb *DynamoDB) AtomicDelete(key string, previous *store.KVPair) (bool, err
 	return true, nil
 }
 
-// Close nothing to see here
+// Close nothing to see here.
 func (ddb *DynamoDB) Close() {}
+
+// NewLock has to implemented at the library level since its not supported by DynamoDB.
+func (ddb *DynamoDB) NewLock(key string, options *store.LockOptions) (store.Locker, error) {
+	var (
+		value   []byte
+		ttl     = defaultLockTTL
+		renewCh = make(chan struct{})
+	)
+
+	if options != nil && options.TTL != 0 {
+		ttl = options.TTL
+	}
+	if options != nil && len(options.Value) != 0 {
+		value = options.Value
+	}
+	if options != nil && options.RenewLock != nil {
+		renewCh = options.RenewLock
+	}
+
+	return &dynamodbLock{
+		ddb:      ddb,
+		last:     nil,
+		key:      key,
+		value:    value,
+		ttl:      ttl,
+		renewCh:  renewCh,
+		unlockCh: make(chan struct{}),
+	}, nil
+}
+
+// Watch has to implemented at the library level since its not supported by DynamoDB.
+func (ddb *DynamoDB) Watch(key string, stopCh <-chan struct{}, opts *store.ReadOptions) (<-chan *store.KVPair, error) {
+	return nil, store.ErrCallNotSupported
+}
+
+// WatchTree has to implemented at the library level since its not supported by DynamoDB.
+func (ddb *DynamoDB) WatchTree(directory string, stopCh <-chan struct{}, opts *store.ReadOptions) (<-chan []*store.KVPair, error) {
+	return nil, store.ErrCallNotSupported
+}
+
+func (ddb *DynamoDB) createTable() error {
+	_, err := ddb.dynamoSvc.CreateTable(&dynamodb.CreateTableInput{
+		AttributeDefinitions: []*dynamodb.AttributeDefinition{
+			{
+				AttributeName: aws.String(partitionKey),
+				AttributeType: aws.String("S"),
+			},
+		},
+		KeySchema: []*dynamodb.KeySchemaElement{
+			{
+				AttributeName: aws.String(partitionKey),
+				KeyType:       aws.String(dynamodb.KeyTypeHash),
+			},
+		},
+		// enable encryption of data by default
+		SSESpecification: &dynamodb.SSESpecification{
+			Enabled: aws.Bool(true),
+			SSEType: aws.String(dynamodb.SSETypeAes256),
+		},
+		ProvisionedThroughput: &dynamodb.ProvisionedThroughput{
+			ReadCapacityUnits:  aws.Int64(DefaultReadCapacityUnits),
+			WriteCapacityUnits: aws.Int64(DefaultWriteCapacityUnits),
+		},
+		TableName: aws.String(ddb.tableName),
+	})
+	if err != nil {
+		if awsErr, ok := err.(awserr.Error); ok {
+			if awsErr.Code() == dynamodb.ErrCodeResourceInUseException {
+				return nil
+			}
+		}
+		return err
+	}
+
+	err = ddb.dynamoSvc.WaitUntilTableExists(&dynamodb.DescribeTableInput{
+		TableName: aws.String(ddb.tableName),
+	})
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (ddb *DynamoDB) retryDeleteTree(items map[string][]*dynamodb.WriteRequest) error {
+	batchResult, err := ddb.dynamoSvc.BatchWriteItem(&dynamodb.BatchWriteItemInput{
+		RequestItems: items,
+	})
+	if err != nil {
+		return err
+	}
+
+	if len(batchResult.UnprocessedItems) == 0 {
+		return nil
+	}
+
+	timeout := make(chan bool, 1)
+	go func() {
+		time.Sleep(DeleteTreeTimeoutSeconds * time.Second)
+		timeout <- true
+	}()
+
+	ticker := time.NewTicker(1 * time.Second)
+
+	defer ticker.Stop()
+
+	// poll once a second for table status, until the table is either active
+	// or the timeout deadline has been reached
+	for {
+		select {
+		case <-ticker.C:
+			batchResult, err = ddb.dynamoSvc.BatchWriteItem(&dynamodb.BatchWriteItemInput{
+				RequestItems: batchResult.UnprocessedItems,
+			})
+			if err != nil {
+				return err
+			}
+
+			if len(batchResult.UnprocessedItems) == 0 {
+				return nil
+			}
+
+		case <-timeout:
+			// polling for table status has taken more than the timeout
+			return ErrDeleteTreeTimeout
+		}
+	}
+}
 
 type dynamodbLock struct {
 	ddb      *DynamoDB
@@ -467,7 +584,7 @@ func (l *dynamodbLock) Lock(stopChan chan struct{}) (<-chan struct{}, error) {
 		return lockHeld, nil
 	}
 
-	// FIXME: This really needs a jitter for backoff
+	// TODO: This really needs a jitter for backoff
 	ticker := time.NewTicker(3 * time.Second)
 
 	for {
@@ -484,7 +601,6 @@ func (l *dynamodbLock) Lock(stopChan chan struct{}) (<-chan struct{}, error) {
 			return nil, ErrLockAcquireCancelled
 		}
 	}
-
 }
 
 func (l *dynamodbLock) Unlock() error {
@@ -508,7 +624,7 @@ func (l *dynamodbLock) tryLock(lockHeld chan struct{}, stopChan chan struct{}) (
 			TTL: l.ttl,
 		})
 	if err != nil {
-		if err == store.ErrKeyNotFound || err == store.ErrKeyModified || err == store.ErrKeyExists {
+		if errors.Is(err, store.ErrKeyNotFound) || errors.Is(err, store.ErrKeyModified) || errors.Is(err, store.ErrKeyExists) {
 			return false, nil
 		}
 		return false, err
@@ -560,137 +676,6 @@ func (l *dynamodbLock) holdLock(lockHeld, stopChan chan struct{}) {
 	}
 }
 
-// NewLock has to implemented at the library level since its not supported by DynamoDB
-func (ddb *DynamoDB) NewLock(key string, options *store.LockOptions) (store.Locker, error) {
-	var (
-		value   []byte
-		ttl     = defaultLockTTL
-		renewCh = make(chan struct{})
-	)
-
-	if options != nil && options.TTL != 0 {
-		ttl = options.TTL
-	}
-	if options != nil && len(options.Value) != 0 {
-		value = options.Value
-	}
-	if options != nil && options.RenewLock != nil {
-		renewCh = options.RenewLock
-	}
-
-	return &dynamodbLock{
-		ddb:      ddb,
-		last:     nil,
-		key:      key,
-		value:    value,
-		ttl:      ttl,
-		renewCh:  renewCh,
-		unlockCh: make(chan struct{}),
-	}, nil
-}
-
-// Watch has to implemented at the library level since its not supported by DynamoDB
-func (ddb *DynamoDB) Watch(key string, stopCh <-chan struct{}, opts *store.ReadOptions) (<-chan *store.KVPair, error) {
-	return nil, store.ErrCallNotSupported
-}
-
-// WatchTree has to implemented at the library level since its not supported by DynamoDB
-func (ddb *DynamoDB) WatchTree(directory string, stopCh <-chan struct{}, opts *store.ReadOptions) (<-chan []*store.KVPair, error) {
-	return nil, store.ErrCallNotSupported
-}
-
-func (ddb *DynamoDB) createTable() error {
-
-	_, err := ddb.dynamoSvc.CreateTable(&dynamodb.CreateTableInput{
-		AttributeDefinitions: []*dynamodb.AttributeDefinition{
-			{
-				AttributeName: aws.String(partitionKey),
-				AttributeType: aws.String("S"),
-			},
-		},
-		KeySchema: []*dynamodb.KeySchemaElement{
-			{
-				AttributeName: aws.String(partitionKey),
-				KeyType:       aws.String(dynamodb.KeyTypeHash),
-			},
-		},
-		// enable encryption of data by default
-		SSESpecification: &dynamodb.SSESpecification{
-			Enabled: aws.Bool(true),
-			SSEType: aws.String(dynamodb.SSETypeAes256),
-		},
-		ProvisionedThroughput: &dynamodb.ProvisionedThroughput{
-			ReadCapacityUnits:  aws.Int64(DefaultReadCapacityUnits),
-			WriteCapacityUnits: aws.Int64(DefaultWriteCapacityUnits),
-		},
-		TableName: aws.String(ddb.tableName),
-	})
-	if err != nil {
-		if awsErr, ok := err.(awserr.Error); ok {
-			if awsErr.Code() == dynamodb.ErrCodeResourceInUseException {
-				return nil
-			}
-		}
-		return err
-	}
-
-	err = ddb.dynamoSvc.WaitUntilTableExists(&dynamodb.DescribeTableInput{
-		TableName: aws.String(ddb.tableName),
-	})
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func (ddb *DynamoDB) retryDeleteTree(items map[string][]*dynamodb.WriteRequest) error {
-
-	batchResult, err := ddb.dynamoSvc.BatchWriteItem(&dynamodb.BatchWriteItemInput{
-		RequestItems: items,
-	})
-	if err != nil {
-		return err
-	}
-
-	if len(batchResult.UnprocessedItems) == 0 {
-		return nil
-	}
-
-	timeout := make(chan bool, 1)
-	go func() {
-		time.Sleep(DeleteTreeTimeoutSeconds * time.Second)
-		timeout <- true
-	}()
-
-	ticker := time.NewTicker(1 * time.Second)
-
-	defer ticker.Stop()
-
-	// poll once a second for table status, until the table is either active
-	// or the timeout deadline has been reached
-	for {
-		select {
-		case <-ticker.C:
-			batchResult, err = ddb.dynamoSvc.BatchWriteItem(&dynamodb.BatchWriteItemInput{
-				RequestItems: batchResult.UnprocessedItems,
-			})
-			if err != nil {
-				return err
-			}
-
-			if len(batchResult.UnprocessedItems) == 0 {
-				return nil
-			}
-
-		case <-timeout:
-			// polling for table status has taken more than the timeout
-			return ErrDeleteTreeTimeout
-		}
-	}
-
-}
-
 func isItemExpired(item map[string]*dynamodb.AttributeValue) bool {
 	var ttl int64
 
@@ -703,7 +688,6 @@ func isItemExpired(item map[string]*dynamodb.AttributeValue) bool {
 }
 
 func decodeItem(item map[string]*dynamodb.AttributeValue) (*store.KVPair, error) {
-
 	var (
 		key          string
 		revision     int64
