@@ -1,3 +1,4 @@
+// Package mock Mocks all Store functions using testify.Mock.
 package mock
 
 import (

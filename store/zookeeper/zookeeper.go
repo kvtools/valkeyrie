@@ -1,3 +1,4 @@
+// Package zookeeper contains the ZooKeeper store implementation.
 package zookeeper
 
 import (

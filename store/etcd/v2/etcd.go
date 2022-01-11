@@ -1,3 +1,4 @@
+// Package etcd contains the etcd v2 store implementation.
 package etcd
 
 import (
@@ -557,7 +558,6 @@ func (l *etcdLock) Lock(stopChan chan struct{}) (<-chan struct{}, error) {
 		// a signal to stop trying to lock the key
 		select {
 		case <-free:
-			break
 		case err := <-errorCh:
 			return nil, err
 		case <-stopChan:

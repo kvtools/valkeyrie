@@ -1,3 +1,4 @@
+// Package etcdv3 contains the etcd v3 store implementation.
 package etcdv3
 
 import (

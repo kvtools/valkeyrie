@@ -1,3 +1,4 @@
+// Package dynamodb contains the DynamoDB store implementation.
 package dynamodb
 
 import (

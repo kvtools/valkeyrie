@@ -1,3 +1,4 @@
+// Package consul contains the Consul store implementation.
 package consul
 
 import (
@@ -45,9 +46,9 @@ var (
 // Consul is the receiver type for the
 // Store interface.
 type Consul struct {
-	sync.Mutex
-	config *api.Config
-	client *api.Client
+	sync.Mutex // TODO unused
+	config     *api.Config
+	client     *api.Client
 }
 
 type consulLock struct {

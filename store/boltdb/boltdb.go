@@ -1,3 +1,4 @@
+// Package boltdb contains the BoltDB store implementation.
 package boltdb
 
 import (

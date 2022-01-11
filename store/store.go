@@ -1,3 +1,4 @@
+// Package store contains KV store backends.
 package store
 
 import (
@@ -60,34 +61,35 @@ type Config struct {
 }
 
 // ClientTLSConfig contains data for a Client TLS configuration in the form
-// the etcd client wants it.  Eventually we'll adapt it for ZK and Consul.
+// the etcd client wants it.
+// Eventually we'll adapt it for ZK and Consul.
 type ClientTLSConfig struct {
 	CertFile   string
 	KeyFile    string
 	CACertFile string
 }
 
-// Store represents the backend K/V storage
+// Store represents the backend K/V storage.
 // Each store should support every call listed
 // here. Or it couldn't be implemented as a K/V
 // backend for valkeyrie.
 type Store interface {
-	// Put a value at the specified key
+	// Put a value at the specified key.
 	Put(key string, value []byte, options *WriteOptions) error
 
-	// Get a value given its key
+	// Get a value given its key.
 	Get(key string, options *ReadOptions) (*KVPair, error)
 
-	// Delete the value at the specified key
+	// Delete the value at the specified key.
 	Delete(key string) error
 
-	// Verify if a Key exists in the store
+	// Exists Verify if a Key exists in the store.
 	Exists(key string, options *ReadOptions) (bool, error)
 
 	// Watch for changes on a key
 	Watch(key string, stopCh <-chan struct{}, options *ReadOptions) (<-chan *KVPair, error)
 
-	// WatchTree watches for changes on child nodes under
+	// WatchTree watches for changes on child nodes under.
 	// a given directory
 	WatchTree(directory string, stopCh <-chan struct{}, options *ReadOptions) (<-chan []*KVPair, error)
 
@@ -96,13 +98,13 @@ type Store interface {
 	// with `.Lock`. The Value is optional.
 	NewLock(key string, options *LockOptions) (Locker, error)
 
-	// List the content of a given prefix
+	// List the content of a given prefix.
 	List(directory string, options *ReadOptions) ([]*KVPair, error)
 
-	// DeleteTree deletes a range of keys under a given directory
+	// DeleteTree deletes a range of keys under a given directory.
 	DeleteTree(directory string) error
 
-	// Atomic CAS operation on a single value.
+	// AtomicPut Atomic CAS operation on a single value.
 	// Pass previous = nil to create a new key.
 	AtomicPut(key string, value []byte, previous *KVPair, options *WriteOptions) (bool, *KVPair, error)
 

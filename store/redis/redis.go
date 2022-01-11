@@ -1,3 +1,4 @@
+// Package redis contains the Redis store implementation.
 package redis
 
 import (

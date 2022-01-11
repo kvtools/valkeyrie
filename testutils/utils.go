@@ -1,3 +1,4 @@
+// Package testutils test helpers.
 package testutils
 
 import (
@@ -151,12 +152,13 @@ func testWatch(t *testing.T, kv store.Store) {
 	// Update loop
 	go func() {
 		timeout := time.After(1 * time.Second)
-		tick := time.Tick(250 * time.Millisecond)
+		tick := time.NewTicker(250 * time.Millisecond)
+		defer tick.Stop()
 		for {
 			select {
 			case <-timeout:
 				return
-			case <-tick:
+			case <-tick.C:
 				err := kv.Put(key, newValue, nil)
 				if assert.NoError(t, err) {
 					continue
@@ -219,15 +221,10 @@ func testWatchTree(t *testing.T, kv store.Store) {
 
 	// Update loop
 	go func() {
-		timeout := time.After(500 * time.Millisecond)
-		for {
-			select {
-			case <-timeout:
-				err := kv.Delete(node3)
-				assert.NoError(t, err)
-				return
-			}
-		}
+		time.Sleep(500 * time.Millisecond)
+
+		err := kv.Delete(node3)
+		require.NoError(t, err)
 	}()
 
 	// Check for updates
@@ -461,7 +458,7 @@ func testLockTTL(t *testing.T, kv store.Store, otherConn store.Store) {
 	}(done)
 
 	select {
-	case _ = <-done:
+	case <-done:
 		t.Fatal("Lock succeeded on a key that is supposed to be locked by another client")
 	case <-time.After(4 * time.Second):
 		// Stop requesting the lock as we are blocked as expected
@@ -488,7 +485,7 @@ func testLockTTL(t *testing.T, kv store.Store, otherConn store.Store) {
 	}(locked)
 
 	select {
-	case _ = <-locked:
+	case <-locked:
 		break
 	case <-time.After(4 * time.Second):
 		t.Fatal("Unable to take the lock, timed out")
