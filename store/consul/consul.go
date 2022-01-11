@@ -100,7 +100,7 @@ func New(endpoints []string, options *store.Config) (store.Store, error) {
 	return s, nil
 }
 
-// SetTLS sets Consul TLS options.
+// setTLS sets Consul TLS options.
 func (s *Consul) setTLS(tlsCfg *tls.Config) {
 	s.config.HttpClient.Transport = &http.Transport{
 		TLSClientConfig: tlsCfg,
@@ -108,22 +108,22 @@ func (s *Consul) setTLS(tlsCfg *tls.Config) {
 	s.config.Scheme = "https"
 }
 
-// SetTimeout sets the timeout for connecting to Consul.
+// setTimeout sets the timeout for connecting to Consul.
 func (s *Consul) setTimeout(timeout time.Duration) {
 	s.config.WaitTime = timeout
 }
 
-// SetTimeout sets the timeout for connecting to Consul.
+// setToken sets the token for connecting to Consul.
 func (s *Consul) setToken(token string) {
 	s.config.Token = token
 }
 
-// SetNamespace sets the namespace for connecting to Consul.
+// setNamespace sets the namespace for connecting to Consul.
 func (s *Consul) setNamespace(namespace string) {
 	s.config.Namespace = namespace
 }
 
-// Normalize the key for usage in Consul.
+// normalize the key for usage in Consul.
 func (s *Consul) normalize(key string) string {
 	key = store.Normalize(key)
 	return strings.TrimPrefix(key, "/")

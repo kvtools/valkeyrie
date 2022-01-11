@@ -430,7 +430,7 @@ func (s *Zookeeper) Close() {
 	s.client.Close()
 }
 
-// Normalize the key for usage in Zookeeper.
+// normalize the key for usage in Zookeeper.
 func (s *Zookeeper) normalize(key string) string {
 	key = store.Normalize(key)
 	return strings.TrimSuffix(key, "/")

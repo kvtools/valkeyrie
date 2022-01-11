@@ -87,7 +87,7 @@ func New(addrs []string, options *store.Config) (store.Store, error) {
 	return s, nil
 }
 
-// SetTLS sets the tls configuration given a tls.Config scheme.
+// setTLS sets the tls configuration given a tls.Config scheme.
 func setTLS(cfg *etcd.Config, tlsCfg *tls.Config, addrs []string) {
 	entries := store.CreateEndpoints(addrs, "https")
 	cfg.Endpoints = entries
@@ -116,7 +116,7 @@ func setCredentials(cfg *etcd.Config, username, password string) {
 	cfg.Password = password
 }
 
-// Normalize the key for usage in Etcd.
+// normalize the key for usage in Etcd.
 func (s *Etcd) normalize(key string) string {
 	key = store.Normalize(key)
 	return strings.TrimPrefix(key, "/")
@@ -558,8 +558,8 @@ func (l *etcdLock) Lock(stopChan chan struct{}) (<-chan struct{}, error) {
 	return lockHeld, nil
 }
 
-// Hold the lock as long as we can
-// Updates the key ttl periodically until we receive
+// holdLock holds the lock as long as we can
+// update the key ttl periodically until we receive
 // an explicit stop signal from the Unlock method.
 func (l *etcdLock) holdLock(key string, lockHeld chan struct{}, stopLocking <-chan struct{}) {
 	defer close(lockHeld)
@@ -585,7 +585,7 @@ func (l *etcdLock) holdLock(key string, lockHeld chan struct{}, stopLocking <-ch
 	}
 }
 
-// WaitLock simply waits for the key to be available for creation.
+// waitLock simply waits for the key to be available for creation.
 func (l *etcdLock) waitLock(key string, errorCh chan error, _ chan bool, free chan<- bool) {
 	opts := &etcd.WatcherOptions{Recursive: false}
 	watcher := l.client.Watcher(key, opts)

@@ -88,7 +88,7 @@ func setCredentials(cfg *etcd.Config, username, password string) {
 	cfg.Password = password
 }
 
-// Normalize the key for usage in Etcd.
+// normalize the key for usage in Etcd.
 func (s *EtcdV3) normalize(key string) string {
 	key = store.Normalize(key)
 	return strings.TrimPrefix(key, "/")
