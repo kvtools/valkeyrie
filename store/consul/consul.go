@@ -105,16 +105,16 @@ func New(endpoints []string, options *store.Config) (store.Store, error) {
 }
 
 // SetTLS sets Consul TLS options
-func (s *Consul) setTLS(tls *tls.Config) {
+func (s *Consul) setTLS(tlsCfg *tls.Config) {
 	s.config.HttpClient.Transport = &http.Transport{
-		TLSClientConfig: tls,
+		TLSClientConfig: tlsCfg,
 	}
 	s.config.Scheme = "https"
 }
 
 // SetTimeout sets the timeout for connecting to Consul
-func (s *Consul) setTimeout(time time.Duration) {
-	s.config.WaitTime = time
+func (s *Consul) setTimeout(timeout time.Duration) {
+	s.config.WaitTime = timeout
 }
 
 // SetTimeout sets the timeout for connecting to Consul

@@ -590,13 +590,13 @@ func (r *Redis) setNX(key string, val *store.KVPair, expirationAfter time.Durati
 	return nil
 }
 
-func (r *Redis) cas(key string, old, new *store.KVPair, secInStr string) error {
-	newVal, err := r.codec.Encode(new)
+func (r *Redis) cas(key string, oldPair, newPair *store.KVPair, secInStr string) error {
+	newVal, err := r.codec.Encode(newPair)
 	if err != nil {
 		return err
 	}
 
-	oldVal, err := r.codec.Encode(old)
+	oldVal, err := r.codec.Encode(oldPair)
 	if err != nil {
 		return err
 	}

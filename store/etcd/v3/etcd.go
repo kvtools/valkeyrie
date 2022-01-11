@@ -84,15 +84,15 @@ func New(addrs []string, options *store.Config) (store.Store, error) {
 }
 
 // setTLS sets the tls configuration given a tls.Config scheme
-func setTLS(cfg *etcd.Config, tls *tls.Config, addrs []string) {
+func setTLS(cfg *etcd.Config, tlsCfg *tls.Config, addrs []string) {
 	entries := store.CreateEndpoints(addrs, "https")
 	cfg.Endpoints = entries
-	cfg.TLS = tls
+	cfg.TLS = tlsCfg
 }
 
 // setTimeout sets the timeout used for connecting to the store
-func setTimeout(cfg *etcd.Config, time time.Duration) {
-	cfg.DialTimeout = time
+func setTimeout(cfg *etcd.Config, timeout time.Duration) {
+	cfg.DialTimeout = timeout
 }
 
 // setCredentials sets the username/password credentials for connecting to Etcd

@@ -62,7 +62,7 @@ func New(endpoints []string, options *store.Config) (store.Store, error) {
 		return nil, ErrMultipleEndpointsUnsupported
 	}
 
-	if (options == nil) || (len(options.Bucket) == 0) {
+	if options == nil || options.Bucket == "" {
 		return nil, ErrBucketOptionMissing
 	}
 	var config *aws.Config

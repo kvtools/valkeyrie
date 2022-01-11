@@ -57,7 +57,7 @@ func New(endpoints []string, options *store.Config) (store.Store, error) {
 	}
 
 	s.client = conn
-	
+
 	if options != nil && options.Username != "" {
 		err := s.client.AddAuth("digest", []byte(options.Username+":"+options.Password))
 		if err != nil {
@@ -69,8 +69,8 @@ func New(endpoints []string, options *store.Config) (store.Store, error) {
 }
 
 // setTimeout sets the timeout for connecting to Zookeeper
-func (s *Zookeeper) setTimeout(time time.Duration) {
-	s.timeout = time
+func (s *Zookeeper) setTimeout(timeout time.Duration) {
+	s.timeout = timeout
 }
 
 // Get the value at "key", returns the last modified index
@@ -507,7 +507,7 @@ func (s *Zookeeper) get(key string) ([]byte, *zk.Stat, error) {
 			return nil, nil, err
 		}
 
-		if string(resp) != SOH && string(resp) != "" {
+		if string(resp) != SOH && len(resp) != 0 {
 			return resp, meta, nil
 		}
 
@@ -540,7 +540,7 @@ func (s *Zookeeper) getW(key string) ([]byte, *zk.Stat, <-chan zk.Event, error) 
 			return nil, nil, nil, err
 		}
 
-		if string(resp) != SOH && string(resp) != "" {
+		if string(resp) != SOH && len(resp) != 0 {
 			return resp, meta, ech, nil
 		}
 

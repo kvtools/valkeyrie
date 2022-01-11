@@ -35,6 +35,6 @@ func NewStore(backend store.Backend, addrs []string, options *store.Config) (sto
 }
 
 // AddStore adds a new store backend to valkeyrie
-func AddStore(store store.Backend, init Initialize) {
-	initializers[store] = init
+func AddStore(backend store.Backend, init Initialize) {
+	initializers[backend] = init
 }
