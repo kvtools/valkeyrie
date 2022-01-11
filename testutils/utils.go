@@ -9,6 +9,7 @@ import (
 
 	"github.com/kvtools/valkeyrie/store"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 // RunTestCommon tests the minimal required APIs which
@@ -520,27 +521,27 @@ func testList(t *testing.T, kv store.Store) {
 
 	// Put the parent key
 	err := kv.Put(parentKey, nil, &store.WriteOptions{IsDir: true})
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	// Put the first child key
 	err = kv.Put(childKey, []byte("first"), nil)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	// Put the second child key which is also a directory
 	err = kv.Put(subfolderKey, []byte("second"), &store.WriteOptions{IsDir: true})
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	// Put child keys under secondKey
 	for i := 1; i <= 3; i++ {
 		key := "testList/subfolder/key" + strconv.Itoa(i)
-		err := kv.Put(key, []byte("value"), nil)
-		assert.NoError(t, err)
+		err = kv.Put(key, []byte("value"), nil)
+		require.NoError(t, err)
 	}
 
 	// List should work and return five child entries
 	for _, parent := range []string{parentKey, parentKey + "/"} {
 		pairs, err := kv.List(parent, nil)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		if assert.NotNil(t, pairs) {
 			assert.Equal(t, 5, len(pairs))
 		}
@@ -548,14 +549,14 @@ func testList(t *testing.T, kv store.Store) {
 
 	// List on childKey should return 0 keys
 	pairs, err := kv.List(childKey, nil)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	if assert.NotNil(t, pairs) {
 		assert.Equal(t, 0, len(pairs))
 	}
 
 	// List on subfolderKey should return 3 keys without the directory
 	pairs, err = kv.List(subfolderKey, nil)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	if assert.NotNil(t, pairs) {
 		assert.Equal(t, 3, len(pairs))
 	}
@@ -570,31 +571,31 @@ func testListLockKey(t *testing.T, kv store.Store) {
 	listKey := "testListLockSide"
 
 	err := kv.Put(listKey, []byte("val"), &store.WriteOptions{IsDir: true})
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	err = kv.Put(listKey+"/subfolder", []byte("val"), &store.WriteOptions{IsDir: true})
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	// Put keys under subfolder.
 	for i := 1; i <= 3; i++ {
 		key := listKey + "/subfolder/key" + strconv.Itoa(i)
 		err := kv.Put(key, []byte("val"), nil)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 
 		// We lock the child key
 		lock, err := kv.NewLock(key, &store.LockOptions{Value: []byte("locked"), TTL: 2 * time.Second})
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.NotNil(t, lock)
 
 		lockChan, err := lock.Lock(nil)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.NotNil(t, lockChan)
 	}
 
 	// List children of the root directory (`listKey`), this should
 	// not output any `___lock` entries and must contain 4 results.
 	pairs, err := kv.List(listKey, nil)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.NotNil(t, pairs)
 	assert.Equal(t, 4, len(pairs))
 
@@ -616,29 +617,29 @@ func testDeleteTree(t *testing.T, kv store.Store) {
 
 	// Put the first key
 	err := kv.Put(firstKey, firstValue, nil)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	// Put the second key
 	err = kv.Put(secondKey, secondValue, nil)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	// Get should work on the first Key
 	pair, err := kv.Get(firstKey, nil)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	checkPairNotNil(t, pair)
 	assert.Equal(t, pair.Value, firstValue)
 	assert.NotEqual(t, pair.LastIndex, 0)
 
 	// Get should work on the second Key
 	pair, err = kv.Get(secondKey, nil)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	checkPairNotNil(t, pair)
 	assert.Equal(t, pair.Value, secondValue)
 	assert.NotEqual(t, pair.LastIndex, 0)
 
 	// Delete Values under directory `nodes`
 	err = kv.DeleteTree(prefix)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	// Get should fail on both keys
 	pair, err = kv.Get(firstKey, nil)
