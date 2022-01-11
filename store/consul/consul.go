@@ -80,12 +80,17 @@ func New(endpoints []string, options *store.Config) (store.Store, error) {
 		if options.TLS != nil {
 			s.setTLS(options.TLS)
 		}
+
 		if options.ConnectionTimeout != 0 {
 			s.setTimeout(options.ConnectionTimeout)
 		}
 
 		if options.Token != "" {
 			s.setToken(options.Token)
+		}
+
+		if options.Namespace != "" {
+			s.setNamespace(options.Namespace)
 		}
 	}
 
@@ -115,6 +120,11 @@ func (s *Consul) setTimeout(time time.Duration) {
 // SetTimeout sets the timeout for connecting to Consul
 func (s *Consul) setToken(token string) {
 	s.config.Token = token
+}
+
+// SetNamespace sets the namespace for connecting to Consul
+func (s *Consul) setNamespace(namespace string) {
+	s.config.Namespace = namespace
 }
 
 // Normalize the key for usage in Consul

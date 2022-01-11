@@ -4,9 +4,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/go-zookeeper/zk"
 	"github.com/kvtools/valkeyrie"
 	"github.com/kvtools/valkeyrie/store"
-	"github.com/samuel/go-zookeeper/zk"
 )
 
 const (
