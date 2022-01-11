@@ -320,8 +320,6 @@ func (s *Zookeeper) DeleteTree(directory string) error {
 // AtomicPut put a value at "key" if the key has not been
 // modified in the meantime, throws an error if this is the case.
 func (s *Zookeeper) AtomicPut(key string, value []byte, previous *store.KVPair, _ *store.WriteOptions) (bool, *store.KVPair, error) {
-	var lastIndex uint64
-
 	if previous != nil {
 		meta, err := s.client.Set(s.normalize(key), value, int32(previous.LastIndex))
 		if err != nil {
@@ -331,48 +329,56 @@ func (s *Zookeeper) AtomicPut(key string, value []byte, previous *store.KVPair, 
 			}
 			return false, nil, err
 		}
-		lastIndex = uint64(meta.Version)
-	} else {
-		// Interpret previous == nil as create operation.
+
+		pair := &store.KVPair{
+			Key:       key,
+			Value:     value,
+			LastIndex: uint64(meta.Version),
+		}
+
+		return true, pair, nil
+	}
+
+	// Interpret previous == nil as create operation.
+	_, err := s.client.Create(s.normalize(key), value, 0, zk.WorldACL(zk.PermAll))
+	if err != nil {
+		// Node Exists error (when previous nil)
+		if err == zk.ErrNodeExists {
+			return false, nil, store.ErrKeyExists
+		}
+
+		// Unhandled error
+		if err != zk.ErrNoNode {
+			return false, nil, err
+		}
+
+		// Directory does not exist
+
+		// Create the directory
+		parts := store.SplitKey(strings.TrimSuffix(key, "/"))
+		parts = parts[:len(parts)-1]
+
+		err = s.createFullPath(parts, []byte{}, false)
+		if err != nil {
+			// Failed to create the directory.
+			return false, nil, err
+		}
+
+		// Create the node
 		_, err := s.client.Create(s.normalize(key), value, 0, zk.WorldACL(zk.PermAll))
 		if err != nil {
-			// Directory does not exist
-			if err == zk.ErrNoNode {
-
-				// Create the directory
-				parts := store.SplitKey(strings.TrimSuffix(key, "/"))
-				parts = parts[:len(parts)-1]
-				if err = s.createFullPath(parts, []byte{}, false); err != nil {
-					// Failed to create the directory.
-					return false, nil, err
-				}
-
-				// Create the node
-				if _, err := s.client.Create(s.normalize(key), value, 0, zk.WorldACL(zk.PermAll)); err != nil {
-					// Node exist error (when previous nil)
-					if err == zk.ErrNodeExists {
-						return false, nil, store.ErrKeyExists
-					}
-					return false, nil, err
-				}
-
-			} else {
-				// Node Exists error (when previous nil)
-				if err == zk.ErrNodeExists {
-					return false, nil, store.ErrKeyExists
-				}
-
-				// Unhandled error
-				return false, nil, err
+			// Node exist error (when previous nil)
+			if err == zk.ErrNodeExists {
+				return false, nil, store.ErrKeyExists
 			}
+			return false, nil, err
 		}
-		lastIndex = 0 // Newly created nodes have version 0.
 	}
 
 	pair := &store.KVPair{
 		Key:       key,
 		Value:     value,
-		LastIndex: lastIndex,
+		LastIndex: 0, // Newly created nodes have version 0.
 	}
 
 	return true, pair, nil

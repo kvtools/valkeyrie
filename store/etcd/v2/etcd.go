@@ -319,11 +319,6 @@ func (s *Etcd) WatchTree(directory string, stopCh <-chan struct{}, opts *store.R
 // AtomicPut puts a value at "key" if the key has not been
 // modified in the meantime, throws an error if this is the case.
 func (s *Etcd) AtomicPut(key string, value []byte, previous *store.KVPair, opts *store.WriteOptions) (bool, *store.KVPair, error) {
-	var (
-		meta *etcd.Response
-		err  error
-	)
-
 	setOpts := &etcd.SetOptions{}
 
 	if previous != nil {
@@ -342,15 +337,16 @@ func (s *Etcd) AtomicPut(key string, value []byte, previous *store.KVPair, opts 
 		}
 	}
 
-	meta, err = s.client.Set(context.Background(), s.normalize(key), string(value), setOpts)
+	meta, err := s.client.Set(context.Background(), s.normalize(key), string(value), setOpts)
 	if err != nil {
 		if etcdError, ok := err.(etcd.Error); ok {
+			switch etcdError.Code {
 			// Compare failed
-			if etcdError.Code == etcd.ErrorCodeTestFailed {
+			case etcd.ErrorCodeTestFailed:
 				return false, nil, store.ErrKeyModified
-			}
+
 			// Node exists error (when PrevNoExist)
-			if etcdError.Code == etcd.ErrorCodeNodeExist {
+			case etcd.ErrorCodeNodeExist:
 				return false, nil, store.ErrKeyExists
 			}
 		}
@@ -384,12 +380,13 @@ func (s *Etcd) AtomicDelete(key string, previous *store.KVPair) (bool, error) {
 	_, err := s.client.Delete(context.Background(), s.normalize(key), delOpts)
 	if err != nil {
 		if etcdError, ok := err.(etcd.Error); ok {
+			switch etcdError.Code {
 			// Key Not Found
-			if etcdError.Code == etcd.ErrorCodeKeyNotFound {
+			case etcd.ErrorCodeKeyNotFound:
 				return false, store.ErrKeyNotFound
-			}
+
 			// Compare failed
-			if etcdError.Code == etcd.ErrorCodeTestFailed {
+			case etcd.ErrorCodeTestFailed:
 				return false, store.ErrKeyModified
 			}
 		}
@@ -508,12 +505,11 @@ func (l *etcdLock) Lock(stopChan chan struct{}) (<-chan struct{}, error) {
 	lockHeld := make(chan struct{})
 	stopLocking := l.stopRenew
 
-	setOpts := &etcd.SetOptions{
-		TTL: l.ttl,
-	}
+	setOpts := &etcd.SetOptions{TTL: l.ttl}
 
 	for {
 		setOpts.PrevExist = etcd.PrevNoExist
+
 		resp, err := l.client.Set(context.Background(), l.mutexKey, "", setOpts)
 		if err != nil {
 			if etcdError, ok := err.(etcd.Error); ok {
@@ -527,8 +523,8 @@ func (l *etcdLock) Lock(stopChan chan struct{}) (<-chan struct{}, error) {
 		}
 
 		setOpts.PrevExist = etcd.PrevExist
-		l.last, err = l.client.Set(context.Background(), l.mutexKey, "", setOpts)
 
+		l.last, err = l.client.Set(context.Background(), l.mutexKey, "", setOpts)
 		if err == nil {
 			// Leader section
 			l.stopLock = stopLocking
@@ -541,35 +537,35 @@ func (l *etcdLock) Lock(stopChan chan struct{}) (<-chan struct{}, error) {
 			}
 
 			break
-		} else {
-			// If this is a legitimate error, return
-			if etcdError, ok := err.(etcd.Error); ok {
-				if etcdError.Code != etcd.ErrorCodeTestFailed {
-					return nil, err
-				}
-			}
-
-			// Seeker section
-			errorCh := make(chan error)
-			chWStop := make(chan bool)
-			free := make(chan bool)
-
-			go l.waitLock(l.mutexKey, errorCh, chWStop, free)
-
-			// Wait for the key to be available or for
-			// a signal to stop trying to lock the key
-			select {
-			case <-free:
-				break
-			case err := <-errorCh:
-				return nil, err
-			case <-stopChan:
-				return nil, ErrAbortTryLock
-			}
-
-			// Delete or Expire event occurred
-			// Retry
 		}
+
+		// If this is a legitimate error, return
+		if etcdError, ok := err.(etcd.Error); ok {
+			if etcdError.Code != etcd.ErrorCodeTestFailed {
+				return nil, err
+			}
+		}
+
+		// Seeker section
+		errorCh := make(chan error)
+		chWStop := make(chan bool)
+		free := make(chan bool)
+
+		go l.waitLock(l.mutexKey, errorCh, chWStop, free)
+
+		// Wait for the key to be available or for
+		// a signal to stop trying to lock the key
+		select {
+		case <-free:
+			break
+		case err := <-errorCh:
+			return nil, err
+		case <-stopChan:
+			return nil, ErrAbortTryLock
+		}
+
+		// Delete or Expire event occurred
+		// Retry
 	}
 
 	return lockHeld, nil

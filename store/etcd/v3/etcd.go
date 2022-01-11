@@ -143,35 +143,40 @@ func (s *EtcdV3) Get(key string, opts *store.ReadOptions) (pair *store.KVPair, e
 }
 
 // Put a value at "key".
-func (s *EtcdV3) Put(key string, value []byte, opts *store.WriteOptions) (err error) {
+func (s *EtcdV3) Put(key string, value []byte, opts *store.WriteOptions) error {
 	ctx, cancel := context.WithTimeout(context.Background(), etcdDefaultTimeout)
+	defer cancel()
+
 	pr := s.client.Txn(ctx)
 
-	if opts != nil && opts.TTL > 0 {
-		lease := etcd.NewLease(s.client)
-		grant, err := lease.Grant(context.Background(), int64(opts.TTL/time.Second))
+	if opts == nil || opts.TTL <= 0 {
+		pr.Then(etcd.OpPut(key, string(value)))
+
+		_, err := pr.Commit()
 		if err != nil {
-			cancel()
 			return err
 		}
-
-		if opts.KeepAlive {
-			// We do not consume the channel here. Client will keep
-			// renewing the lease in the background this way.
-			_, err = lease.KeepAlive(context.Background(), grant.ID)
-			if err != nil {
-				cancel()
-				return err
-			}
-		}
-
-		pr.Then(etcd.OpPut(key, string(value), etcd.WithLease(grant.ID)))
-	} else {
-		pr.Then(etcd.OpPut(key, string(value)))
+		return nil
 	}
 
+	lease := etcd.NewLease(s.client)
+	grant, err := lease.Grant(context.Background(), int64(opts.TTL/time.Second))
+	if err != nil {
+		return err
+	}
+
+	if opts.KeepAlive {
+		// We do not consume the channel here. Client will keep
+		// renewing the lease in the background this way.
+		_, err = lease.KeepAlive(context.Background(), grant.ID)
+		if err != nil {
+			return err
+		}
+	}
+
+	pr.Then(etcd.OpPut(key, string(value), etcd.WithLease(grant.ID)))
+
 	_, err = pr.Commit()
-	cancel()
 	if err != nil {
 		return err
 	}
