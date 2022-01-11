@@ -2,6 +2,7 @@
 package zookeeper
 
 import (
+	"errors"
 	"strings"
 	"time"
 
@@ -110,7 +111,7 @@ func (s *Zookeeper) createFullPath(path []string, data []byte, ephemeral bool) e
 		_, err := s.client.Create(newpath, []byte{}, 0, zk.WorldACL(zk.PermAll))
 		if err != nil {
 			// Skip if node already exists
-			if err != zk.ErrNodeExists {
+			if !errors.Is(err, zk.ErrNodeExists) {
 				return err
 			}
 		}
@@ -143,7 +144,7 @@ func (s *Zookeeper) Put(key string, value []byte, opts *store.WriteOptions) erro
 // Delete a value at "key".
 func (s *Zookeeper) Delete(key string) error {
 	err := s.client.Delete(s.normalize(key), -1)
-	if err == zk.ErrNoNode {
+	if errors.Is(err, zk.ErrNoNode) {
 		return store.ErrKeyNotFound
 	}
 	return err
@@ -245,7 +246,7 @@ func (s *Zookeeper) WatchTree(directory string, stopCh <-chan struct{}, opts *st
 func (s *Zookeeper) listChildren(directory string) ([]string, error) {
 	children, _, err := s.client.Children(s.normalize(directory))
 	if err != nil {
-		if err == zk.ErrNoNode {
+		if errors.Is(err, zk.ErrNoNode) {
 			return nil, store.ErrKeyNotFound
 		}
 		return nil, err
@@ -269,7 +270,7 @@ func (s *Zookeeper) listChildrenRecursive(list *[]string, directory string) erro
 	for _, c := range children {
 		c = strings.TrimSuffix(directory, "/") + "/" + c
 		err := s.listChildrenRecursive(list, c)
-		if err != nil && err != zk.ErrNoChildrenForEphemerals {
+		if err != nil && !errors.Is(err, zk.ErrNoChildrenForEphemerals) {
 			return err
 		}
 		*list = append(*list, c)
@@ -289,7 +290,7 @@ func (s *Zookeeper) List(directory string, opts *store.ReadOptions) ([]*store.KV
 	kvs, err := s.getList(children, opts)
 	if err != nil {
 		// If node is not found: List is out of date, retry
-		if err == store.ErrKeyNotFound {
+		if errors.Is(err, store.ErrKeyNotFound) {
 			return s.List(directory, opts)
 		}
 		return nil, err
@@ -325,7 +326,7 @@ func (s *Zookeeper) AtomicPut(key string, value []byte, previous *store.KVPair, 
 		meta, err := s.client.Set(s.normalize(key), value, int32(previous.LastIndex))
 		if err != nil {
 			// Compare Failed
-			if err == zk.ErrBadVersion {
+			if errors.Is(err, zk.ErrBadVersion) {
 				return false, nil, store.ErrKeyModified
 			}
 			return false, nil, err
@@ -344,12 +345,12 @@ func (s *Zookeeper) AtomicPut(key string, value []byte, previous *store.KVPair, 
 	_, err := s.client.Create(s.normalize(key), value, 0, zk.WorldACL(zk.PermAll))
 	if err != nil {
 		// Node Exists error (when previous nil)
-		if err == zk.ErrNodeExists {
+		if errors.Is(err, zk.ErrNodeExists) {
 			return false, nil, store.ErrKeyExists
 		}
 
 		// Unhandled error
-		if err != zk.ErrNoNode {
+		if !errors.Is(err, zk.ErrNoNode) {
 			return false, nil, err
 		}
 
@@ -369,7 +370,7 @@ func (s *Zookeeper) AtomicPut(key string, value []byte, previous *store.KVPair, 
 		_, err := s.client.Create(s.normalize(key), value, 0, zk.WorldACL(zk.PermAll))
 		if err != nil {
 			// Node exist error (when previous nil)
-			if err == zk.ErrNodeExists {
+			if errors.Is(err, zk.ErrNodeExists) {
 				return false, nil, store.ErrKeyExists
 			}
 			return false, nil, err
@@ -396,11 +397,11 @@ func (s *Zookeeper) AtomicDelete(key string, previous *store.KVPair) (bool, erro
 	err := s.client.Delete(s.normalize(key), int32(previous.LastIndex))
 	if err != nil {
 		// Key not found
-		if err == zk.ErrNoNode {
+		if errors.Is(err, zk.ErrNoNode) {
 			return false, store.ErrKeyNotFound
 		}
 		// Compare failed
-		if err == zk.ErrBadVersion {
+		if errors.Is(err, zk.ErrBadVersion) {
 			return false, store.ErrKeyModified
 		}
 		// General store error
@@ -507,7 +508,7 @@ func (s *Zookeeper) get(key string) ([]byte, *zk.Stat, error) {
 		resp, meta, err = s.client.Get(s.normalize(key))
 
 		if err != nil {
-			if err == zk.ErrNoNode {
+			if errors.Is(err, zk.ErrNoNode) {
 				return nil, nil, store.ErrKeyNotFound
 			}
 			return nil, nil, err
@@ -540,7 +541,7 @@ func (s *Zookeeper) getW(key string) ([]byte, *zk.Stat, <-chan zk.Event, error) 
 		resp, meta, ech, err = s.client.GetW(s.normalize(key))
 
 		if err != nil {
-			if err == zk.ErrNoNode {
+			if errors.Is(err, zk.ErrNoNode) {
 				return nil, nil, nil, store.ErrKeyNotFound
 			}
 			return nil, nil, nil, err

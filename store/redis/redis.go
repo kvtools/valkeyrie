@@ -118,7 +118,7 @@ func (r *Redis) Get(key string, opts *store.ReadOptions) (*store.KVPair, error) 
 func (r *Redis) get(key string) (*store.KVPair, error) {
 	reply, err := r.client.Get(key).Bytes()
 	if err != nil {
-		if err == redis.Nil {
+		if errors.Is(err, redis.Nil) {
 			return nil, store.ErrKeyNotFound
 		}
 		return nil, err
@@ -212,12 +212,12 @@ func watchLoop(msgCh chan *redis.Message, _ <-chan struct{}, get getter, push pu
 	for m := range msgCh {
 		// retrieve and send back
 		pair, err := get()
-		if err != nil && err != store.ErrKeyNotFound {
+		if err != nil && !errors.Is(err, store.ErrKeyNotFound) {
 			return err
 		}
 
 		// in case of watching a key that has been expired or deleted return and empty KV
-		if err == store.ErrKeyNotFound && (m.Payload == "expire" || m.Payload == "del") {
+		if errors.Is(err, store.ErrKeyNotFound) && (m.Payload == "expire" || m.Payload == "del") {
 			push(&store.KVPair{})
 		} else {
 			push(pair)
@@ -399,7 +399,7 @@ func (l *redisLock) tryLock(lockHeld, stopChan chan struct{}) (bool, error) {
 		go l.holdLock(lockHeld, stopChan)
 		return true, nil
 	}
-	if err != nil && (err == store.ErrKeyNotFound || err == store.ErrKeyModified || err == store.ErrKeyExists) {
+	if errors.Is(err, store.ErrKeyNotFound) || errors.Is(err, store.ErrKeyModified) || errors.Is(err, store.ErrKeyExists) {
 		return false, nil
 	}
 	return false, err

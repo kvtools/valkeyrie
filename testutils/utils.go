@@ -2,7 +2,6 @@
 package testutils
 
 import (
-	"fmt"
 	"strconv"
 	"strings"
 	"testing"
@@ -711,8 +710,9 @@ func RunCleanup(t *testing.T, kv store.Store) {
 		"testDeleteTree",
 	} {
 		err := kv.DeleteTree(key)
-		assert.True(t, err == nil || err == store.ErrKeyNotFound, fmt.Sprintf("failed to delete tree key %s: %v", key, err))
+		assert.ErrorIsf(t, err, store.ErrKeyNotFound, "failed to delete tree key %s", key)
+
 		err = kv.Delete(key)
-		assert.True(t, err == nil || err == store.ErrKeyNotFound, fmt.Sprintf("failed to delete key %s: %v", key, err))
+		assert.ErrorIsf(t, err, store.ErrKeyNotFound, "failed to delete key %s", key)
 	}
 }

@@ -212,7 +212,7 @@ func (s *Etcd) Delete(key string) error {
 func (s *Etcd) Exists(key string, opts *store.ReadOptions) (bool, error) {
 	_, err := s.Get(key, opts)
 	if err != nil {
-		if err == store.ErrKeyNotFound {
+		if errors.Is(err, store.ErrKeyNotFound) {
 			return false, nil
 		}
 		return false, err

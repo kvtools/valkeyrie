@@ -252,7 +252,7 @@ func (s *Consul) Delete(key string) error {
 func (s *Consul) Exists(key string, opts *store.ReadOptions) (bool, error) {
 	_, err := s.Get(key, opts)
 	if err != nil {
-		if err == store.ErrKeyNotFound {
+		if errors.Is(err, store.ErrKeyNotFound) {
 			return false, nil
 		}
 		return false, err
@@ -579,7 +579,7 @@ func (s *Consul) AtomicDelete(key string, previous *store.KVPair) (bool, error) 
 
 	// Extra Get operation to check on the key
 	_, err := s.Get(key, nil)
-	if err != nil && err == store.ErrKeyNotFound {
+	if errors.Is(err, store.ErrKeyNotFound) {
 		return false, err
 	}
 

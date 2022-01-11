@@ -496,7 +496,7 @@ func (l *dynamodbLock) tryLock(lockHeld chan struct{}, stopChan chan struct{}) (
 			TTL: l.ttl,
 		})
 	if err != nil {
-		if err == store.ErrKeyNotFound || err == store.ErrKeyModified || err == store.ErrKeyExists {
+		if errors.Is(err, store.ErrKeyNotFound) || errors.Is(err, store.ErrKeyModified) || errors.Is(err, store.ErrKeyExists) {
 			return false, nil
 		}
 		return false, err

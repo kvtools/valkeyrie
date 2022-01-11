@@ -4,6 +4,7 @@ package etcdv3
 import (
 	"context"
 	"crypto/tls"
+	"errors"
 	"strings"
 	"sync"
 	"time"
@@ -198,7 +199,7 @@ func (s *EtcdV3) Delete(key string) error {
 func (s *EtcdV3) Exists(key string, opts *store.ReadOptions) (bool, error) {
 	_, err := s.Get(key, opts)
 	if err != nil {
-		if err == store.ErrKeyNotFound {
+		if errors.Is(err, store.ErrKeyNotFound) {
 			return false, nil
 		}
 		return false, err
@@ -486,7 +487,7 @@ func (l *etcdLock) Lock(stopChan chan struct{}) (<-chan struct{}, error) {
 	}()
 	err := l.mutex.Lock(ctx)
 	if err != nil {
-		if err == context.Canceled {
+		if errors.Is(err, context.Canceled) {
 			return nil, nil
 		}
 		return nil, err
