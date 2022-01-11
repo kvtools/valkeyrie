@@ -26,7 +26,7 @@ func TestRegister(t *testing.T) {
 		[]string{},
 		&store.Config{Bucket: "test-1-valkeyrie"},
 	)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.NotNil(t, kv)
 
 	if _, ok := kv.(*DynamoDB); !ok {
@@ -102,14 +102,14 @@ func TestBatchWrite(t *testing.T) {
 
 	// Put the first key
 	err := kv.Put(firstKey, firstValue, nil)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	// Put the second key
 	err = kv.Put(secondKey, secondValue, nil)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	err = kv.DeleteTree(prefix)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 }
 
 type mockedBatchWrite struct {
@@ -132,7 +132,7 @@ func TestDecodeItem(t *testing.T) {
 	}
 
 	kv, err := decodeItem(data)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Equal(t, &store.KVPair{Key: "abc123", Value: []uint8{0x61, 0x62, 0x63, 0x31, 0x32, 0x33, 0xa}, LastIndex: 0xa}, kv)
 
 	data[encodedValueAttribute] = &dynamodb.AttributeValue{S: aws.String("not base64")}

@@ -31,7 +31,7 @@ func TestRegister(t *testing.T) {
 	Register()
 
 	kv, err := valkeyrie.NewStore(store.CONSUL, []string{client}, nil)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.NotNil(t, kv)
 
 	if _, ok := kv.(*Consul); !ok {
@@ -64,19 +64,19 @@ func TestGetActiveSession(t *testing.T) {
 
 	// Put the first key with the Ephemeral flag
 	err := kv.Put(key, value, &store.WriteOptions{TTL: 2 * time.Second})
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	// Session should not be empty
 	session, err := consul.getActiveSession(key)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.NotEqual(t, session, "")
 
 	// Delete the key
 	err = kv.Delete(key)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	// Check the session again, it should return nothing
 	session, err = consul.getActiveSession(key)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Equal(t, session, "")
 }

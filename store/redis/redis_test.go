@@ -7,6 +7,7 @@ import (
 	"github.com/kvtools/valkeyrie/store"
 	"github.com/kvtools/valkeyrie/testutils"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 const client = "localhost:6379"
@@ -27,7 +28,7 @@ func TestRegister(t *testing.T) {
 	Register()
 
 	kv, err := valkeyrie.NewStore(store.REDIS, []string{client}, nil)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.NotNil(t, kv)
 
 	if _, ok := kv.(*Redis); !ok {

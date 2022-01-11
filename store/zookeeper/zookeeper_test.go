@@ -31,7 +31,7 @@ func TestRegister(t *testing.T) {
 	Register()
 
 	kv, err := valkeyrie.NewStore(store.ZK, []string{client}, nil)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.NotNil(t, kv)
 
 	if _, ok := kv.(*Zookeeper); !ok {
