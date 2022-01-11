@@ -1,0 +1,15 @@
+#!/bin/bash
+
+
+await() {
+	until [ "$(docker inspect -f '{{.State.Health.Status}}' "$1" )" == "healthy" ]; do
+		echo "Waiting for $1 container..."
+		sleep 2
+	done
+}
+
+await consul
+await etcd
+await zookeeper
+await redis
+await dynamodb
