@@ -1,5 +1,10 @@
 .PHONY: all
-all: test clean
+all: validate test clean
+
+## Run validates
+.PHONY: validate
+validate:
+	golangci-lint run
 
 PACKAGES=$(shell go list ./store/...)
 
@@ -12,13 +17,12 @@ test: ${PACKAGES}
 ## Example: make github.com/kvtools/valkeyrie/store/redis
 .PHONY: ${PACKAGES}
 ${PACKAGES}:
-	go test -v -race $@
+	go test -v -race ${TEST_ARGS} $@
 
 ## Launch docker stack for test
 .PHONY: test-start-stack
 test-start-stack:
-	docker-compose -f script/docker-compose.yml up -d
-	@timeout 60s ./script/wait-stack
+	docker-compose -f script/docker-compose.yml up --wait
 
 ## Clean local data
 .PHONY: clean
