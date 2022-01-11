@@ -47,10 +47,7 @@ type etcdLock struct {
 	ttl      time.Duration
 }
 
-const (
-	defaultLockTTL    = 20 * time.Second
-	defaultUpdateTime = 5 * time.Second
-)
+const defaultLockTTL = 20 * time.Second
 
 // Register registers etcd to valkeyrie
 func Register() {

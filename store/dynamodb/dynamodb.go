@@ -32,9 +32,7 @@ const (
 	revisionAttribute     = "version"
 	encodedValueAttribute = "encoded_value"
 	ttlAttribute          = "expiration_time"
-	lockAttribute         = "lock"
 
-	noExpiration           = time.Duration(0)
 	defaultLockTTL         = 20 * time.Second
 	dynamodbDefaultTimeout = 10 * time.Second
 )
