@@ -465,7 +465,7 @@ func (l *dynamodbLock) Lock(stopChan chan struct{}) (<-chan struct{}, error) {
 		return lockHeld, nil
 	}
 
-	// FIXME: This really needs a jitter for backoff
+	// TODO: This really needs a jitter for backoff
 	ticker := time.NewTicker(3 * time.Second)
 
 	for {
