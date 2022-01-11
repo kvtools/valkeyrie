@@ -9,7 +9,6 @@ import (
 
 	"github.com/kvtools/valkeyrie"
 	"github.com/kvtools/valkeyrie/store"
-
 	"gopkg.in/redis.v5"
 )
 
