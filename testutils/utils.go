@@ -710,9 +710,13 @@ func RunCleanup(t *testing.T, kv store.Store) {
 		"testDeleteTree",
 	} {
 		err := kv.DeleteTree(key)
-		assert.ErrorIsf(t, err, store.ErrKeyNotFound, "failed to delete tree key %s", key)
+		if err != nil {
+			assert.ErrorIsf(t, err, store.ErrKeyNotFound, "failed to delete tree key %s", key)
+		}
 
 		err = kv.Delete(key)
-		assert.ErrorIsf(t, err, store.ErrKeyNotFound, "failed to delete key %s", key)
+		if err != nil {
+			assert.ErrorIsf(t, err, store.ErrKeyNotFound, "failed to delete key %s", key)
+		}
 	}
 }
