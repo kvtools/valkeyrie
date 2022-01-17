@@ -286,7 +286,7 @@ func (b *BoltDB) List(keyPrefix string, opts *store.ReadOptions) ([]*store.KVPai
 		cursor := bucket.Cursor()
 		prefix := []byte(keyPrefix)
 
-		for key, v := cursor.Seek(prefix); bytes.HasPrefix(key, prefix); key, v = cursor.Next() {
+		for key, v := cursor.Seek(prefix); key != nil && bytes.HasPrefix(key, prefix); key, v = cursor.Next() {
 			hasResult = true
 			dbIndex := binary.LittleEndian.Uint64(v[:metadatalen])
 			v = v[metadatalen:]
