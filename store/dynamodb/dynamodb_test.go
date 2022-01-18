@@ -34,7 +34,7 @@ func TestRegister(t *testing.T) {
 
 func TestSetup(t *testing.T) {
 	ddb := newDynamoDBStore(t)
-	// ensure this is idempotent
+	// ensure this is idempotent.
 	err := ddb.createTable()
 	require.NoError(t, err)
 }
@@ -94,11 +94,11 @@ func TestBatchWrite(t *testing.T) {
 	secondKey := "testDeleteTree/second"
 	secondValue := []byte("second")
 
-	// Put the first key
+	// Put the first key.
 	err := kv.Put(firstKey, firstValue, nil)
 	require.NoError(t, err)
 
-	// Put the second key
+	// Put the second key.
 	err = kv.Put(secondKey, secondValue, nil)
 	require.NoError(t, err)
 

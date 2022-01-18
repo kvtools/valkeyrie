@@ -97,14 +97,14 @@ func (ddb *DynamoDB) Put(key string, value []byte, options *store.WriteOptions) 
 
 	setList := []string{}
 
-	// if a value was provided append it to the update expression
+	// if a value was provided append it to the update expression.
 	if len(value) > 0 {
 		encodedValue := base64.StdEncoding.EncodeToString(value)
 		exAttr[":encv"] = &dynamodb.AttributeValue{S: aws.String(encodedValue)}
 		setList = append(setList, fmt.Sprintf("%s = :encv", encodedValueAttribute))
 	}
 
-	// if a ttl was provided validate it and append it to the update expression
+	// if a ttl was provided validate it and append it to the update expression.
 	if options != nil && options.TTL > 0 {
 		ttlVal := time.Now().Add(options.TTL).Unix()
 		exAttr[":ttl"] = &dynamodb.AttributeValue{N: aws.String(strconv.FormatInt(ttlVal, 10))}
@@ -134,7 +134,7 @@ func (ddb *DynamoDB) Put(key string, value []byte, options *store.WriteOptions) 
 func (ddb *DynamoDB) Get(key string, options *store.ReadOptions) (*store.KVPair, error) {
 	if options == nil {
 		options = &store.ReadOptions{
-			Consistent: true, // default to enabling read consistency
+			Consistent: true, // default to enabling read consistency.
 		}
 	}
 	res, err := ddb.getKey(key, options)
@@ -212,7 +212,7 @@ func (ddb *DynamoDB) Exists(key string, options *store.ReadOptions) (bool, error
 func (ddb *DynamoDB) List(directory string, options *store.ReadOptions) ([]*store.KVPair, error) {
 	if options == nil {
 		options = &store.ReadOptions{
-			Consistent: true, // default to enabling read consistency
+			Consistent: true, // default to enabling read consistency.
 		}
 	}
 
@@ -260,11 +260,11 @@ func (ddb *DynamoDB) List(directory string, options *store.ReadOptions) ([]*stor
 			return nil, err
 		}
 
-		// skip the records which match the prefix
+		// skip the records which match the prefix.
 		if val.Key == directory {
 			continue
 		}
-		// skip records which are expired
+		// skip records which are expired.
 		if isItemExpired(item) {
 			continue
 		}
@@ -314,14 +314,13 @@ func (ddb *DynamoDB) DeleteTree(keyPrefix string) error {
 // AtomicPut Atomic CAS operation on a single value.
 func (ddb *DynamoDB) AtomicPut(key string, value []byte, previous *store.KVPair, options *store.WriteOptions) (bool, *store.KVPair, error) {
 	getRes, err := ddb.getKey(key, &store.ReadOptions{
-		Consistent: true, // enable the read consistent flag
+		Consistent: true, // enable the read consistent flag.
 	})
 	if err != nil {
 		return false, nil, err
 	}
 
-	// AtomicPut is equivalent to Put if previous is nil and the Key
-	// exist in the DB or is not expired.
+	// AtomicPut is equivalent to Put if previous is nil and the Key exist in the DB or is not expired.
 	if previous == nil && getRes.Item != nil && !isItemExpired(getRes.Item) {
 		return false, nil, store.ErrKeyExists
 	}
@@ -334,14 +333,14 @@ func (ddb *DynamoDB) AtomicPut(key string, value []byte, previous *store.KVPair,
 
 	setList := []string{}
 
-	// if a value was provided append it to the update expression
+	// if a value was provided append it to the update expression.
 	if len(value) > 0 {
 		encodedValue := base64.StdEncoding.EncodeToString(value)
 		exAttr[":encv"] = &dynamodb.AttributeValue{S: aws.String(encodedValue)}
 		setList = append(setList, fmt.Sprintf("%s = :encv", encodedValueAttribute))
 	}
 
-	// if a ttl was provided validate it and append it to the update expression
+	// if a ttl was provided validate it and append it to the update expression.
 	if options != nil && options.TTL > 0 {
 		ttlVal := time.Now().Add(options.TTL).Unix()
 		exAttr[":ttl"] = &dynamodb.AttributeValue{N: aws.String(strconv.FormatInt(ttlVal, 10))}
@@ -393,7 +392,7 @@ func (ddb *DynamoDB) AtomicPut(key string, value []byte, previous *store.KVPair,
 // AtomicDelete delete of a single value.
 func (ddb *DynamoDB) AtomicDelete(key string, previous *store.KVPair) (bool, error) {
 	getRes, err := ddb.getKey(key, &store.ReadOptions{
-		Consistent: true, // enable the read consistent flag
+		Consistent: true, // enable the read consistent flag.
 	})
 	if err != nil {
 		return false, err
@@ -434,7 +433,7 @@ func (ddb *DynamoDB) AtomicDelete(key string, previous *store.KVPair) (bool, err
 // Close nothing to see here.
 func (ddb *DynamoDB) Close() {}
 
-// NewLock has to implemented at the library level since its not supported by DynamoDB.
+// NewLock has to implemented at the library level since it's not supported by DynamoDB.
 func (ddb *DynamoDB) NewLock(key string, options *store.LockOptions) (store.Locker, error) {
 	var (
 		value   []byte
@@ -463,13 +462,13 @@ func (ddb *DynamoDB) NewLock(key string, options *store.LockOptions) (store.Lock
 	}, nil
 }
 
-// Watch has to implemented at the library level since its not supported by DynamoDB.
-func (ddb *DynamoDB) Watch(key string, stopCh <-chan struct{}, opts *store.ReadOptions) (<-chan *store.KVPair, error) {
+// Watch has to implemented at the library level since it's not supported by DynamoDB.
+func (ddb *DynamoDB) Watch(_ string, _ <-chan struct{}, _ *store.ReadOptions) (<-chan *store.KVPair, error) {
 	return nil, store.ErrCallNotSupported
 }
 
-// WatchTree has to implemented at the library level since its not supported by DynamoDB.
-func (ddb *DynamoDB) WatchTree(directory string, stopCh <-chan struct{}, opts *store.ReadOptions) (<-chan []*store.KVPair, error) {
+// WatchTree has to implemented at the library level since it's not supported by DynamoDB.
+func (ddb *DynamoDB) WatchTree(_ string, _ <-chan struct{}, _ *store.ReadOptions) (<-chan []*store.KVPair, error) {
 	return nil, store.ErrCallNotSupported
 }
 
@@ -487,7 +486,7 @@ func (ddb *DynamoDB) createTable() error {
 				KeyType:       aws.String(dynamodb.KeyTypeHash),
 			},
 		},
-		// enable encryption of data by default
+		// enable encryption of data by default.
 		SSESpecification: &dynamodb.SSESpecification{
 			Enabled: aws.Bool(true),
 			SSEType: aws.String(dynamodb.SSETypeAes256),
@@ -539,8 +538,8 @@ func (ddb *DynamoDB) retryDeleteTree(items map[string][]*dynamodb.WriteRequest) 
 
 	defer ticker.Stop()
 
-	// poll once a second for table status, until the table is either active
-	// or the timeout deadline has been reached
+	// Poll once a second for table status,
+	// until the table is either active or the timeout deadline has been reached.
 	for {
 		select {
 		case <-ticker.C:
@@ -556,7 +555,7 @@ func (ddb *DynamoDB) retryDeleteTree(items map[string][]*dynamodb.WriteRequest) 
 			}
 
 		case <-timeout:
-			// polling for table status has taken more than the timeout
+			// polling for table status has taken more than the timeout.
 			return ErrDeleteTreeTimeout
 		}
 	}
@@ -584,7 +583,7 @@ func (l *dynamodbLock) Lock(stopChan chan struct{}) (<-chan struct{}, error) {
 		return lockHeld, nil
 	}
 
-	// TODO: This really needs a jitter for backoff
+	// TODO: This really needs a jitter for backoff.
 	ticker := time.NewTicker(3 * time.Second)
 
 	for {
@@ -631,7 +630,7 @@ func (l *dynamodbLock) tryLock(lockHeld chan struct{}, stopChan chan struct{}) (
 	}
 	if success {
 		l.last = item
-		// keep holding
+		// keep holding.
 		go l.holdLock(lockHeld, stopChan)
 		return true, nil
 	}
@@ -656,7 +655,7 @@ func (l *dynamodbLock) holdLock(lockHeld, stopChan chan struct{}) {
 		return err
 	}
 
-	// may need a floor of 1 second set
+	// may need a floor of 1 second set.
 	heartbeat := time.NewTicker(l.ttl / 3)
 	defer heartbeat.Stop()
 

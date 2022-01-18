@@ -10,10 +10,10 @@ import (
 type Mock struct {
 	mock.Mock
 
-	// Endpoints passed to InitializeMock
+	// Endpoints passed to InitializeMock.
 	Endpoints []string
 
-	// Options passed to InitializeMock
+	// Options passed to InitializeMock.
 	Options *store.Config
 }
 

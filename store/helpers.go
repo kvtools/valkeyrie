@@ -20,8 +20,7 @@ func Normalize(key string) string {
 	return "/" + join(SplitKey(key))
 }
 
-// GetDirectory gets the full directory part of
-// the key to the form:
+// GetDirectory gets the full directory part of the key to the form:
 //
 //     /path/to/
 //

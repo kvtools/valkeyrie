@@ -62,20 +62,20 @@ func TestGetActiveSession(t *testing.T) {
 	key := "foo"
 	value := []byte("bar")
 
-	// Put the first key with the Ephemeral flag
+	// Put the first key with the Ephemeral flag.
 	err := kv.Put(key, value, &store.WriteOptions{TTL: 2 * time.Second})
 	require.NoError(t, err)
 
-	// Session should not be empty
+	// Session should not be empty.
 	session, err := consul.getActiveSession(key)
 	require.NoError(t, err)
 	assert.NotEmpty(t, session)
 
-	// Delete the key
+	// Delete the key.
 	err = kv.Delete(key)
 	require.NoError(t, err)
 
-	// Check the session again, it should return nothing
+	// Check the session again, it should return nothing.
 	session, err = consul.getActiveSession(key)
 	require.NoError(t, err)
 	assert.Empty(t, session)

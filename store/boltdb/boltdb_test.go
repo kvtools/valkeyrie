@@ -54,7 +54,7 @@ func TestMultiplePersistConnection(t *testing.T) {
 
 	assert.IsTypef(t, kv, new(BoltDB), "Error registering and initializing boltDB")
 
-	// Must fail if multiple boltdb requests are made with a valid timeout
+	// Must fail if multiple boltdb requests are made with a valid timeout.
 	_, err = valkeyrie.NewStore(
 		store.BOLTDB,
 		[]string{"/tmp/not_exist_dir/__boltdbtest"},
@@ -114,7 +114,7 @@ func TestConcurrentConnection(t *testing.T) {
 	require.NotNil(t, pair2)
 	assert.Equal(t, pair2.Value, value2)
 
-	// AtomicPut using kv1 and kv2 should succeed
+	// AtomicPut using kv1 and kv2 should succeed.
 	_, _, err = kv1.AtomicPut(key1, []byte("TestnewVal1"), pair1, nil)
 	require.NoError(t, err)
 

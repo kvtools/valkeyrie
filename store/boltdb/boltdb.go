@@ -17,10 +17,10 @@ import (
 )
 
 var (
-	// ErrMultipleEndpointsUnsupported is thrown when multiple endpoints specified for
-	// BoltDB. Endpoint has to be a local file path.
+	// ErrMultipleEndpointsUnsupported is thrown when multiple endpoints specified for BoltDB.
+	// Endpoint has to be a local file path.
 	ErrMultipleEndpointsUnsupported = errors.New("boltdb supports one endpoint and should be a file path")
-	// ErrBoltBucketOptionMissing is thrown when boltBcuket config option is missing.
+	// ErrBoltBucketOptionMissing is thrown when boltBucket config option is missing.
 	ErrBoltBucketOptionMissing = errors.New("boltBucket config option missing")
 )
 
@@ -45,9 +45,8 @@ type BoltDB struct {
 	dbIndex    uint64
 	path       string
 	timeout    time.Duration
-	// By default valkeyrie opens and closes the bolt DB connection  for every
-	// get/put operation. This allows multiple apps to use a Bolt DB at the
-	// same time.
+	// By default, valkeyrie opens and closes the bolt DB connection for every get/put operation.
+	// This allows multiple apps to use a Bolt DB at the same time.
 	// PersistConnection flag provides an option to override ths behavior.
 	// ie: open the connection in New and use it till Close is called.
 	PersistConnection bool
@@ -126,8 +125,10 @@ func (b *BoltDB) releaseDBhandle() {
 	}
 }
 
-// Get the value at "key". BoltDB doesn't provide an inbuilt last modified index with every kv pair. Its implemented by
-// by a atomic counter maintained by the valkeyrie and appended to the value passed by the client.
+// Get the value at "key".
+// BoltDB doesn't provide an inbuilt last modified index with every kv pair.
+// It's implemented by an atomic counter maintained by the valkeyrie
+// and appended to the value passed by the client.
 func (b *BoltDB) Get(key string, opts *store.ReadOptions) (*store.KVPair, error) {
 	var (
 		val []byte
@@ -168,7 +169,8 @@ func (b *BoltDB) Get(key string, opts *store.ReadOptions) (*store.KVPair, error)
 	return &store.KVPair{Key: key, Value: val, LastIndex: dbIndex}, nil
 }
 
-// Put the key, value pair. index number metadata is prepended to the value.
+// Put the key, value pair.
+// Index number metadata is prepended to the value.
 func (b *BoltDB) Put(key string, value []byte, opts *store.WriteOptions) error {
 	var (
 		dbIndex uint64
@@ -309,9 +311,9 @@ func (b *BoltDB) List(keyPrefix string, opts *store.ReadOptions) ([]*store.KVPai
 	return kv, err
 }
 
-// AtomicDelete deletes a value at "key" if the key
-// has not been modified in the meantime, throws an
-// error if this is the case.
+// AtomicDelete deletes a value at "key"
+// if the key has not been modified in the meantime,
+// throws an error if this is the case.
 func (b *BoltDB) AtomicDelete(key string, previous *store.KVPair) (bool, error) {
 	var (
 		val []byte
@@ -352,8 +354,9 @@ func (b *BoltDB) AtomicDelete(key string, previous *store.KVPair) (bool, error) 
 	return true, err
 }
 
-// AtomicPut puts a value at "key" if the key has not been
-// modified since the last Put, throws an error if this is the case.
+// AtomicPut puts a value at "key"
+// if the key has not been modified since the last Put,
+// throws an error if this is the case.
 func (b *BoltDB) AtomicPut(key string, value []byte, previous *store.KVPair, options *store.WriteOptions) (bool, *store.KVPair, error) {
 	var (
 		val     []byte
@@ -460,17 +463,17 @@ func (b *BoltDB) DeleteTree(keyPrefix string) error {
 	return err
 }
 
-// NewLock has to implemented at the library level since its not supported by BoltDB.
-func (b *BoltDB) NewLock(key string, options *store.LockOptions) (store.Locker, error) {
+// NewLock has to implemented at the library level since it's not supported by BoltDB.
+func (b *BoltDB) NewLock(_ string, _ *store.LockOptions) (store.Locker, error) {
 	return nil, store.ErrCallNotSupported
 }
 
-// Watch has to implemented at the library level since its not supported by BoltDB.
-func (b *BoltDB) Watch(key string, stopCh <-chan struct{}, opts *store.ReadOptions) (<-chan *store.KVPair, error) {
+// Watch has to implemented at the library level since it's not supported by BoltDB.
+func (b *BoltDB) Watch(_ string, _ <-chan struct{}, _ *store.ReadOptions) (<-chan *store.KVPair, error) {
 	return nil, store.ErrCallNotSupported
 }
 
-// WatchTree has to implemented at the library level since its not supported by BoltDB.
-func (b *BoltDB) WatchTree(directory string, stopCh <-chan struct{}, opts *store.ReadOptions) (<-chan []*store.KVPair, error) {
+// WatchTree has to implemented at the library level since it's not supported by BoltDB.
+func (b *BoltDB) WatchTree(_ string, _ <-chan struct{}, _ *store.ReadOptions) (<-chan []*store.KVPair, error) {
 	return nil, store.ErrCallNotSupported
 }
