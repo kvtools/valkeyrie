@@ -135,7 +135,7 @@ func TestDecodeItem(t *testing.T) {
 	assert.Nil(t, kv)
 }
 
-func (m *mockedBatchWrite) BatchWriteItem(in *dynamodb.BatchWriteItemInput) (*dynamodb.BatchWriteItemOutput, error) {
+func (m *mockedBatchWrite) BatchWriteItem(_ *dynamodb.BatchWriteItemInput) (*dynamodb.BatchWriteItemOutput, error) {
 	if m.Count > 0 {
 		m.Count--
 		return m.BatchWriteResp, nil

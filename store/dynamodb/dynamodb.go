@@ -28,12 +28,16 @@ const (
 	TableCreateTimeoutSeconds = 30
 	// DeleteTreeTimeoutSeconds the maximum time we retry a write batch.
 	DeleteTreeTimeoutSeconds = 30
+)
 
+const (
 	partitionKey          = "id"
 	revisionAttribute     = "version"
 	encodedValueAttribute = "encoded_value"
 	ttlAttribute          = "expiration_time"
+)
 
+const (
 	defaultLockTTL         = 20 * time.Second
 	dynamodbDefaultTimeout = 10 * time.Second
 )
@@ -95,7 +99,7 @@ func (ddb *DynamoDB) Put(key string, value []byte, options *store.WriteOptions) 
 
 	exAttr[":incr"] = &dynamodb.AttributeValue{N: aws.String("1")}
 
-	setList := []string{}
+	var setList []string
 
 	// if a value was provided append it to the update expression.
 	if len(value) > 0 {
@@ -137,6 +141,7 @@ func (ddb *DynamoDB) Get(key string, options *store.ReadOptions) (*store.KVPair,
 			Consistent: true, // default to enabling read consistency.
 		}
 	}
+
 	res, err := ddb.getKey(key, options)
 	if err != nil {
 		return nil, err
@@ -158,9 +163,7 @@ func (ddb *DynamoDB) getKey(key string, options *store.ReadOptions) (*dynamodb.G
 		TableName:      aws.String(ddb.tableName),
 		ConsistentRead: aws.Bool(options.Consistent),
 		Key: map[string]*dynamodb.AttributeValue{
-			partitionKey: {
-				S: aws.String(key),
-			},
+			partitionKey: {S: aws.String(key)},
 		},
 	})
 }
@@ -170,9 +173,7 @@ func (ddb *DynamoDB) Delete(key string) error {
 	_, err := ddb.dynamoSvc.DeleteItem(&dynamodb.DeleteItemInput{
 		TableName: aws.String(ddb.tableName),
 		Key: map[string]*dynamodb.AttributeValue{
-			partitionKey: {
-				S: aws.String(key),
-			},
+			partitionKey: {S: aws.String(key)},
 		},
 	})
 	if err != nil {
@@ -183,7 +184,7 @@ func (ddb *DynamoDB) Delete(key string) error {
 }
 
 // Exists if a Key exists in the store.
-func (ddb *DynamoDB) Exists(key string, options *store.ReadOptions) (bool, error) {
+func (ddb *DynamoDB) Exists(key string, _ *store.ReadOptions) (bool, error) {
 	res, err := ddb.dynamoSvc.GetItem(&dynamodb.GetItemInput{
 		TableName: aws.String(ddb.tableName),
 		Key: map[string]*dynamodb.AttributeValue{
@@ -229,10 +230,10 @@ func (ddb *DynamoDB) List(directory string, options *store.ReadOptions) ([]*stor
 		ConsistentRead:            aws.Bool(options.Consistent),
 	}
 
-	items := []map[string]*dynamodb.AttributeValue{}
-	ctcx, cancel := context.WithTimeout(context.Background(), dynamodbDefaultTimeout)
+	var items []map[string]*dynamodb.AttributeValue
+	ctx, cancel := context.WithTimeout(context.Background(), dynamodbDefaultTimeout)
 
-	err := ddb.dynamoSvc.ScanPagesWithContext(ctcx, si,
+	err := ddb.dynamoSvc.ScanPagesWithContext(ctx, si,
 		func(page *dynamodb.ScanOutput, lastPage bool) bool {
 			items = append(items, page.Items...)
 
@@ -331,7 +332,7 @@ func (ddb *DynamoDB) AtomicPut(key string, value []byte, previous *store.KVPair,
 	exAttr := make(map[string]*dynamodb.AttributeValue)
 	exAttr[":incr"] = &dynamodb.AttributeValue{N: aws.String("1")}
 
-	setList := []string{}
+	var setList []string
 
 	// if a value was provided append it to the update expression.
 	if len(value) > 0 {
@@ -410,9 +411,7 @@ func (ddb *DynamoDB) AtomicDelete(key string, previous *store.KVPair) (bool, err
 	req := &dynamodb.DeleteItemInput{
 		TableName: aws.String(ddb.tableName),
 		Key: map[string]*dynamodb.AttributeValue{
-			partitionKey: {
-				S: aws.String(key),
-			},
+			partitionKey: {S: aws.String(key)},
 		},
 		ConditionExpression:       aws.String(fmt.Sprintf("%s = :lastRevision", revisionAttribute)),
 		ExpressionAttributeValues: expAttr,
@@ -435,18 +434,17 @@ func (ddb *DynamoDB) Close() {}
 
 // NewLock has to implemented at the library level since it's not supported by DynamoDB.
 func (ddb *DynamoDB) NewLock(key string, options *store.LockOptions) (store.Locker, error) {
-	var (
-		value   []byte
-		ttl     = defaultLockTTL
-		renewCh = make(chan struct{})
-	)
-
+	ttl := defaultLockTTL
 	if options != nil && options.TTL != 0 {
 		ttl = options.TTL
 	}
+
+	var value []byte
 	if options != nil && len(options.Value) != 0 {
 		value = options.Value
 	}
+
+	renewCh := make(chan struct{})
 	if options != nil && options.RenewLock != nil {
 		renewCh = options.RenewLock
 	}
@@ -611,7 +609,7 @@ func (l *dynamodbLock) Unlock() error {
 	}
 	l.last = nil
 
-	return err
+	return nil
 }
 
 func (l *dynamodbLock) tryLock(lockHeld chan struct{}, stopChan chan struct{}) (bool, error) {
@@ -619,9 +617,7 @@ func (l *dynamodbLock) tryLock(lockHeld chan struct{}, stopChan chan struct{}) (
 		l.key,
 		l.value,
 		l.last,
-		&store.WriteOptions{
-			TTL: l.ttl,
-		})
+		&store.WriteOptions{TTL: l.ttl})
 	if err != nil {
 		if errors.Is(err, store.ErrKeyNotFound) || errors.Is(err, store.ErrKeyModified) || errors.Is(err, store.ErrKeyExists) {
 			return false, nil
@@ -646,13 +642,13 @@ func (l *dynamodbLock) holdLock(lockHeld, stopChan chan struct{}) {
 			l.key,
 			l.value,
 			l.last,
-			&store.WriteOptions{
-				TTL: l.ttl,
-			})
-		if err == nil {
-			l.last = item
+			&store.WriteOptions{TTL: l.ttl})
+		if err != nil {
+			return err
 		}
-		return err
+
+		l.last = item
+		return nil
 	}
 
 	// may need a floor of 1 second set.
@@ -676,35 +672,31 @@ func (l *dynamodbLock) holdLock(lockHeld, stopChan chan struct{}) {
 }
 
 func isItemExpired(item map[string]*dynamodb.AttributeValue) bool {
-	var ttl int64
-
-	if v, ok := item[ttlAttribute]; ok {
-		ttl, _ = strconv.ParseInt(aws.StringValue(v.N), 10, 64)
-		return time.Unix(ttl, 0).Before(time.Now())
+	v, ok := item[ttlAttribute]
+	if !ok {
+		return false
 	}
 
-	return false
+	ttl, _ := strconv.ParseInt(aws.StringValue(v.N), 10, 64)
+	return time.Unix(ttl, 0).Before(time.Now())
 }
 
 func decodeItem(item map[string]*dynamodb.AttributeValue) (*store.KVPair, error) {
-	var (
-		key          string
-		revision     int64
-		encodedValue string
-		err          error
-	)
-
+	var key string
 	if v, ok := item[partitionKey]; ok {
 		key = aws.StringValue(v.S)
 	}
 
+	var revision int64
 	if v, ok := item[revisionAttribute]; ok {
+		var err error
 		revision, err = strconv.ParseInt(aws.StringValue(v.N), 10, 64)
 		if err != nil {
 			return nil, err
 		}
 	}
 
+	var encodedValue string
 	if v, ok := item[encodedValueAttribute]; ok {
 		encodedValue = aws.StringValue(v.S)
 	}

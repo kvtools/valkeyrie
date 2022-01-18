@@ -33,16 +33,8 @@ type EtcdV3 struct {
 
 // New creates a new Etcd client given a list of endpoints and an optional tls config.
 func New(addrs []string, options *store.Config) (store.Store, error) {
-	s := &EtcdV3{}
-
-	var (
-		entries []string
-		err     error
-	)
-
-	entries = store.CreateEndpoints(addrs, "http")
 	cfg := &etcd.Config{
-		Endpoints: entries,
+		Endpoints: store.CreateEndpoints(addrs, "http"),
 	}
 
 	// Set options.
@@ -61,6 +53,9 @@ func New(addrs []string, options *store.Config) (store.Store, error) {
 		}
 	}
 
+	s := &EtcdV3{}
+
+	var err error
 	s.client, err = etcd.New(*cfg)
 	if err != nil {
 		return nil, err
@@ -71,8 +66,7 @@ func New(addrs []string, options *store.Config) (store.Store, error) {
 
 // setTLS sets the tls configuration given a tls.Config scheme.
 func setTLS(cfg *etcd.Config, tlsCfg *tls.Config, addrs []string) {
-	entries := store.CreateEndpoints(addrs, "https")
-	cfg.Endpoints = entries
+	cfg.Endpoints = store.CreateEndpoints(addrs, "https")
 	cfg.TLS = tlsCfg
 }
 
@@ -89,8 +83,7 @@ func setCredentials(cfg *etcd.Config, username, password string) {
 
 // normalize the key for usage in Etcd.
 func (s *EtcdV3) normalize(key string) string {
-	key = store.Normalize(key)
-	return strings.TrimPrefix(key, "/")
+	return strings.TrimPrefix(store.Normalize(key), "/")
 }
 
 // Get the value at "key".
@@ -99,7 +92,6 @@ func (s *EtcdV3) Get(key string, opts *store.ReadOptions) (pair *store.KVPair, e
 	ctx, cancel := context.WithTimeout(context.Background(), etcdDefaultTimeout)
 
 	var result *etcd.GetResponse
-
 	if opts != nil && !opts.Consistent {
 		result, err = s.client.KV.Get(ctx, s.normalize(key), etcd.WithSerializable())
 	} else {
@@ -388,6 +380,7 @@ func (s *EtcdV3) List(directory string, opts *store.ReadOptions) ([]*store.KVPai
 // DeleteTree deletes a range of keys under a given directory.
 func (s *EtcdV3) DeleteTree(directory string) error {
 	ctx, cancel := context.WithTimeout(context.Background(), etcdDefaultTimeout)
+
 	resp, err := s.client.KV.Delete(ctx, s.normalize(directory), etcd.WithPrefix())
 	cancel()
 	if err != nil {
@@ -401,10 +394,11 @@ func (s *EtcdV3) DeleteTree(directory string) error {
 
 // NewLock returns a handle to a lock struct which can be used to provide mutual exclusion on a key.
 func (s *EtcdV3) NewLock(key string, options *store.LockOptions) (lock store.Locker, err error) {
-	var value string
 	ttl := defaultLockTTL
-	renewCh := make(chan struct{})
+
+	var value string
 	var deleteOnUnlock bool
+	renewCh := make(chan struct{})
 
 	// Apply options on Lock.
 	if options != nil {

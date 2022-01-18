@@ -6,7 +6,6 @@ import (
 	"errors"
 	"net/http"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/hashicorp/consul/api"
@@ -46,9 +45,8 @@ func Register() {
 
 // Consul is the receiver type for the Store interface.
 type Consul struct {
-	sync.Mutex // TODO unused
-	config     *api.Config
-	client     *api.Client
+	config *api.Config
+	client *api.Client
 }
 
 // New creates a new Consul client given a list of endpoints and optional tls config.
@@ -57,13 +55,14 @@ func New(endpoints []string, options *store.Config) (store.Store, error) {
 		return nil, ErrMultipleEndpointsUnsupported
 	}
 
-	s := &Consul{}
-
 	// Create Consul client.
 	config := api.DefaultConfig()
-	s.config = config
 	config.HttpClient = http.DefaultClient
 	config.Address = endpoints[0]
+
+	s := &Consul{
+		config: config,
+	}
 
 	// Set options.
 	if options != nil {
@@ -119,8 +118,7 @@ func (s *Consul) setNamespace(namespace string) {
 
 // normalize the key for usage in Consul.
 func (s *Consul) normalize(key string) string {
-	key = store.Normalize(key)
-	return strings.TrimPrefix(key, "/")
+	return strings.TrimPrefix(store.Normalize(key), "/")
 }
 
 func (s *Consul) renewSession(pair *api.KVPair, ttl time.Duration) error {
@@ -166,10 +164,12 @@ func (s *Consul) getActiveSession(key string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	if pair != nil && pair.Session != "" {
-		return pair.Session, nil
+
+	if pair == nil || pair.Session == "" {
+		return "", nil
 	}
-	return "", nil
+
+	return pair.Session, nil
 }
 
 // Get the value at "key".
@@ -200,10 +200,8 @@ func (s *Consul) Get(key string, opts *store.ReadOptions) (*store.KVPair, error)
 
 // Put a value at "key".
 func (s *Consul) Put(key string, value []byte, opts *store.WriteOptions) error {
-	key = s.normalize(key)
-
 	p := &api.KVPair{
-		Key:   key,
+		Key:   s.normalize(key),
 		Value: value,
 		Flags: api.LockFlagValue,
 	}
@@ -231,6 +229,7 @@ func (s *Consul) Delete(key string) error {
 	if _, err := s.Get(key, nil); err != nil {
 		return err
 	}
+
 	_, err := s.client.KV().Delete(s.normalize(key), nil)
 	return err
 }
@@ -254,11 +253,9 @@ func (s *Consul) List(directory string, opts *store.ReadOptions) ([]*store.KVPai
 		RequireConsistent: true,
 	}
 
-	if opts != nil {
-		if !opts.Consistent {
-			options.AllowStale = true
-			options.RequireConsistent = false
-		}
+	if opts != nil && !opts.Consistent {
+		options.AllowStale = true
+		options.RequireConsistent = false
 	}
 
 	pairs, _, err := s.client.KV().List(s.normalize(directory), options)
@@ -290,6 +287,7 @@ func (s *Consul) DeleteTree(directory string) error {
 	if _, err := s.List(directory, nil); err != nil {
 		return err
 	}
+
 	_, err := s.client.KV().DeleteTree(s.normalize(directory), nil)
 	return err
 }
@@ -506,10 +504,10 @@ func (s *Consul) renewLockSession(initialTTL string, id string, stopRenew chan s
 func (s *Consul) AtomicPut(key string, value []byte, previous *store.KVPair, _ *store.WriteOptions) (bool, *store.KVPair, error) {
 	p := &api.KVPair{Key: s.normalize(key), Value: value, Flags: api.LockFlagValue}
 
-	if previous == nil {
-		// Consul interprets ModifyIndex = 0 as new key.
-		p.ModifyIndex = 0
-	} else {
+	// Consul interprets ModifyIndex = 0 as new key.
+	p.ModifyIndex = 0
+
+	if previous != nil {
 		p.ModifyIndex = previous.LastIndex
 	}
 

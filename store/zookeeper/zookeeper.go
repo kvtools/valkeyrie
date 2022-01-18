@@ -68,7 +68,7 @@ func (s *Zookeeper) setTimeout(timeout time.Duration) {
 
 // Get the value at "key".
 // Returns the last modified index to use in conjunction to Atomic calls.
-func (s *Zookeeper) Get(key string, opts *store.ReadOptions) (pair *store.KVPair, err error) {
+func (s *Zookeeper) Get(key string, _ *store.ReadOptions) (pair *store.KVPair, err error) {
 	resp, meta, err := s.get(key)
 	if err != nil {
 		return nil, err
@@ -87,18 +87,18 @@ func (s *Zookeeper) Get(key string, opts *store.ReadOptions) (pair *store.KVPair
 // that does not exist and sets the value of the last znode to data.
 func (s *Zookeeper) createFullPath(path []string, data []byte, ephemeral bool) error {
 	for i := 1; i <= len(path); i++ {
-		newpath := "/" + strings.Join(path[:i], "/")
+		newPath := "/" + strings.Join(path[:i], "/")
 
 		if i == len(path) {
 			flag := 0
 			if ephemeral {
 				flag = zk.FlagEphemeral
 			}
-			_, err := s.client.Create(newpath, data, int32(flag), zk.WorldACL(zk.PermAll))
+			_, err := s.client.Create(newPath, data, int32(flag), zk.WorldACL(zk.PermAll))
 			return err
 		}
 
-		_, err := s.client.Create(newpath, []byte{}, 0, zk.WorldACL(zk.PermAll))
+		_, err := s.client.Create(newPath, []byte{}, 0, zk.WorldACL(zk.PermAll))
 		if err != nil {
 			// Skip if node already exists.
 			if !errors.Is(err, zk.ErrNodeExists) {
@@ -141,7 +141,7 @@ func (s *Zookeeper) Delete(key string) error {
 }
 
 // Exists checks if the key exists inside the store.
-func (s *Zookeeper) Exists(key string, opts *store.ReadOptions) (bool, error) {
+func (s *Zookeeper) Exists(key string, _ *store.ReadOptions) (bool, error) {
 	exists, _, err := s.client.Exists(s.normalize(key))
 	if err != nil {
 		return false, err
@@ -153,7 +153,7 @@ func (s *Zookeeper) Exists(key string, opts *store.ReadOptions) (bool, error) {
 // It returns a channel that will receive changes or pass on errors.
 // Upon creation, the current value will first be sent to the channel.
 // Providing a non-nil stopCh can be used to stop watching.
-func (s *Zookeeper) Watch(key string, stopCh <-chan struct{}, opts *store.ReadOptions) (<-chan *store.KVPair, error) {
+func (s *Zookeeper) Watch(key string, stopCh <-chan struct{}, _ *store.ReadOptions) (<-chan *store.KVPair, error) {
 	// Catch zk notifications and fire changes into the channel.
 	watchCh := make(chan *store.KVPair)
 	go func() {
@@ -427,8 +427,7 @@ func (s *Zookeeper) Close() {
 
 // normalize the key for usage in Zookeeper.
 func (s *Zookeeper) normalize(key string) string {
-	key = store.Normalize(key)
-	return strings.TrimSuffix(key, "/")
+	return strings.TrimSuffix(store.Normalize(key), "/")
 }
 
 func (s *Zookeeper) get(key string) ([]byte, *zk.Stat, error) {

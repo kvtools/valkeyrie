@@ -5,7 +5,6 @@ import (
 	"context"
 	"crypto/tls"
 	"errors"
-	"log"
 	"net"
 	"net/http"
 	"strings"
@@ -39,16 +38,8 @@ type Etcd struct {
 
 // New creates a new Etcd client given a list of endpoints and an optional TLS config.
 func New(addrs []string, options *store.Config) (store.Store, error) {
-	s := &Etcd{}
-
-	var (
-		entries []string
-		err     error
-	)
-
-	entries = store.CreateEndpoints(addrs, "http")
 	cfg := &etcd.Config{
-		Endpoints:               entries,
+		Endpoints:               store.CreateEndpoints(addrs, "http"),
 		Transport:               etcd.DefaultTransport,
 		HeaderTimeoutPerRequest: 3 * time.Second,
 	}
@@ -68,10 +59,12 @@ func New(addrs []string, options *store.Config) (store.Store, error) {
 
 	c, err := etcd.New(*cfg)
 	if err != nil {
-		log.Fatal(err)
+		return nil, err
 	}
 
-	s.client = etcd.NewKeysAPI(c)
+	s := &Etcd{
+		client: etcd.NewKeysAPI(c),
+	}
 
 	// Periodic Cluster Sync.
 	if options != nil && options.SyncPeriod != 0 {
@@ -91,7 +84,7 @@ func setTLS(cfg *etcd.Config, tlsCfg *tls.Config, addrs []string) {
 	cfg.Endpoints = entries
 
 	// Set transport.
-	t := http.Transport{
+	cfg.Transport = &http.Transport{
 		DialContext: (&net.Dialer{
 			Timeout:   30 * time.Second,
 			KeepAlive: 30 * time.Second,
@@ -99,8 +92,6 @@ func setTLS(cfg *etcd.Config, tlsCfg *tls.Config, addrs []string) {
 		TLSHandshakeTimeout: 10 * time.Second,
 		TLSClientConfig:     tlsCfg,
 	}
-
-	cfg.Transport = &t
 }
 
 // setTimeout sets the timeout used for connecting to the store.
@@ -116,8 +107,7 @@ func setCredentials(cfg *etcd.Config, username, password string) {
 
 // normalize the key for usage in Etcd.
 func (s *Etcd) normalize(key string) string {
-	key = store.Normalize(key)
-	return strings.TrimPrefix(key, "/")
+	return strings.TrimPrefix(store.Normalize(key), "/")
 }
 
 // Get the value at "key".
@@ -289,20 +279,17 @@ func (s *Etcd) WatchTree(directory string, stopCh <-chan struct{}, opts *store.R
 func (s *Etcd) AtomicPut(key string, value []byte, previous *store.KVPair, opts *store.WriteOptions) (bool, *store.KVPair, error) {
 	setOpts := &etcd.SetOptions{}
 
+	setOpts.PrevExist = etcd.PrevNoExist
 	if previous != nil {
 		setOpts.PrevExist = etcd.PrevExist
 		setOpts.PrevIndex = previous.LastIndex
 		if previous.Value != nil {
 			setOpts.PrevValue = string(previous.Value)
 		}
-	} else {
-		setOpts.PrevExist = etcd.PrevNoExist
 	}
 
-	if opts != nil {
-		if opts.TTL > 0 {
-			setOpts.TTL = opts.TTL
-		}
+	if opts != nil && opts.TTL > 0 {
+		setOpts.TTL = opts.TTL
 	}
 
 	meta, err := s.client.Set(context.Background(), s.normalize(key), string(value), setOpts)
@@ -431,11 +418,11 @@ func (s *Etcd) DeleteTree(directory string) error {
 // NewLock returns a handle to a lock struct
 // which can be used to provide mutual exclusion on a key.
 func (s *Etcd) NewLock(key string, options *store.LockOptions) (lock store.Locker, err error) {
-	var value string
 	ttl := defaultLockTTL
 	renewCh := make(chan struct{})
 
 	// Apply options on Lock.
+	var value string
 	if options != nil {
 		if options.Value != nil {
 			value = string(options.Value)
@@ -546,7 +533,7 @@ func (l *etcdLock) Lock(stopChan chan struct{}) (<-chan struct{}, error) {
 			return nil, ErrAbortTryLock
 		}
 
-		// Delete or Expire event occurred
+		// Delete or Expire event occurred.
 		// Retry.
 	}
 
@@ -622,14 +609,15 @@ func (l *etcdLock) Unlock() error {
 // keyNotFound checks on the error returned by the KeysAPI
 // to verify if the key exists in the store or not.
 func keyNotFound(err error) bool {
-	if err != nil {
-		if etcdError, ok := err.(etcd.Error); ok {
-			if etcdError.Code == etcd.ErrorCodeKeyNotFound ||
-				etcdError.Code == etcd.ErrorCodeNotFile ||
-				etcdError.Code == etcd.ErrorCodeNotDir {
-				return true
-			}
-		}
+	if err == nil {
+		return false
+	}
+
+	etcdError, ok := err.(etcd.Error)
+	if ok && etcdError.Code == etcd.ErrorCodeKeyNotFound ||
+		etcdError.Code == etcd.ErrorCodeNotFile ||
+		etcdError.Code == etcd.ErrorCodeNotDir {
+		return true
 	}
 	return false
 }
