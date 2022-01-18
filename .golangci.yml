@@ -43,7 +43,6 @@ linters-settings:
       - rangeValCopy
       - octalLiteral
       - paramTypeCombine # already handle by gofumpt.extra-rules
-      - exposedSyncMutex # FIXME MUST be fixed
     settings:
       hugeParam:
         sizeThreshold: 100
@@ -51,7 +50,7 @@ linters-settings:
     go: "1.16"
     checks:
       - "all"
-      - "-ST1005" # FIXME MUST be fixed
+      - "-ST1005" # FIXME MUST be fixed (error strings should not be capitalized)
 
 linters:
   disable-all: true

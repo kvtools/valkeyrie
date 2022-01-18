@@ -50,7 +50,7 @@ type BoltDB struct {
 	// PersistConnection flag provides an option to override ths behavior.
 	// ie: open the connection in New and use it till Close is called.
 	PersistConnection bool
-	sync.Mutex
+	mu                sync.Mutex
 }
 
 // New opens a new BoltDB connection to the specified path and bucket.
@@ -125,8 +125,8 @@ func (b *BoltDB) releaseDBHandle() {
 // It's implemented by an atomic counter maintained by the valkeyrie
 // and appended to the value passed by the client.
 func (b *BoltDB) Get(key string, _ *store.ReadOptions) (*store.KVPair, error) {
-	b.Lock()
-	defer b.Unlock()
+	b.mu.Lock()
+	defer b.mu.Unlock()
 
 	db, err := b.getDBHandle()
 	if err != nil {
@@ -165,8 +165,8 @@ func (b *BoltDB) Get(key string, _ *store.ReadOptions) (*store.KVPair, error) {
 // Put the key, value pair.
 // Index number metadata is prepended to the value.
 func (b *BoltDB) Put(key string, value []byte, _ *store.WriteOptions) error {
-	b.Lock()
-	defer b.Unlock()
+	b.mu.Lock()
+	defer b.mu.Unlock()
 
 	dbval := make([]byte, metadataLen)
 
@@ -196,8 +196,8 @@ func (b *BoltDB) Put(key string, value []byte, _ *store.WriteOptions) error {
 
 // Delete the value for the given key.
 func (b *BoltDB) Delete(key string) error {
-	b.Lock()
-	defer b.Unlock()
+	b.mu.Lock()
+	defer b.mu.Unlock()
 
 	db, err := b.getDBHandle()
 	if err != nil {
@@ -217,8 +217,8 @@ func (b *BoltDB) Delete(key string) error {
 
 // Exists checks if the key exists inside the store.
 func (b *BoltDB) Exists(key string, _ *store.ReadOptions) (bool, error) {
-	b.Lock()
-	defer b.Unlock()
+	b.mu.Lock()
+	defer b.mu.Unlock()
 
 	db, err := b.getDBHandle()
 	if err != nil {
@@ -247,8 +247,8 @@ func (b *BoltDB) Exists(key string, _ *store.ReadOptions) (bool, error) {
 
 // List returns the range of keys starting with the passed in prefix.
 func (b *BoltDB) List(keyPrefix string, _ *store.ReadOptions) ([]*store.KVPair, error) {
-	b.Lock()
-	defer b.Unlock()
+	b.mu.Lock()
+	defer b.mu.Unlock()
 
 	kv := []*store.KVPair{}
 
@@ -300,8 +300,8 @@ func (b *BoltDB) List(keyPrefix string, _ *store.ReadOptions) ([]*store.KVPair, 
 // if the key has not been modified in the meantime,
 // throws an error if this is the case.
 func (b *BoltDB) AtomicDelete(key string, previous *store.KVPair) (bool, error) {
-	b.Lock()
-	defer b.Unlock()
+	b.mu.Lock()
+	defer b.mu.Unlock()
 
 	if previous == nil {
 		return false, store.ErrPreviousNotSpecified
@@ -342,8 +342,8 @@ func (b *BoltDB) AtomicDelete(key string, previous *store.KVPair) (bool, error) 
 // if the key has not been modified since the last Put,
 // throws an error if this is the case.
 func (b *BoltDB) AtomicPut(key string, value []byte, previous *store.KVPair, _ *store.WriteOptions) (bool, *store.KVPair, error) {
-	b.Lock()
-	defer b.Unlock()
+	b.mu.Lock()
+	defer b.mu.Unlock()
 
 	dbval := make([]byte, metadataLen)
 
@@ -405,8 +405,8 @@ func (b *BoltDB) AtomicPut(key string, value []byte, previous *store.KVPair, _ *
 
 // Close the db connection to the BoltDB.
 func (b *BoltDB) Close() {
-	b.Lock()
-	defer b.Unlock()
+	b.mu.Lock()
+	defer b.mu.Unlock()
 
 	if !b.PersistConnection {
 		b.reset()
@@ -417,8 +417,8 @@ func (b *BoltDB) Close() {
 
 // DeleteTree deletes a range of keys with a given prefix.
 func (b *BoltDB) DeleteTree(keyPrefix string) error {
-	b.Lock()
-	defer b.Unlock()
+	b.mu.Lock()
+	defer b.mu.Unlock()
 
 	db, err := b.getDBHandle()
 	if err != nil {
