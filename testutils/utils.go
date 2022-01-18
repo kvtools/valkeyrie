@@ -76,13 +76,8 @@ func RunTestTTL(t *testing.T, kv store.Store, backup store.Store) {
 func checkPairNotNil(t *testing.T, pair *store.KVPair) {
 	t.Helper()
 
-	if assert.NotNil(t, pair) {
-		if !assert.NotNil(t, pair.Value) {
-			t.Fatal("test failure, value is nil")
-		}
-	} else {
-		t.Fatal("test failure, pair is nil")
-	}
+	require.NotNilf(t, pair, "pair is nil")
+	require.NotNilf(t, pair.Value, "value is nil")
 }
 
 func testPutGetDeleteExists(t *testing.T, kv store.Store) {
@@ -90,7 +85,7 @@ func testPutGetDeleteExists(t *testing.T, kv store.Store) {
 
 	// Get a not exist key should return ErrKeyNotFound
 	_, err := kv.Get("testPutGetDelete_not_exist_key", nil)
-	assert.Equal(t, store.ErrKeyNotFound, err)
+	assert.ErrorIs(t, err, store.ErrKeyNotFound)
 
 	value := []byte("bar")
 	for _, key := range []string{
@@ -123,7 +118,6 @@ func testPutGetDeleteExists(t *testing.T, kv store.Store) {
 		pair, err = kv.Get(key, nil)
 		assert.Error(t, err)
 		assert.Nil(t, pair)
-		assert.Nil(t, pair)
 
 		// Exists should return false
 		exists, err = kv.Exists(key, nil)
@@ -146,7 +140,7 @@ func testWatch(t *testing.T, kv store.Store) {
 	stopCh := make(<-chan struct{})
 	events, err := kv.Watch(key, stopCh, nil)
 	require.NoError(t, err)
-	assert.NotNil(t, events)
+	require.NotNil(t, events)
 
 	// Update loop
 	go func() {
@@ -173,11 +167,10 @@ func testWatch(t *testing.T, kv store.Store) {
 		select {
 		case event := <-events:
 			assert.NotNil(t, event)
+			assert.Equal(t, event.Key, key)
 			if eventCount == 1 {
-				assert.Equal(t, event.Key, key)
 				assert.Equal(t, event.Value, value)
 			} else {
-				assert.Equal(t, event.Key, key)
 				assert.Equal(t, event.Value, newValue)
 			}
 			eventCount++
@@ -216,7 +209,7 @@ func testWatchTree(t *testing.T, kv store.Store) {
 	stopCh := make(<-chan struct{})
 	events, err := kv.WatchTree(dir, stopCh, nil)
 	require.NoError(t, err)
-	assert.NotNil(t, events)
+	require.NotNil(t, events)
 
 	// Update loop
 	go func() {
@@ -300,7 +293,7 @@ func testAtomicPutCreate(t *testing.T, kv store.Store) {
 
 	// Attempting to create again should fail.
 	success, _, err = kv.AtomicPut(key, value, nil, nil)
-	assert.Equal(t, store.ErrKeyExists, err)
+	assert.ErrorIs(t, err, store.ErrKeyExists)
 	assert.False(t, success)
 
 	// This CAS should succeed, since it has the value from Get()
@@ -351,7 +344,7 @@ func testAtomicDelete(t *testing.T, kv store.Store) {
 
 	// Delete a non-existent key; should fail
 	success, err = kv.AtomicDelete(key, pair)
-	assert.Equal(t, store.ErrKeyNotFound, err)
+	assert.ErrorIs(t, err, store.ErrKeyNotFound)
 	assert.False(t, success)
 }
 
@@ -368,7 +361,7 @@ func testLockUnlock(t *testing.T, kv store.Store) {
 		DeleteOnUnlock: true,
 	})
 	require.NoError(t, err)
-	assert.NotNil(t, lock)
+	require.NotNil(t, lock)
 
 	// Lock should successfully succeed or block
 	lockChan, err := lock.Lock(nil)
@@ -417,7 +410,7 @@ func testLockTTL(t *testing.T, kv store.Store, otherConn store.Store) {
 		RenewLock: renewCh,
 	})
 	require.NoError(t, err)
-	assert.NotNil(t, lock)
+	require.NotNil(t, lock)
 
 	// Lock should successfully succeed
 	lockChan, err := lock.Lock(nil)
@@ -447,7 +440,7 @@ func testLockTTL(t *testing.T, kv store.Store, otherConn store.Store) {
 		},
 	)
 	require.NoError(t, err)
-	assert.NotNil(t, lock)
+	require.NotNil(t, lock)
 
 	// Lock should block, the session on the lock
 	// is still active and renewed periodically
@@ -575,28 +568,23 @@ func testList(t *testing.T, kv store.Store) {
 	for _, parent := range []string{parentKey, parentKey + "/"} {
 		pairs, err := kv.List(parent, nil)
 		require.NoError(t, err)
-		if assert.NotNil(t, pairs) {
-			assert.Equal(t, 5, len(pairs))
-		}
+		assert.Len(t, pairs, 5)
 	}
 
 	// List on childKey should return 0 keys
 	pairs, err := kv.List(childKey, nil)
 	require.NoError(t, err)
-	if assert.NotNil(t, pairs) {
-		assert.Equal(t, 0, len(pairs))
-	}
+	assert.NotNil(t, pairs)
+	assert.Empty(t, pairs)
 
 	// List on subfolderKey should return 3 keys without the directory
 	pairs, err = kv.List(subfolderKey, nil)
 	require.NoError(t, err)
-	if assert.NotNil(t, pairs) {
-		assert.Equal(t, 3, len(pairs))
-	}
+	assert.Len(t, pairs, 3)
 
 	// List should fail: the key does not exist
 	pairs, err = kv.List("idontexist", nil)
-	assert.Equal(t, store.ErrKeyNotFound, err)
+	assert.ErrorIs(t, err, store.ErrKeyNotFound)
 	assert.Nil(t, pairs)
 }
 
@@ -620,7 +608,7 @@ func testListLockKey(t *testing.T, kv store.Store) {
 		// We lock the child key
 		lock, err := kv.NewLock(key, &store.LockOptions{Value: []byte("locked"), TTL: 2 * time.Second})
 		require.NoError(t, err)
-		assert.NotNil(t, lock)
+		require.NotNil(t, lock)
 
 		lockChan, err := lock.Lock(nil)
 		require.NoError(t, err)
@@ -631,8 +619,7 @@ func testListLockKey(t *testing.T, kv store.Store) {
 	// not output any `___lock` entries and must contain 4 results.
 	pairs, err := kv.List(listKey, nil)
 	require.NoError(t, err)
-	assert.NotNil(t, pairs)
-	assert.Equal(t, 4, len(pairs))
+	assert.Len(t, pairs, 4)
 
 	for _, pair := range pairs {
 		if strings.Contains(pair.Key, "___lock") {
@@ -665,14 +652,14 @@ func testDeleteTree(t *testing.T, kv store.Store) {
 	require.NoError(t, err)
 	checkPairNotNil(t, pair)
 	assert.Equal(t, pair.Value, firstValue)
-	assert.NotEqual(t, pair.LastIndex, 0)
+	assert.NotEqual(t, 0, pair.LastIndex)
 
 	// Get should work on the second Key
 	pair, err = kv.Get(secondKey, nil)
 	require.NoError(t, err)
 	checkPairNotNil(t, pair)
 	assert.Equal(t, pair.Value, secondValue)
-	assert.NotEqual(t, pair.LastIndex, 0)
+	assert.NotEqual(t, 0, pair.LastIndex)
 
 	// Delete Values under directory `nodes`
 	err = kv.DeleteTree(prefix)

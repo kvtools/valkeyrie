@@ -31,9 +31,7 @@ func TestRegister(t *testing.T) {
 	require.NoError(t, err)
 	assert.NotNil(t, kv)
 
-	if _, ok := kv.(*Redis); !ok {
-		t.Fatal("Error registering and initializing redis")
-	}
+	assert.IsTypef(t, kv, new(Redis), "Error registering and initializing Redis")
 }
 
 func TestRedisStore(t *testing.T) {

@@ -36,9 +36,7 @@ func TestRegister(t *testing.T) {
 	require.NoError(t, err)
 	assert.NotNil(t, kv)
 
-	if _, ok := kv.(*Etcd); !ok {
-		t.Fatal("Error registering and initializing etcd")
-	}
+	assert.IsTypef(t, kv, new(Etcd), "Error registering and initializing etcd")
 }
 
 func TestEtcdStore(t *testing.T) {
