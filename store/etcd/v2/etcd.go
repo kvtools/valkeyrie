@@ -273,8 +273,7 @@ func (s *Etcd) WatchTree(directory string, stopCh <-chan struct{}, opts *store.R
 	return watchCh, nil
 }
 
-// AtomicPut puts a value at "key"
-// if the key has not been modified in the meantime,
+// AtomicPut puts a value at "key" if the key has not been modified in the meantime,
 // throws an error if this is the case.
 func (s *Etcd) AtomicPut(key string, value []byte, previous *store.KVPair, opts *store.WriteOptions) (bool, *store.KVPair, error) {
 	setOpts := &etcd.SetOptions{}
@@ -317,8 +316,7 @@ func (s *Etcd) AtomicPut(key string, value []byte, previous *store.KVPair, opts 
 	return true, updated, nil
 }
 
-// AtomicDelete deletes a value at "key"
-// if the key has not been modified in the meantime,
+// AtomicDelete deletes a value at "key" if the key has not been modified in the meantime,
 // throws an error if this is the case.
 func (s *Etcd) AtomicDelete(key string, previous *store.KVPair) (bool, error) {
 	if previous == nil {

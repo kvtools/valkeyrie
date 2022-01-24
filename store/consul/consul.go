@@ -499,7 +499,7 @@ func (s *Consul) renewLockSession(initialTTL string, id string, stopRenew chan s
 	}()
 }
 
-// AtomicPut put a value at "key" if the key has not been modified in the meantime,
+// AtomicPut puts a value at "key" if the key has not been modified in the meantime,
 // throws an error if this is the case.
 func (s *Consul) AtomicPut(key string, value []byte, previous *store.KVPair, _ *store.WriteOptions) (bool, *store.KVPair, error) {
 	p := &api.KVPair{Key: s.normalize(key), Value: value, Flags: api.LockFlagValue}

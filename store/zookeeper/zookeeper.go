@@ -307,8 +307,7 @@ func (s *Zookeeper) DeleteTree(directory string) error {
 	return err
 }
 
-// AtomicPut put a value at "key"
-// if the key has not been modified in the meantime,
+// AtomicPut puts a value at "key" if the key has not been modified in the meantime,
 // throws an error if this is the case.
 func (s *Zookeeper) AtomicPut(key string, value []byte, previous *store.KVPair, _ *store.WriteOptions) (bool, *store.KVPair, error) {
 	if previous != nil {
@@ -375,8 +374,7 @@ func (s *Zookeeper) AtomicPut(key string, value []byte, previous *store.KVPair, 
 	return true, pair, nil
 }
 
-// AtomicDelete deletes a value at "key"
-// if the key has not been modified in the meantime,
+// AtomicDelete deletes a value at "key" if the key has not been modified in the meantime,
 // throws an error if this is the case.
 func (s *Zookeeper) AtomicDelete(key string, previous *store.KVPair) (bool, error) {
 	if previous == nil {

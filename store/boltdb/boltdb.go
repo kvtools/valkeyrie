@@ -296,8 +296,7 @@ func (b *BoltDB) List(keyPrefix string, _ *store.ReadOptions) ([]*store.KVPair, 
 	return kv, err
 }
 
-// AtomicDelete deletes a value at "key"
-// if the key has not been modified in the meantime,
+// AtomicDelete deletes a value at "key" if the key has not been modified in the meantime,
 // throws an error if this is the case.
 func (b *BoltDB) AtomicDelete(key string, previous *store.KVPair) (bool, error) {
 	b.mu.Lock()
