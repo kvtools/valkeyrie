@@ -18,7 +18,7 @@ func makeRedisClient(t *testing.T) store.Store {
 	kv := newRedis([]string{client}, "", nil)
 
 	// NOTE: please turn on redis's notification
-	// before you using watch/watchtree/lock related features
+	// before you using watch/watchtree/lock related features.
 	kv.client.ConfigSet("notify-keyspace-events", "KA")
 
 	return kv
@@ -31,9 +31,7 @@ func TestRegister(t *testing.T) {
 	require.NoError(t, err)
 	assert.NotNil(t, kv)
 
-	if _, ok := kv.(*Redis); !ok {
-		t.Fatal("Error registering and initializing redis")
-	}
+	assert.IsTypef(t, kv, new(Redis), "Error registering and initializing Redis")
 }
 
 func TestRedisStore(t *testing.T) {

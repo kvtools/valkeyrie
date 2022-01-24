@@ -34,9 +34,7 @@ func TestRegister(t *testing.T) {
 	require.NoError(t, err)
 	assert.NotNil(t, kv)
 
-	if _, ok := kv.(*Consul); !ok {
-		t.Fatal("Error registering and initializing consul")
-	}
+	assert.IsTypef(t, kv, new(Consul), "Error registering and initializing consul")
 }
 
 func TestConsulStore(t *testing.T) {
@@ -56,27 +54,29 @@ func TestConsulStore(t *testing.T) {
 func TestGetActiveSession(t *testing.T) {
 	kv := makeConsulClient(t)
 
+	assert.IsTypef(t, kv, new(Consul), "Error registering and initializing consul")
+
 	consul, ok := kv.(*Consul)
 	require.True(t, ok)
 
 	key := "foo"
 	value := []byte("bar")
 
-	// Put the first key with the Ephemeral flag
+	// Put the first key with the Ephemeral flag.
 	err := kv.Put(key, value, &store.WriteOptions{TTL: 2 * time.Second})
 	require.NoError(t, err)
 
-	// Session should not be empty
+	// Session should not be empty.
 	session, err := consul.getActiveSession(key)
 	require.NoError(t, err)
-	assert.NotEqual(t, session, "")
+	assert.NotEmpty(t, session)
 
-	// Delete the key
+	// Delete the key.
 	err = kv.Delete(key)
 	require.NoError(t, err)
 
-	// Check the session again, it should return nothing
+	// Check the session again, it should return nothing.
 	session, err = consul.getActiveSession(key)
 	require.NoError(t, err)
-	assert.Equal(t, session, "")
+	assert.Empty(t, session)
 }

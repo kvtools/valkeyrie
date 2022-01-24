@@ -29,14 +29,12 @@ func TestRegister(t *testing.T) {
 	require.NoError(t, err)
 	assert.NotNil(t, kv)
 
-	if _, ok := kv.(*DynamoDB); !ok {
-		t.Fatal("Error registering and initializing DynamoDB")
-	}
+	assert.IsTypef(t, kv, new(DynamoDB), "Error registering and initializing DynamoDB")
 }
 
 func TestSetup(t *testing.T) {
 	ddb := newDynamoDBStore(t)
-	// ensure this is idempotent
+	// ensure this is idempotent.
 	err := ddb.createTable()
 	require.NoError(t, err)
 }
@@ -60,10 +58,10 @@ func TestDynamoDBStoreUnsupported(t *testing.T) {
 	ddbStore := newDynamoDBStore(t)
 
 	_, err := ddbStore.WatchTree("test", nil, nil)
-	assert.Equal(t, store.ErrCallNotSupported, err)
+	assert.ErrorIs(t, err, store.ErrCallNotSupported)
 
 	_, err = ddbStore.Watch("test", nil, nil)
-	assert.Equal(t, store.ErrCallNotSupported, err)
+	assert.ErrorIs(t, err, store.ErrCallNotSupported)
 }
 
 func TestBatchWrite(t *testing.T) {
@@ -72,17 +70,13 @@ func TestBatchWrite(t *testing.T) {
 	mock := &mockedBatchWrite{DynamoDBAPI: dynamodbSvc}
 	mock.BatchWriteResp = &dynamodb.BatchWriteItemOutput{
 		UnprocessedItems: map[string][]*dynamodb.WriteRequest{
-			"test-1-valkeyrie": {
-				{
-					DeleteRequest: &dynamodb.DeleteRequest{
-						Key: map[string]*dynamodb.AttributeValue{
-							"id": {
-								S: aws.String("abc123"),
-							},
-						},
+			"test-1-valkeyrie": {{
+				DeleteRequest: &dynamodb.DeleteRequest{
+					Key: map[string]*dynamodb.AttributeValue{
+						"id": {S: aws.String("abc123")},
 					},
 				},
-			},
+			}},
 		},
 	}
 	mock.Count = 1
@@ -100,11 +94,11 @@ func TestBatchWrite(t *testing.T) {
 	secondKey := "testDeleteTree/second"
 	secondValue := []byte("second")
 
-	// Put the first key
+	// Put the first key.
 	err := kv.Put(firstKey, firstValue, nil)
 	require.NoError(t, err)
 
-	// Put the second key
+	// Put the second key.
 	err = kv.Put(secondKey, secondValue, nil)
 	require.NoError(t, err)
 
@@ -141,7 +135,7 @@ func TestDecodeItem(t *testing.T) {
 	assert.Nil(t, kv)
 }
 
-func (m *mockedBatchWrite) BatchWriteItem(in *dynamodb.BatchWriteItemInput) (*dynamodb.BatchWriteItemOutput, error) {
+func (m *mockedBatchWrite) BatchWriteItem(_ *dynamodb.BatchWriteItemInput) (*dynamodb.BatchWriteItemOutput, error) {
 	if m.Count > 0 {
 		m.Count--
 		return m.BatchWriteResp, nil
@@ -193,12 +187,7 @@ func deleteTable(dynamoSvc *dynamodb.DynamoDB, tableName string) error {
 		return err
 	}
 
-	err = dynamoSvc.WaitUntilTableNotExists(&dynamodb.DescribeTableInput{
+	return dynamoSvc.WaitUntilTableNotExists(&dynamodb.DescribeTableInput{
 		TableName: aws.String(tableName),
 	})
-	if err != nil {
-		return err
-	}
-
-	return nil
 }
