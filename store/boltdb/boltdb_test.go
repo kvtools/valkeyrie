@@ -130,11 +130,26 @@ func TestConcurrentConnection(t *testing.T) {
 	_ = os.Remove("/tmp/__boltdbtest")
 }
 
-func TestBoldDBStore(t *testing.T) {
+func TestBoltDBStore(t *testing.T) {
 	kv := makeBoltDBClient(t)
 
 	testutils.RunTestCommon(t, kv)
 	testutils.RunTestAtomic(t, kv)
 
 	_ = os.Remove("/tmp/not_exist_dir/__boltdbtest")
+}
+
+func TestGetAllKeys(t *testing.T) {
+	kv := makeBoltDBClient(t)
+
+	t.Cleanup(func() {
+		_ = kv.Delete("key1")
+	})
+
+	err := kv.Put("key1", []byte("value1"), &store.WriteOptions{})
+	require.NoError(t, err)
+
+	pairs, err := kv.List("", nil)
+	require.NoError(t, err)
+	assert.Len(t, pairs, 1)
 }
