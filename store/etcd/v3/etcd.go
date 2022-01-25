@@ -31,22 +31,13 @@ type EtcdV3 struct {
 	client *etcd.Client
 }
 
-// New creates a new Etcd client given a list
-// of endpoints and an optional tls config.
+// New creates a new Etcd client given a list of endpoints and an optional tls config.
 func New(addrs []string, options *store.Config) (store.Store, error) {
-	s := &EtcdV3{}
-
-	var (
-		entries []string
-		err     error
-	)
-
-	entries = store.CreateEndpoints(addrs, "http")
 	cfg := &etcd.Config{
-		Endpoints: entries,
+		Endpoints: store.CreateEndpoints(addrs, "http"),
 	}
 
-	// Set options
+	// Set options.
 	if options != nil {
 		if options.TLS != nil {
 			setTLS(cfg, options.TLS, addrs)
@@ -62,6 +53,9 @@ func New(addrs []string, options *store.Config) (store.Store, error) {
 		}
 	}
 
+	s := &EtcdV3{}
+
+	var err error
 	s.client, err = etcd.New(*cfg)
 	if err != nil {
 		return nil, err
@@ -72,8 +66,7 @@ func New(addrs []string, options *store.Config) (store.Store, error) {
 
 // setTLS sets the tls configuration given a tls.Config scheme.
 func setTLS(cfg *etcd.Config, tlsCfg *tls.Config, addrs []string) {
-	entries := store.CreateEndpoints(addrs, "https")
-	cfg.Endpoints = entries
+	cfg.Endpoints = store.CreateEndpoints(addrs, "https")
 	cfg.TLS = tlsCfg
 }
 
@@ -90,17 +83,15 @@ func setCredentials(cfg *etcd.Config, username, password string) {
 
 // normalize the key for usage in Etcd.
 func (s *EtcdV3) normalize(key string) string {
-	key = store.Normalize(key)
-	return strings.TrimPrefix(key, "/")
+	return strings.TrimPrefix(store.Normalize(key), "/")
 }
 
-// Get the value at "key", returns the last modified
-// index to use in conjunction to Atomic calls.
+// Get the value at "key".
+// Returns the last modified index to use in conjunction to Atomic calls.
 func (s *EtcdV3) Get(key string, opts *store.ReadOptions) (pair *store.KVPair, err error) {
 	ctx, cancel := context.WithTimeout(context.Background(), etcdDefaultTimeout)
 
 	var result *etcd.GetResponse
-
 	if opts != nil && !opts.Consistent {
 		result, err = s.client.KV.Get(ctx, s.normalize(key), etcd.WithSerializable())
 	} else {
@@ -154,8 +145,8 @@ func (s *EtcdV3) Put(key string, value []byte, opts *store.WriteOptions) error {
 	}
 
 	if opts.KeepAlive {
-		// We do not consume the channel here. Client will keep
-		// renewing the lease in the background this way.
+		// We do not consume the channel here.
+		// Client will keep renewing the lease in the background this way.
 		_, err = lease.KeepAlive(context.Background(), grant.ID)
 		if err != nil {
 			return err
@@ -193,18 +184,17 @@ func (s *EtcdV3) Exists(key string, opts *store.ReadOptions) (bool, error) {
 	return true, nil
 }
 
-// Watch for changes on a "key"
-// It returns a channel that will receive changes or pass
-// on errors. Upon creation, the current value will first
-// be sent to the channel. Providing a non-nil stopCh can
-// be used to stop watching.
+// Watch for changes on a "key".
+// It returns a channel that will receive changes or pass on errors.
+// Upon creation, the current value will first be sent to the channel.
+// Providing a non-nil stopCh can be used to stop watching.
 func (s *EtcdV3) Watch(key string, stopCh <-chan struct{}, opts *store.ReadOptions) (<-chan *store.KVPair, error) {
 	wc := etcd.NewWatcher(s.client)
 
-	// respCh is sending back events to the caller
+	// respCh is sending back events to the caller.
 	respCh := make(chan *store.KVPair)
 
-	// Get the current value
+	// Get the current value.
 	pair, err := s.Get(key, opts)
 	if err != nil {
 		return nil, err
@@ -222,7 +212,7 @@ func (s *EtcdV3) Watch(key string, stopCh <-chan struct{}, opts *store.ReadOptio
 		watchCh := wc.Watch(context.Background(), s.normalize(key))
 
 		for resp := range watchCh {
-			// Check if the watch was stopped by the caller
+			// Check if the watch was stopped by the caller.
 			select {
 			case <-stopCh:
 				return
@@ -242,18 +232,17 @@ func (s *EtcdV3) Watch(key string, stopCh <-chan struct{}, opts *store.ReadOptio
 	return respCh, nil
 }
 
-// WatchTree watches for changes on a "directory"
-// It returns a channel that will receive changes or pass
-// on errors. Upon creating a watch, the current childs values
-// will be sent to the channel. Providing a non-nil stopCh can
-// be used to stop watching.
+// WatchTree watches for changes on a "directory".
+// It returns a channel that will receive changes or pass on errors.
+// Upon creating a watch, the current children values will be sent to the channel.
+// Providing a non-nil stopCh can be used to stop watching.
 func (s *EtcdV3) WatchTree(directory string, stopCh <-chan struct{}, opts *store.ReadOptions) (<-chan []*store.KVPair, error) {
 	wc := etcd.NewWatcher(s.client)
 
-	// respCh is sending back events to the caller
+	// respCh is sending back events to the caller.
 	respCh := make(chan []*store.KVPair)
 
-	// Get the current value
+	// Get the current value.
 	rev, pairs, err := s.list(directory, opts)
 	if err != nil {
 		return nil, err
@@ -272,7 +261,7 @@ func (s *EtcdV3) WatchTree(directory string, stopCh <-chan struct{}, opts *store
 		watchCh := wc.Watch(context.Background(), s.normalize(directory), etcd.WithPrefix(), etcd.WithRev(rev))
 
 		for resp := range watchCh {
-			// Check if the watch was stopped by the caller
+			// Check if the watch was stopped by the caller.
 			select {
 			case <-stopCh:
 				return
@@ -296,18 +285,18 @@ func (s *EtcdV3) WatchTree(directory string, stopCh <-chan struct{}, opts *store
 	return respCh, nil
 }
 
-// AtomicPut puts a value at "key" if the key has not been
-// modified in the meantime, throws an error if this is the case.
+// AtomicPut puts a value at "key" if the key has not been modified in the meantime,
+// throws an error if this is the case.
 func (s *EtcdV3) AtomicPut(key string, value []byte, previous *store.KVPair, opts *store.WriteOptions) (bool, *store.KVPair, error) {
 	var cmp etcd.Cmp
 	var testIndex bool
 
 	if previous != nil {
-		// We compare on the last modified index
+		// We compare on the last modified index.
 		testIndex = true
 		cmp = etcd.Compare(etcd.ModRevision(key), "=", int64(previous.LastIndex))
 	} else {
-		// Previous key is not given, thus we want the key not to exist
+		// Previous key is not given, thus we want the key not to exist.
 		testIndex = false
 		cmp = etcd.Compare(etcd.CreateRevision(key), "=", 0)
 	}
@@ -315,7 +304,7 @@ func (s *EtcdV3) AtomicPut(key string, value []byte, previous *store.KVPair, opt
 	ctx, cancel := context.WithTimeout(context.Background(), etcdDefaultTimeout)
 	pr := s.client.Txn(ctx).If(cmp)
 
-	// We set the TTL if given
+	// We set the TTL if given.
 	if opts != nil && opts.TTL > 0 {
 		lease := etcd.NewLease(s.client)
 		resp, err := lease.Grant(context.Background(), int64(opts.TTL/time.Second))
@@ -350,15 +339,14 @@ func (s *EtcdV3) AtomicPut(key string, value []byte, previous *store.KVPair, opt
 	return true, updated, nil
 }
 
-// AtomicDelete deletes a value at "key" if the key
-// has not been modified in the meantime, throws an
-// error if this is the case.
+// AtomicDelete deletes a value at "key" if the key has not been modified in the meantime,
+// throws an error if this is the case.
 func (s *EtcdV3) AtomicDelete(key string, previous *store.KVPair) (bool, error) {
 	if previous == nil {
 		return false, store.ErrPreviousNotSpecified
 	}
 
-	// We compare on the last modified index
+	// We compare on the last modified index.
 	cmp := etcd.Compare(etcd.ModRevision(key), "=", int64(previous.LastIndex))
 
 	ctx, cancel := context.WithTimeout(context.Background(), etcdDefaultTimeout)
@@ -392,6 +380,7 @@ func (s *EtcdV3) List(directory string, opts *store.ReadOptions) ([]*store.KVPai
 // DeleteTree deletes a range of keys under a given directory.
 func (s *EtcdV3) DeleteTree(directory string) error {
 	ctx, cancel := context.WithTimeout(context.Background(), etcdDefaultTimeout)
+
 	resp, err := s.client.KV.Delete(ctx, s.normalize(directory), etcd.WithPrefix())
 	cancel()
 	if err != nil {
@@ -403,15 +392,15 @@ func (s *EtcdV3) DeleteTree(directory string) error {
 	return nil
 }
 
-// NewLock returns a handle to a lock struct which can
-// be used to provide mutual exclusion on a key.
+// NewLock returns a handle to a lock struct which can be used to provide mutual exclusion on a key.
 func (s *EtcdV3) NewLock(key string, options *store.LockOptions) (lock store.Locker, err error) {
-	var value string
 	ttl := defaultLockTTL
-	renewCh := make(chan struct{})
-	var deleteOnUnlock bool
 
-	// Apply options on Lock
+	var value string
+	var deleteOnUnlock bool
+	renewCh := make(chan struct{})
+
+	// Apply options on Lock.
 	if options != nil {
 		if options.Value != nil {
 			value = string(options.Value)
@@ -425,7 +414,7 @@ func (s *EtcdV3) NewLock(key string, options *store.LockOptions) (lock store.Loc
 		deleteOnUnlock = options.DeleteOnUnlock
 	}
 
-	// Create Session for Mutex
+	// Create Session for Mutex.
 	session, err := concurrency.NewSession(s.client, concurrency.WithTTL(int(ttl/time.Second)))
 	if err != nil {
 		return nil, err
@@ -437,14 +426,14 @@ func (s *EtcdV3) NewLock(key string, options *store.LockOptions) (lock store.Loc
 	}()
 
 	// A Mutex is a simple key that can only be held by a single process.
-	// An etcd mutex behaves like a Zookeeper lock: a side key is created with
-	// a suffix (such as "_lock") and represents the mutex. Thus we have a pair
-	// composed of the key to protect with a lock: "/key", and a side key that
-	// acts as the lock: "/key_lock"
+	// An etcd mutex behaves like a Zookeeper lock:
+	// a side key is created with a suffix (such as "_lock") and represents the mutex.
+	// Thus we have a pair composed of the key to protect with a lock: "/key",
+	// and a side key that  acts as the lock: "/key_lock".
 	mutexKey := s.normalize(key + lockSuffix)
 	writeKey := s.normalize(key)
 
-	// Create lock object
+	// Create lock object.
 	lock = &etcdLock{
 		store:          s,
 		mutex:          concurrency.NewMutex(session, mutexKey),
@@ -494,7 +483,7 @@ func (s *EtcdV3) list(directory string, opts *store.ReadOptions) (int64, []*stor
 			continue
 		}
 
-		// Filter out etcd mutex side keys with `___lock` suffix
+		// Filter out etcd mutex side keys with `___lock` suffix.
 		if strings.Contains(string(n.Key), lockSuffix) {
 			continue
 		}
@@ -516,16 +505,15 @@ type etcdLock struct {
 	mutex   *concurrency.Mutex
 	session *concurrency.Session
 
-	mutexKey       string // mutexKey is the key to write appended with a "_lock" suffix
-	writeKey       string // writeKey is the actual key to update protected by the mutexKey
+	mutexKey       string // mutexKey is the key to write appended with a "_lock" suffix.
+	writeKey       string // writeKey is the actual key to update protected by the mutexKey.
 	value          string
 	ttl            time.Duration
 	deleteOnUnlock bool
 }
 
-// Lock attempts to acquire the lock and blocks while
-// doing so. It returns a channel that is closed if our
-// lock is lost or if an error occurs.
+// Lock attempts to acquire the lock and blocks while doing so.
+// It returns a channel that is closed if our lock is lost or if an error occurs.
 func (l *etcdLock) Lock(stopChan chan struct{}) (<-chan struct{}, error) {
 	l.lock.Lock()
 	defer l.lock.Unlock()
@@ -555,8 +543,8 @@ func (l *etcdLock) Lock(stopChan chan struct{}) (<-chan struct{}, error) {
 	return l.session.Done(), nil
 }
 
-// Unlock the "key". Calling unlock while
-// not holding the lock will throw an error.
+// Unlock the "key".
+// Calling unlock while not holding the lock will throw an error.
 func (l *etcdLock) Unlock() error {
 	l.lock.Lock()
 	defer l.lock.Unlock()

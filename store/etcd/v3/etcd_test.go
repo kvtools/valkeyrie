@@ -36,9 +36,7 @@ func TestRegister(t *testing.T) {
 	require.NoError(t, err)
 	assert.NotNil(t, kv)
 
-	if _, ok := kv.(*EtcdV3); !ok {
-		t.Fatal("Error registering and initializing etcd with v3 client")
-	}
+	assert.IsTypef(t, kv, new(EtcdV3), "Error registering and initializing etcd with v3 client")
 }
 
 func TestEtcdV3Store(t *testing.T) {
@@ -66,12 +64,12 @@ func TestKeepAlive(t *testing.T) {
 
 	time.Sleep(3 * time.Second)
 
-	// The key should be gone because we didn't use KeepAlive
+	// The key should be gone because we didn't use KeepAlive.
 	pair, err := kv.Get("foo", nil)
 	assert.Error(t, err, store.ErrKeyNotFound)
 	assert.Nil(t, pair)
 
-	// Put the key but now with a KeepAlive
+	// Put the key but now with a KeepAlive.
 	err = kv.Put("foo", []byte("bar"), &store.WriteOptions{
 		TTL:       1 * time.Second,
 		KeepAlive: true,
@@ -80,7 +78,7 @@ func TestKeepAlive(t *testing.T) {
 
 	time.Sleep(3 * time.Second)
 
-	// We should still be able to get the key after the TTL expires
+	// We should still be able to get the key after the TTL expires.
 	pair, err = kv.Get("foo", nil)
 	require.NoError(t, err)
 	assert.Equal(t, pair.Value, []byte("bar"))

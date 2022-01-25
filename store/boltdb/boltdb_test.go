@@ -30,11 +30,9 @@ func TestRegister(t *testing.T) {
 		&store.Config{Bucket: "boltDBTest"},
 	)
 	require.NoError(t, err)
-	assert.NotNil(t, kv)
+	require.NotNil(t, kv)
 
-	if _, ok := kv.(*BoltDB); !ok {
-		t.Fatal("Error registering and initializing boltDB")
-	}
+	assert.IsTypef(t, kv, new(BoltDB), "Error registering and initializing boltDB")
 
 	_ = os.Remove("/tmp/not_exist_dir/__boltdbtest")
 }
@@ -54,11 +52,9 @@ func TestMultiplePersistConnection(t *testing.T) {
 	require.NoError(t, err)
 	assert.NotNil(t, kv)
 
-	if _, ok := kv.(*BoltDB); !ok {
-		t.Fatal("Error registering and initializing boltDB")
-	}
+	assert.IsTypef(t, kv, new(BoltDB), "Error registering and initializing boltDB")
 
-	// Must fail if multiple boltdb requests are made with a valid timeout
+	// Must fail if multiple boltdb requests are made with a valid timeout.
 	_, err = valkeyrie.NewStore(
 		store.BOLTDB,
 		[]string{"/tmp/not_exist_dir/__boltdbtest"},
@@ -108,21 +104,17 @@ func TestConcurrentConnection(t *testing.T) {
 	err = kv2.Put(key2, value2, nil)
 	require.NoError(t, err)
 
-	pair1, err1 := kv1.Get(key1, nil)
-	require.NoError(t, err1)
-	if assert.NotNil(t, pair1) {
-		assert.NotNil(t, pair1.Value)
-	}
+	pair1, err := kv1.Get(key1, nil)
+	require.NoError(t, err)
+	require.NotNil(t, pair1)
 	assert.Equal(t, pair1.Value, value1)
 
-	pair2, err2 := kv2.Get(key2, nil)
-	require.NoError(t, err2)
-	if assert.NotNil(t, pair2) {
-		assert.NotNil(t, pair2.Value)
-	}
+	pair2, err := kv2.Get(key2, nil)
+	require.NoError(t, err)
+	require.NotNil(t, pair2)
 	assert.Equal(t, pair2.Value, value2)
 
-	// AtomicPut using kv1 and kv2 should succeed
+	// AtomicPut using kv1 and kv2 should succeed.
 	_, _, err = kv1.AtomicPut(key1, []byte("TestnewVal1"), pair1, nil)
 	require.NoError(t, err)
 

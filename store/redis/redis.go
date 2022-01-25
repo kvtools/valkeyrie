@@ -27,8 +27,8 @@ var (
 	ErrTLSUnsupported = errors.New("redis does not support tls")
 
 	// ErrAbortTryLock is thrown when a user stops trying to seek the lock
-	// by sending a signal to the stop chan, this is used to verify if the
-	// operation succeeded.
+	// by sending a signal to the stop chan,
+	// this is used to verify if the operation succeeded.
 	ErrAbortTryLock = errors.New("redis: lock operation aborted")
 )
 
@@ -37,8 +37,7 @@ func Register() {
 	valkeyrie.AddStore(store.REDIS, New)
 }
 
-// New creates a new Redis client given a list
-// of endpoints and optional tls config.
+// New creates a new Redis client given a list  of endpoints and optional tls config.
 func New(endpoints []string, options *store.Config) (store.Store, error) {
 	if len(endpoints) > 1 {
 		return nil, ErrMultipleEndpointsUnsupported
@@ -56,7 +55,7 @@ func New(endpoints []string, options *store.Config) (store.Store, error) {
 }
 
 func newRedis(endpoints []string, password string, codec Codec) *Redis {
-	// TODO: use *redis.ClusterClient if we support multiple endpoints
+	// TODO: use *redis.ClusterClient if we support multiple endpoints.
 	client := redis.NewClient(&redis.Options{
 		Addr:         endpoints[0],
 		DialTimeout:  5 * time.Second,
@@ -65,7 +64,7 @@ func newRedis(endpoints []string, password string, codec Codec) *Redis {
 		Password:     password,
 	})
 
-	// Listen to Keyspace events
+	// Listen to Keyspace events.
 	client.ConfigSet("notify-keyspace-events", "KEA")
 
 	var c Codec = &JSONCodec{}
@@ -111,7 +110,7 @@ func (r *Redis) setTTL(key string, val *store.KVPair, ttl time.Duration) error {
 }
 
 // Get a value given its key.
-func (r *Redis) Get(key string, opts *store.ReadOptions) (*store.KVPair, error) {
+func (r *Redis) Get(key string, _ *store.ReadOptions) (*store.KVPair, error) {
 	return r.get(normalize(key))
 }
 
@@ -141,14 +140,14 @@ func (r *Redis) Delete(key string) error {
 }
 
 // Exists verify if a Key exists in the store.
-func (r *Redis) Exists(key string, opts *store.ReadOptions) (bool, error) {
+func (r *Redis) Exists(key string, _ *store.ReadOptions) (bool, error) {
 	return r.client.Exists(normalize(key)).Result()
 }
 
-// Watch for changes on a key
+// Watch for changes on a key.
 // glitch: we use notified-then-retrieve to retrieve *store.KVPair.
 // so the responses may sometimes inaccurate.
-func (r *Redis) Watch(key string, stopCh <-chan struct{}, opts *store.ReadOptions) (<-chan *store.KVPair, error) {
+func (r *Redis) Watch(key string, stopCh <-chan struct{}, _ *store.ReadOptions) (<-chan *store.KVPair, error) {
 	watchCh := make(chan *store.KVPair)
 	nKey := normalize(key)
 
@@ -183,9 +182,8 @@ func (r *Redis) Watch(key string, stopCh <-chan struct{}, opts *store.ReadOption
 	return watchCh, nil
 }
 
-// WatchTree watches for changes on child nodes under
-// a given directory.
-func (r *Redis) WatchTree(directory string, stopCh <-chan struct{}, opts *store.ReadOptions) (<-chan []*store.KVPair, error) {
+// WatchTree watches for changes on child nodes under a given directory.
+func (r *Redis) WatchTree(directory string, stopCh <-chan struct{}, _ *store.ReadOptions) (<-chan []*store.KVPair, error) {
 	watchCh := make(chan []*store.KVPair)
 	nKey := normalize(directory)
 
@@ -225,14 +223,12 @@ func (r *Redis) WatchTree(directory string, stopCh <-chan struct{}, opts *store.
 // The returned Locker is not held and must be acquired
 // with `.Lock`. The Value is optional.
 func (r *Redis) NewLock(key string, options *store.LockOptions) (store.Locker, error) {
-	var (
-		value []byte
-		ttl   = defaultLockTTL
-	)
-
+	ttl := defaultLockTTL
 	if options != nil && options.TTL != 0 {
 		ttl = options.TTL
 	}
+
+	var value []byte
 	if options != nil && len(options.Value) != 0 {
 		value = options.Value
 	}
@@ -248,18 +244,18 @@ func (r *Redis) NewLock(key string, options *store.LockOptions) (store.Locker, e
 }
 
 // List the content of a given prefix.
-func (r *Redis) List(directory string, opts *store.ReadOptions) ([]*store.KVPair, error) {
+func (r *Redis) List(directory string, _ *store.ReadOptions) ([]*store.KVPair, error) {
 	return r.list(normalize(directory))
 }
 
 func (r *Redis) list(directory string) ([]*store.KVPair, error) {
-	var allKeys []string
-	regex := scanRegex(directory) // for all keyed with $directory
+	regex := scanRegex(directory) // for all keyed with $directory.
 	allKeys, err := r.keys(regex)
 	if err != nil {
 		return nil, err
 	}
-	// TODO: need to handle when #key is too large
+
+	// TODO: need to handle when #key is too large.
 	return r.mget(directory, allKeys...)
 }
 
@@ -276,7 +272,9 @@ func (r *Redis) keys(regex string) ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	allKeys = append(allKeys, keys...)
+
 	for nextCursor != endCursor {
 		keys, nextCursor, err = r.client.Scan(nextCursor, regex, defaultCount).Result()
 		if err != nil {
@@ -285,9 +283,11 @@ func (r *Redis) keys(regex string) ([]string, error) {
 
 		allKeys = append(allKeys, keys...)
 	}
+
 	if len(allKeys) == 0 {
 		return nil, store.ErrKeyNotFound
 	}
+
 	return allKeys, nil
 }
 
@@ -305,7 +305,7 @@ func (r *Redis) mget(directory string, keys ...string) ([]*store.KVPair, error) 
 			sreply = v
 		}
 		if sreply == "" {
-			// empty reply
+			// empty reply.
 			continue
 		}
 
@@ -325,22 +325,23 @@ func (r *Redis) mget(directory string, keys ...string) ([]*store.KVPair, error) 
 	return pairs, nil
 }
 
-// DeleteTree deletes a range of keys under a given directory
+// DeleteTree deletes a range of keys under a given directory.
 // glitch: we list all available keys first and then delete them all
 // it costs two operations on redis, so is not atomicity.
 func (r *Redis) DeleteTree(directory string) error {
-	var allKeys []string
-	regex := scanRegex(normalize(directory)) // for all keyed with $directory
+	regex := scanRegex(normalize(directory)) // for all keyed with $directory.
+
 	allKeys, err := r.keys(regex)
 	if err != nil {
 		return err
 	}
+
 	return r.client.Del(allKeys...).Err()
 }
 
 // AtomicPut is an atomic CAS operation on a single value.
 // Pass previous = nil to create a new key.
-// we introduced script on this page, so atomicity is guaranteed.
+// We introduced script on this page, so atomicity is guaranteed.
 func (r *Redis) AtomicPut(key string, value []byte, previous *store.KVPair, options *store.WriteOptions) (bool, *store.KVPair, error) {
 	expirationAfter := noExpiration
 	if options != nil && options.TTL != 0 {
@@ -354,7 +355,7 @@ func (r *Redis) AtomicPut(key string, value []byte, previous *store.KVPair, opti
 	}
 	nKey := normalize(key)
 
-	// if previous == nil, set directly
+	// if previous == nil, set directly.
 	if previous == nil {
 		if err := r.setNX(nKey, newKV, expirationAfter); err != nil {
 			return false, nil, err
@@ -362,12 +363,7 @@ func (r *Redis) AtomicPut(key string, value []byte, previous *store.KVPair, opti
 		return true, newKV, nil
 	}
 
-	if err := r.cas(
-		nKey,
-		previous,
-		newKV,
-		formatSec(expirationAfter),
-	); err != nil {
+	if err := r.cas(nKey, previous, newKV, formatSec(expirationAfter)); err != nil {
 		return false, nil, err
 	}
 	return true, newKV, nil
@@ -396,13 +392,7 @@ func (r *Redis) cas(key string, oldPair, newPair *store.KVPair, secInStr string)
 		return err
 	}
 
-	return r.runScript(
-		cmdCAS,
-		key,
-		oldVal,
-		newVal,
-		secInStr,
-	)
+	return r.runScript(cmdCAS, key, oldVal, newVal, secInStr)
 }
 
 // AtomicDelete is an atomic delete operation on a single value
@@ -420,11 +410,7 @@ func (r *Redis) cad(key string, old *store.KVPair) error {
 		return err
 	}
 
-	return r.runScript(
-		cmdCAD,
-		key,
-		oldVal,
-	)
+	return r.runScript(cmdCAD, key, oldVal)
 }
 
 // Close the store connection.
@@ -433,11 +419,7 @@ func (r *Redis) Close() {
 }
 
 func (r *Redis) runScript(args ...interface{}) error {
-	err := r.script.Run(
-		r.client,
-		nil,
-		args...,
-	).Err()
+	err := r.script.Run(r.client, nil, args...).Err()
 	if err != nil && strings.Contains(err.Error(), "redis: key is not found") {
 		return store.ErrKeyNotFound
 	}
@@ -448,15 +430,12 @@ func (r *Redis) runScript(args ...interface{}) error {
 }
 
 func regexWatch(key string, withChildren bool) string {
-	var regex string
 	if withChildren {
-		regex = fmt.Sprintf("__keyspace*:%s*", key)
-		// for all database and keys with $key prefix
-	} else {
-		regex = fmt.Sprintf("__keyspace*:%s", key)
-		// for all database and keys with $key
+		// For all database and keys with $key prefix.
+		return fmt.Sprintf("__keyspace*:%s*", key)
 	}
-	return regex
+	// For all database and keys with $key.
+	return fmt.Sprintf("__keyspace*:%s", key)
 }
 
 // getter defines a func type which retrieves data from remote storage.
@@ -466,7 +445,7 @@ type getter func() (interface{}, error)
 type pusher func(interface{})
 
 func watchLoop(msgCh chan *redis.Message, _ <-chan struct{}, get getter, push pusher) error {
-	// deliver the original data before we setup any events
+	// deliver the original data before we setup any events.
 	pair, err := get()
 	if err != nil {
 		return err
@@ -474,13 +453,13 @@ func watchLoop(msgCh chan *redis.Message, _ <-chan struct{}, get getter, push pu
 	push(pair)
 
 	for m := range msgCh {
-		// retrieve and send back
+		// retrieve and send back.
 		pair, err := get()
 		if err != nil && !errors.Is(err, store.ErrKeyNotFound) {
 			return err
 		}
 
-		// in case of watching a key that has been expired or deleted return and empty KV
+		// in case of watching a key that has been expired or deleted return and empty KV.
 		if errors.Is(err, store.ErrKeyNotFound) && (m.Payload == "expire" || m.Payload == "del") {
 			push(&store.KVPair{})
 		} else {
@@ -501,6 +480,7 @@ func newSubscribe(client *redis.Client, regex string) (*subscribe, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	return &subscribe{
 		pubsub:  ch,
 		closeCh: make(chan struct{}),
@@ -560,7 +540,7 @@ func (l *redisLock) Lock(stopCh chan struct{}) (<-chan struct{}, error) {
 		return lockHeld, nil
 	}
 
-	// wait for changes on the key
+	// wait for changes on the key.
 	watch, err := l.redis.Watch(l.key, stopCh, nil)
 	if err != nil {
 		return nil, err
@@ -582,9 +562,9 @@ func (l *redisLock) Lock(stopCh chan struct{}) (<-chan struct{}, error) {
 	}
 }
 
-// tryLock return true, nil when it acquired and hold the lock
-// and return false, nil when it can't lock now,
-// and return false, err if any unespected error happened underlying.
+// tryLock return `true, nil` when it acquired and hold the lock
+// and return `false, nil` when it can't lock now,
+// and return `false, err` if any unexpected error happened underlying.
 func (l *redisLock) tryLock(lockHeld, stopChan chan struct{}) (bool, error) {
 	success, item, err := l.redis.AtomicPut(
 		l.key,
@@ -595,7 +575,7 @@ func (l *redisLock) tryLock(lockHeld, stopChan chan struct{}) (bool, error) {
 		})
 	if success {
 		l.last = item
-		// keep holding
+		// keep holding.
 		go l.holdLock(lockHeld, stopChan)
 		return true, nil
 	}
@@ -656,8 +636,7 @@ func scanRegex(directory string) string {
 }
 
 func normalize(key string) string {
-	key = store.Normalize(key)
-	return strings.TrimPrefix(key, "/")
+	return strings.TrimPrefix(store.Normalize(key), "/")
 }
 
 func formatSec(dur time.Duration) string {
@@ -665,6 +644,6 @@ func formatSec(dur time.Duration) string {
 }
 
 func sequenceNum() uint64 {
-	// TODO: use uuid if we concerns collision probability of this number
+	// TODO: use uuid if we concerns collision probability of this number.
 	return uint64(time.Now().Nanosecond())
 }
