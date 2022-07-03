@@ -196,10 +196,9 @@ func (r *Redis) WatchTree(directory string, stopCh <-chan struct{}, _ *store.Rea
 	})
 
 	push := pusher(func(v interface{}) {
-		if _, ok := v.([]*store.KVPair); !ok {
-			return
+		if p, ok := v.([]*store.KVPair); ok {
+			watchCh <- p
 		}
-		watchCh <- v.([]*store.KVPair)
 	})
 
 	sub, err := newSubscribe(r.client, regexWatch(nKey, true))
