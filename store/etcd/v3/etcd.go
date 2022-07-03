@@ -145,12 +145,17 @@ func (s *EtcdV3) Put(key string, value []byte, opts *store.WriteOptions) error {
 	}
 
 	if opts.KeepAlive {
-		// We do not consume the channel here.
-		// Client will keep renewing the lease in the background this way.
-		_, err = lease.KeepAlive(context.Background(), grant.ID)
+		ch, err := lease.KeepAlive(context.Background(), grant.ID)
 		if err != nil {
 			return err
 		}
+		// We do not care the element in the keepalive channel
+		// Just eat messages from the channel
+		go func() {
+			for v := range ch {
+				_ = v
+			}
+		}()
 	}
 
 	pr.Then(etcd.OpPut(key, string(value), etcd.WithLease(grant.ID)))
