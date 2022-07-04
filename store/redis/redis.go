@@ -153,8 +153,10 @@ func (r *Redis) Watch(key string, stopCh <-chan struct{}, _ *store.ReadOptions) 
 	watchCh := make(chan *store.KVPair)
 	nKey := normalize(key)
 
+	ctx := context.Background()
+
 	get := getter(func() (interface{}, error) {
-		pair, err := r.get(context.Background(), nKey)
+		pair, err := r.get(ctx, nKey)
 		if err != nil {
 			return nil, err
 		}
@@ -167,7 +169,7 @@ func (r *Redis) Watch(key string, stopCh <-chan struct{}, _ *store.ReadOptions) 
 		}
 	})
 
-	sub := newSubscribe(context.Background(), r.client, regexWatch(nKey, false))
+	sub := newSubscribe(ctx, r.client, regexWatch(nKey, false))
 
 	go func(sub *subscribe, stopCh <-chan struct{}, get getter, push pusher) {
 		defer func() { _ = sub.Close() }()
@@ -186,8 +188,10 @@ func (r *Redis) WatchTree(directory string, stopCh <-chan struct{}, _ *store.Rea
 	watchCh := make(chan []*store.KVPair)
 	nKey := normalize(directory)
 
+	ctx := context.Background()
+
 	get := getter(func() (interface{}, error) {
-		pair, err := r.list(context.Background(), nKey)
+		pair, err := r.list(ctx, nKey)
 		if err != nil {
 			return nil, err
 		}
@@ -200,7 +204,7 @@ func (r *Redis) WatchTree(directory string, stopCh <-chan struct{}, _ *store.Rea
 		}
 	})
 
-	sub := newSubscribe(context.Background(), r.client, regexWatch(nKey, true))
+	sub := newSubscribe(ctx, r.client, regexWatch(nKey, true))
 
 	go func(sub *subscribe, stopCh <-chan struct{}, get getter, push pusher) {
 		defer func() { _ = sub.Close() }()
@@ -326,12 +330,14 @@ func (r *Redis) mget(ctx context.Context, directory string, keys ...string) ([]*
 func (r *Redis) DeleteTree(directory string) error {
 	regex := scanRegex(normalize(directory)) // for all keyed with $directory.
 
-	allKeys, err := r.keys(context.Background(), regex)
+	ctx := context.Background()
+
+	allKeys, err := r.keys(ctx, regex)
 	if err != nil {
 		return err
 	}
 
-	return r.client.Del(context.Background(), allKeys...).Err()
+	return r.client.Del(ctx, allKeys...).Err()
 }
 
 // AtomicPut is an atomic CAS operation on a single value.
@@ -350,15 +356,17 @@ func (r *Redis) AtomicPut(key string, value []byte, previous *store.KVPair, opti
 	}
 	nKey := normalize(key)
 
+	ctx := context.Background()
+
 	// if previous == nil, set directly.
 	if previous == nil {
-		if err := r.setNX(context.Background(), nKey, newKV, expirationAfter); err != nil {
+		if err := r.setNX(ctx, nKey, newKV, expirationAfter); err != nil {
 			return false, nil, err
 		}
 		return true, newKV, nil
 	}
 
-	if err := r.cas(context.Background(), nKey, previous, newKV, formatSec(expirationAfter)); err != nil {
+	if err := r.cas(ctx, nKey, previous, newKV, formatSec(expirationAfter)); err != nil {
 		return false, nil, err
 	}
 	return true, newKV, nil
