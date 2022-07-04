@@ -2,20 +2,22 @@
 package redis
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"log"
 	"strings"
 	"time"
 
+	"github.com/go-redis/redis/v8"
 	"github.com/kvtools/valkeyrie"
 	"github.com/kvtools/valkeyrie/store"
-	"gopkg.in/redis.v5"
 )
 
 const (
-	noExpiration   = time.Duration(0)
-	defaultLockTTL = 60 * time.Second
+	noExpiration        = time.Duration(0)
+	defaultLockTTL      = 60 * time.Second
+	redisDefaultTimeout = 5 * time.Second
 )
 
 var (
@@ -64,8 +66,11 @@ func newRedis(endpoints []string, password string, codec Codec) *Redis {
 		Password:     password,
 	})
 
+	ctx, cancel := context.WithTimeout(context.Background(), redisDefaultTimeout)
+	defer cancel()
+
 	// Listen to Keyspace events.
-	client.ConfigSet("notify-keyspace-events", "KEA")
+	client.ConfigSet(ctx, "notify-keyspace-events", "KEA")
 
 	var c Codec = &JSONCodec{}
 	if codec != nil {
@@ -106,7 +111,10 @@ func (r *Redis) setTTL(key string, val *store.KVPair, ttl time.Duration) error {
 		return err
 	}
 
-	return r.client.Set(key, valStr, ttl).Err()
+	ctx, cancel := context.WithTimeout(context.Background(), redisDefaultTimeout)
+	defer cancel()
+
+	return r.client.Set(ctx, key, valStr, ttl).Err()
 }
 
 // Get a value given its key.
@@ -115,7 +123,10 @@ func (r *Redis) Get(key string, _ *store.ReadOptions) (*store.KVPair, error) {
 }
 
 func (r *Redis) get(key string) (*store.KVPair, error) {
-	reply, err := r.client.Get(key).Bytes()
+	ctx, cancel := context.WithTimeout(context.Background(), redisDefaultTimeout)
+	defer cancel()
+
+	reply, err := r.client.Get(ctx, key).Bytes()
 	if err != nil {
 		if errors.Is(err, redis.Nil) {
 			return nil, store.ErrKeyNotFound
@@ -136,12 +147,19 @@ func (r *Redis) get(key string) (*store.KVPair, error) {
 
 // Delete the value at the specified key.
 func (r *Redis) Delete(key string) error {
-	return r.client.Del(normalize(key)).Err()
+	ctx, cancel := context.WithTimeout(context.Background(), redisDefaultTimeout)
+	defer cancel()
+
+	return r.client.Del(ctx, normalize(key)).Err()
 }
 
 // Exists verify if a Key exists in the store.
 func (r *Redis) Exists(key string, _ *store.ReadOptions) (bool, error) {
-	return r.client.Exists(normalize(key)).Result()
+	ctx, cancel := context.WithTimeout(context.Background(), redisDefaultTimeout)
+	defer cancel()
+
+	count, err := r.client.Exists(ctx, normalize(key)).Result()
+	return count != 0, err
 }
 
 // Watch for changes on a key.
@@ -165,10 +183,7 @@ func (r *Redis) Watch(key string, stopCh <-chan struct{}, _ *store.ReadOptions) 
 		}
 	})
 
-	sub, err := newSubscribe(r.client, regexWatch(nKey, false))
-	if err != nil {
-		return nil, err
-	}
+	sub := newSubscribe(r.client, regexWatch(nKey, false))
 
 	go func(sub *subscribe, stopCh <-chan struct{}, get getter, push pusher) {
 		defer func() { _ = sub.Close() }()
@@ -201,10 +216,7 @@ func (r *Redis) WatchTree(directory string, stopCh <-chan struct{}, _ *store.Rea
 		}
 	})
 
-	sub, err := newSubscribe(r.client, regexWatch(nKey, true))
-	if err != nil {
-		return nil, err
-	}
+	sub := newSubscribe(r.client, regexWatch(nKey, true))
 
 	go func(sub *subscribe, stopCh <-chan struct{}, get getter, push pusher) {
 		defer func() { _ = sub.Close() }()
@@ -267,7 +279,10 @@ func (r *Redis) keys(regex string) ([]string, error) {
 
 	var allKeys []string
 
-	keys, nextCursor, err := r.client.Scan(startCursor, regex, defaultCount).Result()
+	ctx, cancel := context.WithTimeout(context.Background(), redisDefaultTimeout)
+	defer cancel()
+
+	keys, nextCursor, err := r.client.Scan(ctx, startCursor, regex, defaultCount).Result()
 	if err != nil {
 		return nil, err
 	}
@@ -275,7 +290,9 @@ func (r *Redis) keys(regex string) ([]string, error) {
 	allKeys = append(allKeys, keys...)
 
 	for nextCursor != endCursor {
-		keys, nextCursor, err = r.client.Scan(nextCursor, regex, defaultCount).Result()
+		ctxCursor, cancelCursor := context.WithTimeout(context.Background(), redisDefaultTimeout)
+		keys, nextCursor, err = r.client.Scan(ctxCursor, nextCursor, regex, defaultCount).Result()
+		cancelCursor()
 		if err != nil {
 			return nil, err
 		}
@@ -292,7 +309,10 @@ func (r *Redis) keys(regex string) ([]string, error) {
 
 // mget values given their keys.
 func (r *Redis) mget(directory string, keys ...string) ([]*store.KVPair, error) {
-	replies, err := r.client.MGet(keys...).Result()
+	ctx, cancel := context.WithTimeout(context.Background(), redisDefaultTimeout)
+	defer cancel()
+
+	replies, err := r.client.MGet(ctx, keys...).Result()
 	if err != nil {
 		return nil, err
 	}
@@ -335,7 +355,10 @@ func (r *Redis) DeleteTree(directory string) error {
 		return err
 	}
 
-	return r.client.Del(allKeys...).Err()
+	ctx, cancel := context.WithTimeout(context.Background(), redisDefaultTimeout)
+	defer cancel()
+
+	return r.client.Del(ctx, allKeys...).Err()
 }
 
 // AtomicPut is an atomic CAS operation on a single value.
@@ -374,7 +397,10 @@ func (r *Redis) setNX(key string, val *store.KVPair, expirationAfter time.Durati
 		return err
 	}
 
-	if !r.client.SetNX(key, valBlob, expirationAfter).Val() {
+	ctx, cancel := context.WithTimeout(context.Background(), redisDefaultTimeout)
+	defer cancel()
+
+	if !r.client.SetNX(ctx, key, valBlob, expirationAfter).Val() {
 		return store.ErrKeyExists
 	}
 	return nil
@@ -418,7 +444,10 @@ func (r *Redis) Close() {
 }
 
 func (r *Redis) runScript(args ...interface{}) error {
-	err := r.script.Run(r.client, nil, args...).Err()
+	ctx, cancel := context.WithTimeout(context.Background(), redisDefaultTimeout)
+	defer cancel()
+
+	err := r.script.Run(ctx, r.client, nil, args...).Err()
 	if err != nil && strings.Contains(err.Error(), "redis: key is not found") {
 		return store.ErrKeyNotFound
 	}
@@ -474,16 +503,14 @@ type subscribe struct {
 	closeCh chan struct{}
 }
 
-func newSubscribe(client *redis.Client, regex string) (*subscribe, error) {
-	ch, err := client.PSubscribe(regex)
-	if err != nil {
-		return nil, err
-	}
+func newSubscribe(client *redis.Client, regex string) *subscribe {
+	ctx, cancel := context.WithTimeout(context.Background(), redisDefaultTimeout)
+	defer cancel()
 
 	return &subscribe{
-		pubsub:  ch,
+		pubsub:  client.PSubscribe(ctx, regex),
 		closeCh: make(chan struct{}),
-	}, nil
+	}
 }
 
 func (s *subscribe) Close() error {
@@ -507,7 +534,9 @@ func (s *subscribe) receiveLoop(msgCh chan *redis.Message, stopCh <-chan struct{
 		case <-stopCh:
 			return
 		default:
-			msg, err := s.pubsub.ReceiveMessage()
+			ctx, cancel := context.WithTimeout(context.Background(), redisDefaultTimeout)
+			msg, err := s.pubsub.ReceiveMessage(ctx)
+			cancel()
 			if err != nil {
 				return
 			}

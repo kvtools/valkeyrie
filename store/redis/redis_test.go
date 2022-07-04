@@ -1,6 +1,7 @@
 package redis
 
 import (
+	"context"
 	"testing"
 
 	"github.com/kvtools/valkeyrie"
@@ -19,7 +20,7 @@ func makeRedisClient(t *testing.T) store.Store {
 
 	// NOTE: please turn on redis's notification
 	// before you using watch/watchtree/lock related features.
-	kv.client.ConfigSet("notify-keyspace-events", "KA")
+	kv.client.ConfigSet(context.Background(), "notify-keyspace-events", "KA")
 
 	return kv
 }
