@@ -15,9 +15,8 @@ import (
 )
 
 const (
-	noExpiration        = time.Duration(0)
-	defaultLockTTL      = 60 * time.Second
-	redisDefaultTimeout = 5 * time.Second
+	noExpiration   = time.Duration(0)
+	defaultLockTTL = 60 * time.Second
 )
 
 var (
@@ -53,10 +52,10 @@ func New(endpoints []string, options *store.Config) (store.Store, error) {
 		password = options.Password
 	}
 
-	return newRedis(endpoints, password, &RawCodec{}), nil
+	return newRedis(context.Background(), endpoints, password, &RawCodec{}), nil
 }
 
-func newRedis(endpoints []string, password string, codec Codec) *Redis {
+func newRedis(ctx context.Context, endpoints []string, password string, codec Codec) *Redis {
 	// TODO: use *redis.ClusterClient if we support multiple endpoints.
 	client := redis.NewClient(&redis.Options{
 		Addr:         endpoints[0],
@@ -65,9 +64,6 @@ func newRedis(endpoints []string, password string, codec Codec) *Redis {
 		WriteTimeout: 30 * time.Second,
 		Password:     password,
 	})
-
-	ctx, cancel := context.WithTimeout(context.Background(), redisDefaultTimeout)
-	defer cancel()
 
 	// Listen to Keyspace events.
 	client.ConfigSet(ctx, "notify-keyspace-events", "KEA")
@@ -98,34 +94,28 @@ func (r *Redis) Put(key string, value []byte, options *store.WriteOptions) error
 		expirationAfter = options.TTL
 	}
 
-	return r.setTTL(normalize(key), &store.KVPair{
+	return r.setTTL(context.Background(), normalize(key), &store.KVPair{
 		Key:       key,
 		Value:     value,
 		LastIndex: sequenceNum(),
 	}, expirationAfter)
 }
 
-func (r *Redis) setTTL(key string, val *store.KVPair, ttl time.Duration) error {
+func (r *Redis) setTTL(ctx context.Context, key string, val *store.KVPair, ttl time.Duration) error {
 	valStr, err := r.codec.Encode(val)
 	if err != nil {
 		return err
 	}
-
-	ctx, cancel := context.WithTimeout(context.Background(), redisDefaultTimeout)
-	defer cancel()
 
 	return r.client.Set(ctx, key, valStr, ttl).Err()
 }
 
 // Get a value given its key.
 func (r *Redis) Get(key string, _ *store.ReadOptions) (*store.KVPair, error) {
-	return r.get(normalize(key))
+	return r.get(context.Background(), normalize(key))
 }
 
-func (r *Redis) get(key string) (*store.KVPair, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), redisDefaultTimeout)
-	defer cancel()
-
+func (r *Redis) get(ctx context.Context, key string) (*store.KVPair, error) {
 	reply, err := r.client.Get(ctx, key).Bytes()
 	if err != nil {
 		if errors.Is(err, redis.Nil) {
@@ -147,18 +137,12 @@ func (r *Redis) get(key string) (*store.KVPair, error) {
 
 // Delete the value at the specified key.
 func (r *Redis) Delete(key string) error {
-	ctx, cancel := context.WithTimeout(context.Background(), redisDefaultTimeout)
-	defer cancel()
-
-	return r.client.Del(ctx, normalize(key)).Err()
+	return r.client.Del(context.Background(), normalize(key)).Err()
 }
 
 // Exists verify if a Key exists in the store.
 func (r *Redis) Exists(key string, _ *store.ReadOptions) (bool, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), redisDefaultTimeout)
-	defer cancel()
-
-	count, err := r.client.Exists(ctx, normalize(key)).Result()
+	count, err := r.client.Exists(context.Background(), normalize(key)).Result()
 	return count != 0, err
 }
 
@@ -170,7 +154,7 @@ func (r *Redis) Watch(key string, stopCh <-chan struct{}, _ *store.ReadOptions) 
 	nKey := normalize(key)
 
 	get := getter(func() (interface{}, error) {
-		pair, err := r.get(nKey)
+		pair, err := r.get(context.Background(), nKey)
 		if err != nil {
 			return nil, err
 		}
@@ -183,7 +167,7 @@ func (r *Redis) Watch(key string, stopCh <-chan struct{}, _ *store.ReadOptions) 
 		}
 	})
 
-	sub := newSubscribe(r.client, regexWatch(nKey, false))
+	sub := newSubscribe(context.Background(), r.client, regexWatch(nKey, false))
 
 	go func(sub *subscribe, stopCh <-chan struct{}, get getter, push pusher) {
 		defer func() { _ = sub.Close() }()
@@ -203,7 +187,7 @@ func (r *Redis) WatchTree(directory string, stopCh <-chan struct{}, _ *store.Rea
 	nKey := normalize(directory)
 
 	get := getter(func() (interface{}, error) {
-		pair, err := r.list(nKey)
+		pair, err := r.list(context.Background(), nKey)
 		if err != nil {
 			return nil, err
 		}
@@ -216,7 +200,7 @@ func (r *Redis) WatchTree(directory string, stopCh <-chan struct{}, _ *store.Rea
 		}
 	})
 
-	sub := newSubscribe(r.client, regexWatch(nKey, true))
+	sub := newSubscribe(context.Background(), r.client, regexWatch(nKey, true))
 
 	go func(sub *subscribe, stopCh <-chan struct{}, get getter, push pusher) {
 		defer func() { _ = sub.Close() }()
@@ -256,21 +240,21 @@ func (r *Redis) NewLock(key string, options *store.LockOptions) (store.Locker, e
 
 // List the content of a given prefix.
 func (r *Redis) List(directory string, _ *store.ReadOptions) ([]*store.KVPair, error) {
-	return r.list(normalize(directory))
+	return r.list(context.Background(), normalize(directory))
 }
 
-func (r *Redis) list(directory string) ([]*store.KVPair, error) {
+func (r *Redis) list(ctx context.Context, directory string) ([]*store.KVPair, error) {
 	regex := scanRegex(directory) // for all keyed with $directory.
-	allKeys, err := r.keys(regex)
+	allKeys, err := r.keys(ctx, regex)
 	if err != nil {
 		return nil, err
 	}
 
 	// TODO: need to handle when #key is too large.
-	return r.mget(directory, allKeys...)
+	return r.mget(ctx, directory, allKeys...)
 }
 
-func (r *Redis) keys(regex string) ([]string, error) {
+func (r *Redis) keys(ctx context.Context, regex string) ([]string, error) {
 	const (
 		startCursor  = 0
 		endCursor    = 0
@@ -278,9 +262,6 @@ func (r *Redis) keys(regex string) ([]string, error) {
 	)
 
 	var allKeys []string
-
-	ctx, cancel := context.WithTimeout(context.Background(), redisDefaultTimeout)
-	defer cancel()
 
 	keys, nextCursor, err := r.client.Scan(ctx, startCursor, regex, defaultCount).Result()
 	if err != nil {
@@ -290,9 +271,7 @@ func (r *Redis) keys(regex string) ([]string, error) {
 	allKeys = append(allKeys, keys...)
 
 	for nextCursor != endCursor {
-		ctxCursor, cancelCursor := context.WithTimeout(context.Background(), redisDefaultTimeout)
-		keys, nextCursor, err = r.client.Scan(ctxCursor, nextCursor, regex, defaultCount).Result()
-		cancelCursor()
+		keys, nextCursor, err = r.client.Scan(ctx, nextCursor, regex, defaultCount).Result()
 		if err != nil {
 			return nil, err
 		}
@@ -308,10 +287,7 @@ func (r *Redis) keys(regex string) ([]string, error) {
 }
 
 // mget values given their keys.
-func (r *Redis) mget(directory string, keys ...string) ([]*store.KVPair, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), redisDefaultTimeout)
-	defer cancel()
-
+func (r *Redis) mget(ctx context.Context, directory string, keys ...string) ([]*store.KVPair, error) {
 	replies, err := r.client.MGet(ctx, keys...).Result()
 	if err != nil {
 		return nil, err
@@ -350,15 +326,12 @@ func (r *Redis) mget(directory string, keys ...string) ([]*store.KVPair, error) 
 func (r *Redis) DeleteTree(directory string) error {
 	regex := scanRegex(normalize(directory)) // for all keyed with $directory.
 
-	allKeys, err := r.keys(regex)
+	allKeys, err := r.keys(context.Background(), regex)
 	if err != nil {
 		return err
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), redisDefaultTimeout)
-	defer cancel()
-
-	return r.client.Del(ctx, allKeys...).Err()
+	return r.client.Del(context.Background(), allKeys...).Err()
 }
 
 // AtomicPut is an atomic CAS operation on a single value.
@@ -379,26 +352,23 @@ func (r *Redis) AtomicPut(key string, value []byte, previous *store.KVPair, opti
 
 	// if previous == nil, set directly.
 	if previous == nil {
-		if err := r.setNX(nKey, newKV, expirationAfter); err != nil {
+		if err := r.setNX(context.Background(), nKey, newKV, expirationAfter); err != nil {
 			return false, nil, err
 		}
 		return true, newKV, nil
 	}
 
-	if err := r.cas(nKey, previous, newKV, formatSec(expirationAfter)); err != nil {
+	if err := r.cas(context.Background(), nKey, previous, newKV, formatSec(expirationAfter)); err != nil {
 		return false, nil, err
 	}
 	return true, newKV, nil
 }
 
-func (r *Redis) setNX(key string, val *store.KVPair, expirationAfter time.Duration) error {
+func (r *Redis) setNX(ctx context.Context, key string, val *store.KVPair, expirationAfter time.Duration) error {
 	valBlob, err := r.codec.Encode(val)
 	if err != nil {
 		return err
 	}
-
-	ctx, cancel := context.WithTimeout(context.Background(), redisDefaultTimeout)
-	defer cancel()
 
 	if !r.client.SetNX(ctx, key, valBlob, expirationAfter).Val() {
 		return store.ErrKeyExists
@@ -406,7 +376,7 @@ func (r *Redis) setNX(key string, val *store.KVPair, expirationAfter time.Durati
 	return nil
 }
 
-func (r *Redis) cas(key string, oldPair, newPair *store.KVPair, secInStr string) error {
+func (r *Redis) cas(ctx context.Context, key string, oldPair, newPair *store.KVPair, secInStr string) error {
 	newVal, err := r.codec.Encode(newPair)
 	if err != nil {
 		return err
@@ -417,25 +387,25 @@ func (r *Redis) cas(key string, oldPair, newPair *store.KVPair, secInStr string)
 		return err
 	}
 
-	return r.runScript(cmdCAS, key, oldVal, newVal, secInStr)
+	return r.runScript(ctx, cmdCAS, key, oldVal, newVal, secInStr)
 }
 
 // AtomicDelete is an atomic delete operation on a single value
 // the value will be deleted if previous matched the one stored in db.
 func (r *Redis) AtomicDelete(key string, previous *store.KVPair) (bool, error) {
-	if err := r.cad(normalize(key), previous); err != nil {
+	if err := r.cad(context.Background(), normalize(key), previous); err != nil {
 		return false, err
 	}
 	return true, nil
 }
 
-func (r *Redis) cad(key string, old *store.KVPair) error {
+func (r *Redis) cad(ctx context.Context, key string, old *store.KVPair) error {
 	oldVal, err := r.codec.Encode(old)
 	if err != nil {
 		return err
 	}
 
-	return r.runScript(cmdCAD, key, oldVal)
+	return r.runScript(ctx, cmdCAD, key, oldVal)
 }
 
 // Close the store connection.
@@ -443,10 +413,7 @@ func (r *Redis) Close() {
 	_ = r.client.Close()
 }
 
-func (r *Redis) runScript(args ...interface{}) error {
-	ctx, cancel := context.WithTimeout(context.Background(), redisDefaultTimeout)
-	defer cancel()
-
+func (r *Redis) runScript(ctx context.Context, args ...interface{}) error {
 	err := r.script.Run(ctx, r.client, nil, args...).Err()
 	if err != nil && strings.Contains(err.Error(), "redis: key is not found") {
 		return store.ErrKeyNotFound
@@ -503,10 +470,7 @@ type subscribe struct {
 	closeCh chan struct{}
 }
 
-func newSubscribe(client *redis.Client, regex string) *subscribe {
-	ctx, cancel := context.WithTimeout(context.Background(), redisDefaultTimeout)
-	defer cancel()
-
+func newSubscribe(ctx context.Context, client *redis.Client, regex string) *subscribe {
 	return &subscribe{
 		pubsub:  client.PSubscribe(ctx, regex),
 		closeCh: make(chan struct{}),
@@ -520,11 +484,11 @@ func (s *subscribe) Close() error {
 
 func (s *subscribe) Receive(stopCh <-chan struct{}) chan *redis.Message {
 	msgCh := make(chan *redis.Message)
-	go s.receiveLoop(msgCh, stopCh)
+	go s.receiveLoop(context.Background(), msgCh, stopCh)
 	return msgCh
 }
 
-func (s *subscribe) receiveLoop(msgCh chan *redis.Message, stopCh <-chan struct{}) {
+func (s *subscribe) receiveLoop(ctx context.Context, msgCh chan *redis.Message, stopCh <-chan struct{}) {
 	defer close(msgCh)
 
 	for {
@@ -534,9 +498,7 @@ func (s *subscribe) receiveLoop(msgCh chan *redis.Message, stopCh <-chan struct{
 		case <-stopCh:
 			return
 		default:
-			ctx, cancel := context.WithTimeout(context.Background(), redisDefaultTimeout)
 			msg, err := s.pubsub.ReceiveMessage(ctx)
-			cancel()
 			if err != nil {
 				return
 			}
