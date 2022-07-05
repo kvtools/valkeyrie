@@ -167,8 +167,8 @@ func (s *Etcd) Delete(ctx context.Context, key string) error {
 }
 
 // Exists checks if the key exists inside the store.
-func (s *Etcd) Exists(key string, opts *store.ReadOptions) (bool, error) {
-	_, err := s.Get(context.TODO(), key, opts)
+func (s *Etcd) Exists(ctx context.Context, key string, opts *store.ReadOptions) (bool, error) {
+	_, err := s.Get(ctx, key, opts)
 	if err != nil {
 		if errors.Is(err, store.ErrKeyNotFound) {
 			return false, nil

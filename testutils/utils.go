@@ -109,7 +109,7 @@ func testPutGetDeleteExists(t *testing.T, kv store.Store) {
 		assert.NotEqual(t, pair.LastIndex, 0)
 
 		// Exists should return true.
-		exists, err := kv.Exists(key, nil)
+		exists, err := kv.Exists(ctx, key, nil)
 		require.NoError(t, err)
 		assert.True(t, exists)
 
@@ -123,7 +123,7 @@ func testPutGetDeleteExists(t *testing.T, kv store.Store) {
 		assert.Nil(t, pair)
 
 		// Exists should return false.
-		exists, err = kv.Exists(key, nil)
+		exists, err = kv.Exists(ctx, key, nil)
 		require.NoError(t, err)
 		assert.False(t, exists)
 	}

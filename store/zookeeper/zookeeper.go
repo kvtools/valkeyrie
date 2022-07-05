@@ -120,7 +120,7 @@ func (s *Zookeeper) createFullPath(path []string, data []byte, ephemeral bool) e
 func (s *Zookeeper) Put(_ context.Context, key string, value []byte, opts *store.WriteOptions) error {
 	fkey := s.normalize(key)
 
-	exists, err := s.Exists(key, nil)
+	exists, err := s.Exists(context.TODO(), key, nil)
 	if err != nil {
 		return err
 	}
@@ -148,7 +148,7 @@ func (s *Zookeeper) Delete(_ context.Context, key string) error {
 }
 
 // Exists checks if the key exists inside the store.
-func (s *Zookeeper) Exists(key string, _ *store.ReadOptions) (bool, error) {
+func (s *Zookeeper) Exists(_ context.Context, key string, _ *store.ReadOptions) (bool, error) {
 	exists, _, err := s.client.Exists(s.normalize(key))
 	if err != nil {
 		return false, err

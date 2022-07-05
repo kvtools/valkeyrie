@@ -146,8 +146,8 @@ func (r *Redis) Delete(ctx context.Context, key string) error {
 }
 
 // Exists verify if a Key exists in the store.
-func (r *Redis) Exists(key string, _ *store.ReadOptions) (bool, error) {
-	count, err := r.client.Exists(context.Background(), normalize(key)).Result()
+func (r *Redis) Exists(ctx context.Context, key string, opts *store.ReadOptions) (bool, error) {
+	count, err := r.client.Exists(ctx, normalize(key)).Result()
 	return count != 0, err
 }
 

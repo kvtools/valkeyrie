@@ -217,7 +217,7 @@ func (b *BoltDB) Delete(_ context.Context, key string) error {
 }
 
 // Exists checks if the key exists inside the store.
-func (b *BoltDB) Exists(key string, _ *store.ReadOptions) (bool, error) {
+func (b *BoltDB) Exists(_ context.Context, key string, _ *store.ReadOptions) (bool, error) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 

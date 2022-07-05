@@ -46,7 +46,7 @@ func (s *Mock) Delete(_ context.Context, key string) error {
 }
 
 // Exists mock.
-func (s *Mock) Exists(key string, opts *store.ReadOptions) (bool, error) {
+func (s *Mock) Exists(_ context.Context, key string, opts *store.ReadOptions) (bool, error) {
 	args := s.Mock.Called(key, opts)
 	return args.Bool(0), args.Error(1)
 }

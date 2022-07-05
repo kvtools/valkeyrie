@@ -184,8 +184,8 @@ func (ddb *DynamoDB) Delete(ctx context.Context, key string) error {
 }
 
 // Exists if a Key exists in the store.
-func (ddb *DynamoDB) Exists(key string, _ *store.ReadOptions) (bool, error) {
-	res, err := ddb.dynamoSvc.GetItem(&dynamodb.GetItemInput{
+func (ddb *DynamoDB) Exists(ctx context.Context, key string, opts *store.ReadOptions) (bool, error) {
+	res, err := ddb.dynamoSvc.GetItemWithContext(ctx, &dynamodb.GetItemInput{
 		TableName: aws.String(ddb.tableName),
 		Key: map[string]*dynamodb.AttributeValue{
 			partitionKey: {

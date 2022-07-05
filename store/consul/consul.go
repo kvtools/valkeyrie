@@ -236,8 +236,8 @@ func (s *Consul) Delete(ctx context.Context, key string) error {
 }
 
 // Exists checks that the key exists inside the store.
-func (s *Consul) Exists(key string, opts *store.ReadOptions) (bool, error) {
-	_, err := s.Get(context.TODO(), key, opts)
+func (s *Consul) Exists(ctx context.Context, key string, opts *store.ReadOptions) (bool, error) {
+	_, err := s.Get(ctx, key, opts)
 	if err != nil {
 		if errors.Is(err, store.ErrKeyNotFound) {
 			return false, nil

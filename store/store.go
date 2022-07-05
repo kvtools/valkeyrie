@@ -85,7 +85,7 @@ type Store interface {
 	Delete(ctx context.Context, key string) error
 
 	// Exists Verify if a Key exists in the store.
-	Exists(key string, opts *ReadOptions) (bool, error)
+	Exists(ctx context.Context, key string, opts *ReadOptions) (bool, error)
 
 	// Watch for changes on a key.
 	Watch(key string, stopCh <-chan struct{}, opts *ReadOptions) (<-chan *KVPair, error)
