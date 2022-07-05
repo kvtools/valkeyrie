@@ -58,10 +58,12 @@ func TestDynamoDBStoreLock(t *testing.T) {
 func TestDynamoDBStoreUnsupported(t *testing.T) {
 	ddbStore := newDynamoDBStore(t)
 
+	ctx := context.Background()
+
 	_, err := ddbStore.WatchTree("test", nil, nil)
 	assert.ErrorIs(t, err, store.ErrCallNotSupported)
 
-	_, err = ddbStore.Watch("test", nil, nil)
+	_, err = ddbStore.Watch(ctx, "test", nil, nil)
 	assert.ErrorIs(t, err, store.ErrCallNotSupported)
 }
 

@@ -52,7 +52,7 @@ func (s *Mock) Exists(_ context.Context, key string, opts *store.ReadOptions) (b
 }
 
 // Watch mock.
-func (s *Mock) Watch(key string, stopCh <-chan struct{}, opts *store.ReadOptions) (<-chan *store.KVPair, error) {
+func (s *Mock) Watch(_ context.Context, key string, stopCh <-chan struct{}, opts *store.ReadOptions) (<-chan *store.KVPair, error) {
 	args := s.Mock.Called(key, stopCh, opts)
 	return args.Get(0).(<-chan *store.KVPair), args.Error(1)
 }

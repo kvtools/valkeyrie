@@ -160,7 +160,7 @@ func (s *Zookeeper) Exists(_ context.Context, key string, _ *store.ReadOptions) 
 // It returns a channel that will receive changes or pass on errors.
 // Upon creation, the current value will first be sent to the channel.
 // Providing a non-nil stopCh can be used to stop watching.
-func (s *Zookeeper) Watch(key string, stopCh <-chan struct{}, _ *store.ReadOptions) (<-chan *store.KVPair, error) {
+func (s *Zookeeper) Watch(_ context.Context, key string, stopCh <-chan struct{}, _ *store.ReadOptions) (<-chan *store.KVPair, error) {
 	// Catch zk notifications and fire changes into the channel.
 	watchCh := make(chan *store.KVPair)
 	go func() {

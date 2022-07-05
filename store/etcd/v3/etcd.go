@@ -194,14 +194,14 @@ func (s *EtcdV3) Exists(ctx context.Context, key string, opts *store.ReadOptions
 // It returns a channel that will receive changes or pass on errors.
 // Upon creation, the current value will first be sent to the channel.
 // Providing a non-nil stopCh can be used to stop watching.
-func (s *EtcdV3) Watch(key string, stopCh <-chan struct{}, opts *store.ReadOptions) (<-chan *store.KVPair, error) {
+func (s *EtcdV3) Watch(ctx context.Context, key string, stopCh <-chan struct{}, opts *store.ReadOptions) (<-chan *store.KVPair, error) {
 	wc := etcd.NewWatcher(s.client)
 
 	// respCh is sending back events to the caller.
 	respCh := make(chan *store.KVPair)
 
 	// Get the current value.
-	pair, err := s.Get(context.TODO(), key, opts)
+	pair, err := s.Get(ctx, key, opts)
 	if err != nil {
 		return nil, err
 	}
@@ -215,7 +215,7 @@ func (s *EtcdV3) Watch(key string, stopCh <-chan struct{}, opts *store.ReadOptio
 		// Push the current value through the channel.
 		respCh <- pair
 
-		watchCh := wc.Watch(context.Background(), s.normalize(key))
+		watchCh := wc.Watch(ctx, s.normalize(key))
 
 		for resp := range watchCh {
 			// Check if the watch was stopped by the caller.

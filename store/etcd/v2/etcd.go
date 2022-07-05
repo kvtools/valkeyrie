@@ -182,7 +182,7 @@ func (s *Etcd) Exists(ctx context.Context, key string, opts *store.ReadOptions) 
 // It returns a channel that will receive changes or pass on errors.
 // Upon creation, the current value will first be sent to the channel.
 // Providing a non-nil stopCh can be used to stop watching.
-func (s *Etcd) Watch(key string, stopCh <-chan struct{}, opts *store.ReadOptions) (<-chan *store.KVPair, error) {
+func (s *Etcd) Watch(_ context.Context, key string, stopCh <-chan struct{}, opts *store.ReadOptions) (<-chan *store.KVPair, error) {
 	wopts := &etcd.WatcherOptions{Recursive: false}
 	watcher := s.client.Watcher(s.normalize(key), wopts)
 

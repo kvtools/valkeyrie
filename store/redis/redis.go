@@ -154,11 +154,9 @@ func (r *Redis) Exists(ctx context.Context, key string, opts *store.ReadOptions)
 // Watch for changes on a key.
 // glitch: we use notified-then-retrieve to retrieve *store.KVPair.
 // so the responses may sometimes inaccurate.
-func (r *Redis) Watch(key string, stopCh <-chan struct{}, _ *store.ReadOptions) (<-chan *store.KVPair, error) {
+func (r *Redis) Watch(ctx context.Context, key string, stopCh <-chan struct{}, opts *store.ReadOptions) (<-chan *store.KVPair, error) {
 	watchCh := make(chan *store.KVPair)
 	nKey := normalize(key)
-
-	ctx := context.Background()
 
 	get := getter(func() (interface{}, error) {
 		pair, err := r.get(ctx, nKey)
@@ -549,7 +547,7 @@ func (l *redisLock) Lock(stopCh chan struct{}) (<-chan struct{}, error) {
 	}
 
 	// wait for changes on the key.
-	watch, err := l.redis.Watch(l.key, stopCh, nil)
+	watch, err := l.redis.Watch(context.TODO(), l.key, stopCh, nil)
 	if err != nil {
 		return nil, err
 	}

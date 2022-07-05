@@ -88,7 +88,7 @@ type Store interface {
 	Exists(ctx context.Context, key string, opts *ReadOptions) (bool, error)
 
 	// Watch for changes on a key.
-	Watch(key string, stopCh <-chan struct{}, opts *ReadOptions) (<-chan *KVPair, error)
+	Watch(ctx context.Context, key string, stopCh <-chan struct{}, opts *ReadOptions) (<-chan *KVPair, error) // FIXME stopCh?
 
 	// WatchTree watches for changes on child nodes under a given directory.
 	WatchTree(directory string, stopCh <-chan struct{}, opts *ReadOptions) (<-chan []*KVPair, error)
