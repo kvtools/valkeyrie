@@ -141,8 +141,8 @@ func (r *Redis) get(ctx context.Context, key string) (*store.KVPair, error) {
 }
 
 // Delete the value at the specified key.
-func (r *Redis) Delete(key string) error {
-	return r.client.Del(context.Background(), normalize(key)).Err()
+func (r *Redis) Delete(ctx context.Context, key string) error {
+	return r.client.Del(ctx, normalize(key)).Err()
 }
 
 // Exists verify if a Key exists in the store.

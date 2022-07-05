@@ -40,7 +40,7 @@ func (s *Mock) Get(_ context.Context, key string, opts *store.ReadOptions) (*sto
 }
 
 // Delete mock.
-func (s *Mock) Delete(key string) error {
+func (s *Mock) Delete(_ context.Context, key string) error {
 	args := s.Mock.Called(key)
 	return args.Error(0)
 }

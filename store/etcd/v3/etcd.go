@@ -170,8 +170,8 @@ func (s *EtcdV3) Put(ctx context.Context, key string, value []byte, opts *store.
 }
 
 // Delete a value at "key".
-func (s *EtcdV3) Delete(key string) error {
-	resp, err := s.client.KV.Delete(context.Background(), s.normalize(key))
+func (s *EtcdV3) Delete(ctx context.Context, key string) error {
+	resp, err := s.client.KV.Delete(ctx, s.normalize(key))
 	if resp != nil && resp.Deleted == 0 {
 		return store.ErrKeyNotFound
 	}

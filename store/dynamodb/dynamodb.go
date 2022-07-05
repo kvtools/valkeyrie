@@ -169,8 +169,8 @@ func (ddb *DynamoDB) getKey(ctx context.Context, key string, options *store.Read
 }
 
 // Delete the value at the specified key.
-func (ddb *DynamoDB) Delete(key string) error {
-	_, err := ddb.dynamoSvc.DeleteItem(&dynamodb.DeleteItemInput{
+func (ddb *DynamoDB) Delete(ctx context.Context, key string) error {
+	_, err := ddb.dynamoSvc.DeleteItemWithContext(ctx, &dynamodb.DeleteItemInput{
 		TableName: aws.String(ddb.tableName),
 		Key: map[string]*dynamodb.AttributeValue{
 			partitionKey: {S: aws.String(key)},

@@ -139,7 +139,7 @@ func (s *Zookeeper) Put(_ context.Context, key string, value []byte, opts *store
 }
 
 // Delete a value at "key".
-func (s *Zookeeper) Delete(key string) error {
+func (s *Zookeeper) Delete(_ context.Context, key string) error {
 	err := s.client.Delete(s.normalize(key), -1)
 	if errors.Is(err, zk.ErrNoNode) {
 		return store.ErrKeyNotFound

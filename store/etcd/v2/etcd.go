@@ -154,12 +154,12 @@ func (s *Etcd) Put(_ context.Context, key string, value []byte, opts *store.Writ
 }
 
 // Delete a value at "key".
-func (s *Etcd) Delete(key string) error {
+func (s *Etcd) Delete(ctx context.Context, key string) error {
 	opts := &etcd.DeleteOptions{
 		Recursive: false,
 	}
 
-	_, err := s.client.Delete(context.Background(), s.normalize(key), opts)
+	_, err := s.client.Delete(ctx, s.normalize(key), opts)
 	if keyNotFound(err) {
 		return store.ErrKeyNotFound
 	}

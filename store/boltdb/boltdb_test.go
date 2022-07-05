@@ -145,8 +145,10 @@ func TestBoltDBStore(t *testing.T) {
 func TestGetAllKeys(t *testing.T) {
 	kv := makeBoltDBClient(t)
 
+	ctx := context.Background()
+
 	t.Cleanup(func() {
-		_ = kv.Delete("key1")
+		_ = kv.Delete(ctx, "key1")
 	})
 
 	err := kv.Put(context.Background(), "key1", []byte("value1"), &store.WriteOptions{})

@@ -86,6 +86,6 @@ func TestKeepAlive(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, pair.Value, []byte("bar"))
 
-	err = kv.Delete("foo")
+	err = kv.Delete(ctx, "foo")
 	require.NoError(t, err)
 }

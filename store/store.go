@@ -82,7 +82,7 @@ type Store interface {
 	Get(ctx context.Context, key string, opts *ReadOptions) (*KVPair, error)
 
 	// Delete the value at the specified key.
-	Delete(key string) error
+	Delete(ctx context.Context, key string) error
 
 	// Exists Verify if a Key exists in the store.
 	Exists(key string, opts *ReadOptions) (bool, error)

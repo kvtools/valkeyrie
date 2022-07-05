@@ -63,8 +63,10 @@ func TestGetActiveSession(t *testing.T) {
 	key := "foo"
 	value := []byte("bar")
 
+	ctx := context.Background()
+
 	// Put the first key with the Ephemeral flag.
-	err := kv.Put(context.Background(), key, value, &store.WriteOptions{TTL: 2 * time.Second})
+	err := kv.Put(ctx, key, value, &store.WriteOptions{TTL: 2 * time.Second})
 	require.NoError(t, err)
 
 	// Session should not be empty.
@@ -73,7 +75,7 @@ func TestGetActiveSession(t *testing.T) {
 	assert.NotEmpty(t, session)
 
 	// Delete the key.
-	err = kv.Delete(key)
+	err = kv.Delete(ctx, key)
 	require.NoError(t, err)
 
 	// Check the session again, it should return nothing.

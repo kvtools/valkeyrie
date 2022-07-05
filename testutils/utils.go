@@ -114,7 +114,7 @@ func testPutGetDeleteExists(t *testing.T, kv store.Store) {
 		assert.True(t, exists)
 
 		// Delete the key.
-		err = kv.Delete(key)
+		err = kv.Delete(ctx, key)
 		require.NoError(t, err)
 
 		// Get should fail.
@@ -222,7 +222,7 @@ func testWatchTree(t *testing.T, kv store.Store) {
 	go func() {
 		time.Sleep(500 * time.Millisecond)
 
-		err := kv.Delete(node3)
+		err := kv.Delete(ctx, node3)
 		require.NoError(t, err)
 	}()
 
@@ -704,6 +704,8 @@ func testDeleteTree(t *testing.T, kv store.Store) {
 func RunCleanup(t *testing.T, kv store.Store) {
 	t.Helper()
 
+	ctx := context.Background()
+
 	for _, key := range []string{
 		"testAtomicPutWithSlashSuffixKey",
 		"testPutGetDeleteExists",
@@ -726,7 +728,7 @@ func RunCleanup(t *testing.T, kv store.Store) {
 			assert.ErrorIsf(t, err, store.ErrKeyNotFound, "failed to delete tree key %s", key)
 		}
 
-		err = kv.Delete(key)
+		err = kv.Delete(ctx, key)
 		if err != nil {
 			assert.ErrorIsf(t, err, store.ErrKeyNotFound, "failed to delete key %s", key)
 		}

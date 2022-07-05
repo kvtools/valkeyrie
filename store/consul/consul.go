@@ -226,8 +226,8 @@ func (s *Consul) Put(_ context.Context, key string, value []byte, opts *store.Wr
 }
 
 // Delete a value at "key".
-func (s *Consul) Delete(key string) error {
-	if _, err := s.Get(context.TODO(), key, nil); err != nil {
+func (s *Consul) Delete(ctx context.Context, key string) error {
+	if _, err := s.Get(ctx, key, nil); err != nil {
 		return err
 	}
 

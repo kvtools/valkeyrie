@@ -196,7 +196,7 @@ func (b *BoltDB) Put(_ context.Context, key string, value []byte, _ *store.Write
 }
 
 // Delete the value for the given key.
-func (b *BoltDB) Delete(key string) error {
+func (b *BoltDB) Delete(_ context.Context, key string) error {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 
