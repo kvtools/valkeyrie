@@ -88,8 +88,8 @@ func (s *EtcdV3) normalize(key string) string {
 
 // Get the value at "key".
 // Returns the last modified index to use in conjunction to Atomic calls.
-func (s *EtcdV3) Get(key string, opts *store.ReadOptions) (pair *store.KVPair, err error) {
-	ctx, cancel := context.WithTimeout(context.Background(), etcdDefaultTimeout)
+func (s *EtcdV3) Get(ctx context.Context, key string, opts *store.ReadOptions) (pair *store.KVPair, err error) {
+	ctx, cancel := context.WithTimeout(ctx, etcdDefaultTimeout)
 
 	var result *etcd.GetResponse
 	if opts != nil && !opts.Consistent {
@@ -110,6 +110,7 @@ func (s *EtcdV3) Get(key string, opts *store.ReadOptions) (pair *store.KVPair, e
 
 	kvs := []*store.KVPair{}
 
+	// FIXME why for ?
 	for _, pair := range result.Kvs {
 		kvs = append(kvs, &store.KVPair{
 			Key:       string(pair.Key),
@@ -179,7 +180,7 @@ func (s *EtcdV3) Delete(key string) error {
 
 // Exists checks if the key exists inside the store.
 func (s *EtcdV3) Exists(key string, opts *store.ReadOptions) (bool, error) {
-	_, err := s.Get(key, opts)
+	_, err := s.Get(context.TODO(), key, opts)
 	if err != nil {
 		if errors.Is(err, store.ErrKeyNotFound) {
 			return false, nil
@@ -200,7 +201,7 @@ func (s *EtcdV3) Watch(key string, stopCh <-chan struct{}, opts *store.ReadOptio
 	respCh := make(chan *store.KVPair)
 
 	// Get the current value.
-	pair, err := s.Get(key, opts)
+	pair, err := s.Get(context.TODO(), key, opts)
 	if err != nil {
 		return nil, err
 	}

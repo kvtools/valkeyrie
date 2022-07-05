@@ -125,7 +125,7 @@ func (b *BoltDB) releaseDBHandle() {
 // BoltDB doesn't provide an inbuilt last modified index with every kv pair.
 // It's implemented by an atomic counter maintained by the valkeyrie
 // and appended to the value passed by the client.
-func (b *BoltDB) Get(key string, _ *store.ReadOptions) (*store.KVPair, error) {
+func (b *BoltDB) Get(_ context.Context, key string, _ *store.ReadOptions) (*store.KVPair, error) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 

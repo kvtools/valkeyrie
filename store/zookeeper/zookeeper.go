@@ -75,7 +75,7 @@ func (s *Zookeeper) setTimeout(timeout time.Duration) {
 
 // Get the value at "key".
 // Returns the last modified index to use in conjunction to Atomic calls.
-func (s *Zookeeper) Get(key string, _ *store.ReadOptions) (pair *store.KVPair, err error) {
+func (s *Zookeeper) Get(_ context.Context, key string, opts *store.ReadOptions) (pair *store.KVPair, err error) {
 	resp, meta, err := s.get(key)
 	if err != nil {
 		return nil, err
@@ -506,7 +506,7 @@ func (s *Zookeeper) getListWithPath(path string, keys []string, opts *store.Read
 	kvs := []*store.KVPair{}
 
 	for _, key := range keys {
-		pair, err := s.Get(strings.TrimSuffix(path, "/")+s.normalize(key), opts)
+		pair, err := s.Get(context.TODO(), strings.TrimSuffix(path, "/")+s.normalize(key), opts)
 		if err != nil {
 			return nil, err
 		}
@@ -528,7 +528,7 @@ func (s *Zookeeper) getList(keys []string, _ *store.ReadOptions) ([]*store.KVPai
 	kvs := []*store.KVPair{}
 
 	for _, key := range keys {
-		pair, err := s.Get(strings.TrimSuffix(key, "/"), nil)
+		pair, err := s.Get(context.TODO(), strings.TrimSuffix(key, "/"), nil)
 		if err != nil {
 			return nil, err
 		}

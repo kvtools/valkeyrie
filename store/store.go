@@ -76,10 +76,10 @@ type ClientTLSConfig struct {
 // Or it couldn't be implemented as a K/V backend for valkeyrie.
 type Store interface {
 	// Put a value at the specified key.
-	Put(ctex context.Context, key string, value []byte, opts *WriteOptions) error
+	Put(ctx context.Context, key string, value []byte, opts *WriteOptions) error
 
 	// Get a value given its key.
-	Get(key string, opts *ReadOptions) (*KVPair, error)
+	Get(ctx context.Context, key string, opts *ReadOptions) (*KVPair, error)
 
 	// Delete the value at the specified key.
 	Delete(key string) error

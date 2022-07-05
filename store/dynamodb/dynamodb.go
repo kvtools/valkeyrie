@@ -135,14 +135,14 @@ func (ddb *DynamoDB) Put(ctx context.Context, key string, value []byte, opts *st
 }
 
 // Get a value given its key.
-func (ddb *DynamoDB) Get(key string, options *store.ReadOptions) (*store.KVPair, error) {
-	if options == nil {
-		options = &store.ReadOptions{
+func (ddb *DynamoDB) Get(ctx context.Context, key string, opts *store.ReadOptions) (*store.KVPair, error) {
+	if opts == nil {
+		opts = &store.ReadOptions{
 			Consistent: true, // default to enabling read consistency.
 		}
 	}
 
-	res, err := ddb.getKey(key, options)
+	res, err := ddb.getKey(ctx, key, opts)
 	if err != nil {
 		return nil, err
 	}
@@ -158,8 +158,8 @@ func (ddb *DynamoDB) Get(key string, options *store.ReadOptions) (*store.KVPair,
 	return decodeItem(res.Item)
 }
 
-func (ddb *DynamoDB) getKey(key string, options *store.ReadOptions) (*dynamodb.GetItemOutput, error) {
-	return ddb.dynamoSvc.GetItem(&dynamodb.GetItemInput{
+func (ddb *DynamoDB) getKey(ctx context.Context, key string, options *store.ReadOptions) (*dynamodb.GetItemOutput, error) {
+	return ddb.dynamoSvc.GetItemWithContext(ctx, &dynamodb.GetItemInput{
 		TableName:      aws.String(ddb.tableName),
 		ConsistentRead: aws.Bool(options.Consistent),
 		Key: map[string]*dynamodb.AttributeValue{
@@ -314,7 +314,7 @@ func (ddb *DynamoDB) DeleteTree(keyPrefix string) error {
 
 // AtomicPut Atomic CAS operation on a single value.
 func (ddb *DynamoDB) AtomicPut(key string, value []byte, previous *store.KVPair, options *store.WriteOptions) (bool, *store.KVPair, error) {
-	getRes, err := ddb.getKey(key, &store.ReadOptions{
+	getRes, err := ddb.getKey(context.TODO(), key, &store.ReadOptions{
 		Consistent: true, // enable the read consistent flag.
 	})
 	if err != nil {
@@ -392,7 +392,7 @@ func (ddb *DynamoDB) AtomicPut(key string, value []byte, previous *store.KVPair,
 
 // AtomicDelete delete of a single value.
 func (ddb *DynamoDB) AtomicDelete(key string, previous *store.KVPair) (bool, error) {
-	getRes, err := ddb.getKey(key, &store.ReadOptions{
+	getRes, err := ddb.getKey(context.TODO(), key, &store.ReadOptions{
 		Consistent: true, // enable the read consistent flag.
 	})
 	if err != nil {

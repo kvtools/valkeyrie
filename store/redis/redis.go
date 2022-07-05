@@ -116,8 +116,8 @@ func (r *Redis) setTTL(ctx context.Context, key string, val *store.KVPair, ttl t
 }
 
 // Get a value given its key.
-func (r *Redis) Get(key string, _ *store.ReadOptions) (*store.KVPair, error) {
-	return r.get(context.Background(), normalize(key))
+func (r *Redis) Get(ctx context.Context, key string, opts *store.ReadOptions) (*store.KVPair, error) {
+	return r.get(ctx, normalize(key))
 }
 
 func (r *Redis) get(ctx context.Context, key string) (*store.KVPair, error) {

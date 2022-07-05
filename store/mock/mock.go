@@ -34,7 +34,7 @@ func (s *Mock) Put(_ context.Context, key string, value []byte, opts *store.Writ
 }
 
 // Get mock.
-func (s *Mock) Get(key string, opts *store.ReadOptions) (*store.KVPair, error) {
+func (s *Mock) Get(_ context.Context, key string, opts *store.ReadOptions) (*store.KVPair, error) {
 	args := s.Mock.Called(key, opts)
 	return args.Get(0).(*store.KVPair), args.Error(1)
 }

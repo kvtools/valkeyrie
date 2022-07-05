@@ -175,7 +175,7 @@ func (s *Consul) getActiveSession(key string) (string, error) {
 
 // Get the value at "key".
 // Returns the last modified index to use in conjunction to CAS calls.
-func (s *Consul) Get(key string, opts *store.ReadOptions) (*store.KVPair, error) {
+func (s *Consul) Get(_ context.Context, key string, opts *store.ReadOptions) (*store.KVPair, error) {
 	options := &api.QueryOptions{
 		AllowStale:        false,
 		RequireConsistent: true,
@@ -227,7 +227,7 @@ func (s *Consul) Put(_ context.Context, key string, value []byte, opts *store.Wr
 
 // Delete a value at "key".
 func (s *Consul) Delete(key string) error {
-	if _, err := s.Get(key, nil); err != nil {
+	if _, err := s.Get(context.TODO(), key, nil); err != nil {
 		return err
 	}
 
@@ -237,7 +237,7 @@ func (s *Consul) Delete(key string) error {
 
 // Exists checks that the key exists inside the store.
 func (s *Consul) Exists(key string, opts *store.ReadOptions) (bool, error) {
-	_, err := s.Get(key, opts)
+	_, err := s.Get(context.TODO(), key, opts)
 	if err != nil {
 		if errors.Is(err, store.ErrKeyNotFound) {
 			return false, nil
@@ -523,7 +523,7 @@ func (s *Consul) AtomicPut(key string, value []byte, previous *store.KVPair, _ *
 		return false, nil, store.ErrKeyModified
 	}
 
-	pair, err := s.Get(key, nil)
+	pair, err := s.Get(context.TODO(), key, nil)
 	if err != nil {
 		return false, nil, err
 	}
@@ -541,7 +541,7 @@ func (s *Consul) AtomicDelete(key string, previous *store.KVPair) (bool, error) 
 	p := &api.KVPair{Key: s.normalize(key), ModifyIndex: previous.LastIndex, Flags: api.LockFlagValue}
 
 	// Extra Get operation to check on the key.
-	_, err := s.Get(key, nil)
+	_, err := s.Get(context.TODO(), key, nil)
 	if errors.Is(err, store.ErrKeyNotFound) {
 		return false, err
 	}

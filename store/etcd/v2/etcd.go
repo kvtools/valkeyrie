@@ -112,7 +112,7 @@ func (s *Etcd) normalize(key string) string {
 
 // Get the value at "key".
 // Returns the last modified index to use in conjunction to Atomic calls.
-func (s *Etcd) Get(key string, opts *store.ReadOptions) (pair *store.KVPair, err error) {
+func (s *Etcd) Get(_ context.Context, key string, opts *store.ReadOptions) (pair *store.KVPair, err error) {
 	getOpts := &etcd.GetOptions{
 		Quorum: true,
 	}
@@ -168,7 +168,7 @@ func (s *Etcd) Delete(key string) error {
 
 // Exists checks if the key exists inside the store.
 func (s *Etcd) Exists(key string, opts *store.ReadOptions) (bool, error) {
-	_, err := s.Get(key, opts)
+	_, err := s.Get(context.TODO(), key, opts)
 	if err != nil {
 		if errors.Is(err, store.ErrKeyNotFound) {
 			return false, nil
@@ -190,7 +190,7 @@ func (s *Etcd) Watch(key string, stopCh <-chan struct{}, opts *store.ReadOptions
 	watchCh := make(chan *store.KVPair)
 
 	// Get the current value.
-	pair, err := s.Get(key, opts)
+	pair, err := s.Get(context.TODO(), key, opts)
 	if err != nil {
 		return nil, err
 	}

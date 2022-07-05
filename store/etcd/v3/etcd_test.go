@@ -68,7 +68,7 @@ func TestKeepAlive(t *testing.T) {
 	time.Sleep(3 * time.Second)
 
 	// The key should be gone because we didn't use KeepAlive.
-	pair, err := kv.Get("foo", nil)
+	pair, err := kv.Get(ctx, "foo", nil)
 	assert.Error(t, err, store.ErrKeyNotFound)
 	assert.Nil(t, pair)
 
@@ -82,7 +82,7 @@ func TestKeepAlive(t *testing.T) {
 	time.Sleep(3 * time.Second)
 
 	// We should still be able to get the key after the TTL expires.
-	pair, err = kv.Get("foo", nil)
+	pair, err = kv.Get(ctx, "foo", nil)
 	require.NoError(t, err)
 	assert.Equal(t, pair.Value, []byte("bar"))
 

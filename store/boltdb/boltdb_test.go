@@ -107,12 +107,12 @@ func TestConcurrentConnection(t *testing.T) {
 	err = kv2.Put(ctx, key2, value2, nil)
 	require.NoError(t, err)
 
-	pair1, err := kv1.Get(key1, nil)
+	pair1, err := kv1.Get(ctx, key1, nil)
 	require.NoError(t, err)
 	require.NotNil(t, pair1)
 	assert.Equal(t, pair1.Value, value1)
 
-	pair2, err := kv2.Get(key2, nil)
+	pair2, err := kv2.Get(ctx, key2, nil)
 	require.NoError(t, err)
 	require.NotNil(t, pair2)
 	assert.Equal(t, pair2.Value, value2)
