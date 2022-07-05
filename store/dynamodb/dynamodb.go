@@ -91,13 +91,13 @@ type DynamoDB struct {
 }
 
 // Put a value at the specified key.
-func (ddb *DynamoDB) Put(key string, value []byte, options *store.WriteOptions) error {
+func (ddb *DynamoDB) Put(ctx context.Context, key string, value []byte, opts *store.WriteOptions) error {
 	keyAttr := make(map[string]*dynamodb.AttributeValue)
 	keyAttr[partitionKey] = &dynamodb.AttributeValue{S: aws.String(key)}
 
-	exAttr := make(map[string]*dynamodb.AttributeValue)
-
-	exAttr[":incr"] = &dynamodb.AttributeValue{N: aws.String("1")}
+	exAttr := map[string]*dynamodb.AttributeValue{
+		":incr": {N: aws.String("1")},
+	}
 
 	var setList []string
 
@@ -109,8 +109,8 @@ func (ddb *DynamoDB) Put(key string, value []byte, options *store.WriteOptions) 
 	}
 
 	// if a ttl was provided validate it and append it to the update expression.
-	if options != nil && options.TTL > 0 {
-		ttlVal := time.Now().Add(options.TTL).Unix()
+	if opts != nil && opts.TTL > 0 {
+		ttlVal := time.Now().Add(opts.TTL).Unix()
 		exAttr[":ttl"] = &dynamodb.AttributeValue{N: aws.String(strconv.FormatInt(ttlVal, 10))}
 		setList = append(setList, fmt.Sprintf("%s = :ttl", ttlAttribute))
 	}
@@ -121,7 +121,7 @@ func (ddb *DynamoDB) Put(key string, value []byte, options *store.WriteOptions) 
 		updateExp = fmt.Sprintf("%s SET %s", updateExp, strings.Join(setList, ","))
 	}
 
-	_, err := ddb.dynamoSvc.UpdateItem(&dynamodb.UpdateItemInput{
+	_, err := ddb.dynamoSvc.UpdateItemWithContext(ctx, &dynamodb.UpdateItemInput{
 		TableName:                 aws.String(ddb.tableName),
 		Key:                       keyAttr,
 		ExpressionAttributeValues: exAttr,

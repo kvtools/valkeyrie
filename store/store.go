@@ -2,6 +2,7 @@
 package store
 
 import (
+	"context"
 	"crypto/tls"
 	"errors"
 	"time"
@@ -75,37 +76,37 @@ type ClientTLSConfig struct {
 // Or it couldn't be implemented as a K/V backend for valkeyrie.
 type Store interface {
 	// Put a value at the specified key.
-	Put(key string, value []byte, options *WriteOptions) error
+	Put(ctex context.Context, key string, value []byte, opts *WriteOptions) error
 
 	// Get a value given its key.
-	Get(key string, options *ReadOptions) (*KVPair, error)
+	Get(key string, opts *ReadOptions) (*KVPair, error)
 
 	// Delete the value at the specified key.
 	Delete(key string) error
 
 	// Exists Verify if a Key exists in the store.
-	Exists(key string, options *ReadOptions) (bool, error)
+	Exists(key string, opts *ReadOptions) (bool, error)
 
 	// Watch for changes on a key.
-	Watch(key string, stopCh <-chan struct{}, options *ReadOptions) (<-chan *KVPair, error)
+	Watch(key string, stopCh <-chan struct{}, opts *ReadOptions) (<-chan *KVPair, error)
 
 	// WatchTree watches for changes on child nodes under a given directory.
-	WatchTree(directory string, stopCh <-chan struct{}, options *ReadOptions) (<-chan []*KVPair, error)
+	WatchTree(directory string, stopCh <-chan struct{}, opts *ReadOptions) (<-chan []*KVPair, error)
 
 	// NewLock creates a lock for a given key.
 	// The returned Locker is not held and must be acquired with `.Lock`.
 	// The Value is optional.
-	NewLock(key string, options *LockOptions) (Locker, error)
+	NewLock(key string, opts *LockOptions) (Locker, error)
 
 	// List the content of a given prefix.
-	List(directory string, options *ReadOptions) ([]*KVPair, error)
+	List(directory string, opts *ReadOptions) ([]*KVPair, error)
 
 	// DeleteTree deletes a range of keys under a given directory.
 	DeleteTree(directory string) error
 
 	// AtomicPut Atomic CAS operation on a single value.
 	// Pass previous = nil to create a new key.
-	AtomicPut(key string, value []byte, previous *KVPair, options *WriteOptions) (bool, *KVPair, error)
+	AtomicPut(key string, value []byte, previous *KVPair, opts *WriteOptions) (bool, *KVPair, error)
 
 	// AtomicDelete Atomic delete of a single value.
 	AtomicDelete(key string, previous *KVPair) (bool, error)

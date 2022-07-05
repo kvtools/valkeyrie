@@ -2,6 +2,7 @@
 package consul
 
 import (
+	"context"
 	"crypto/tls"
 	"errors"
 	"net/http"
@@ -199,7 +200,7 @@ func (s *Consul) Get(key string, opts *store.ReadOptions) (*store.KVPair, error)
 }
 
 // Put a value at "key".
-func (s *Consul) Put(key string, value []byte, opts *store.WriteOptions) error {
+func (s *Consul) Put(_ context.Context, key string, value []byte, opts *store.WriteOptions) error {
 	p := &api.KVPair{
 		Key:   s.normalize(key),
 		Value: value,

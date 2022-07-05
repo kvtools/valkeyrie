@@ -122,8 +122,8 @@ func (s *EtcdV3) Get(key string, opts *store.ReadOptions) (pair *store.KVPair, e
 }
 
 // Put a value at "key".
-func (s *EtcdV3) Put(key string, value []byte, opts *store.WriteOptions) error {
-	ctx, cancel := context.WithTimeout(context.Background(), etcdDefaultTimeout)
+func (s *EtcdV3) Put(ctx context.Context, key string, value []byte, opts *store.WriteOptions) error {
+	ctx, cancel := context.WithTimeout(ctx, etcdDefaultTimeout)
 	defer cancel()
 
 	pr := s.client.Txn(ctx)
@@ -139,13 +139,13 @@ func (s *EtcdV3) Put(key string, value []byte, opts *store.WriteOptions) error {
 	}
 
 	lease := etcd.NewLease(s.client)
-	grant, err := lease.Grant(context.Background(), int64(opts.TTL/time.Second))
+	grant, err := lease.Grant(ctx, int64(opts.TTL/time.Second))
 	if err != nil {
 		return err
 	}
 
 	if opts.KeepAlive {
-		ch, err := lease.KeepAlive(context.Background(), grant.ID)
+		ch, err := lease.KeepAlive(ctx, grant.ID)
 		if err != nil {
 			return err
 		}

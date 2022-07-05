@@ -2,6 +2,8 @@
 package mock
 
 import (
+	"context"
+
 	"github.com/kvtools/valkeyrie/store"
 	"github.com/stretchr/testify/mock"
 )
@@ -26,7 +28,7 @@ func New(endpoints []string, options *store.Config) (store.Store, error) {
 }
 
 // Put mock.
-func (s *Mock) Put(key string, value []byte, opts *store.WriteOptions) error {
+func (s *Mock) Put(_ context.Context, key string, value []byte, opts *store.WriteOptions) error {
 	args := s.Mock.Called(key, value, opts)
 	return args.Error(0)
 }

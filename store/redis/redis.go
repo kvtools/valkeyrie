@@ -93,13 +93,13 @@ type Redis struct {
 }
 
 // Put a value at the specified key.
-func (r *Redis) Put(key string, value []byte, options *store.WriteOptions) error {
+func (r *Redis) Put(ctx context.Context, key string, value []byte, opts *store.WriteOptions) error {
 	expirationAfter := noExpiration
-	if options != nil && options.TTL != 0 {
-		expirationAfter = options.TTL
+	if opts != nil && opts.TTL != 0 {
+		expirationAfter = opts.TTL
 	}
 
-	return r.setTTL(context.Background(), normalize(key), &store.KVPair{
+	return r.setTTL(ctx, normalize(key), &store.KVPair{
 		Key:       key,
 		Value:     value,
 		LastIndex: sequenceNum(),

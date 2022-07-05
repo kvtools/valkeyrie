@@ -3,6 +3,7 @@ package boltdb
 
 import (
 	"bytes"
+	"context"
 	"encoding/binary"
 	"errors"
 	"os"
@@ -164,7 +165,7 @@ func (b *BoltDB) Get(key string, _ *store.ReadOptions) (*store.KVPair, error) {
 
 // Put the key, value pair.
 // Index number metadata is prepended to the value.
-func (b *BoltDB) Put(key string, value []byte, _ *store.WriteOptions) error {
+func (b *BoltDB) Put(_ context.Context, key string, value []byte, _ *store.WriteOptions) error {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 

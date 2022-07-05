@@ -1,6 +1,7 @@
 package dynamodb
 
 import (
+	"context"
 	"testing"
 
 	"github.com/aws/aws-sdk-go/aws"
@@ -94,22 +95,18 @@ func TestBatchWrite(t *testing.T) {
 	secondKey := "testDeleteTree/second"
 	secondValue := []byte("second")
 
+	ctx := context.Background()
+
 	// Put the first key.
-	err := kv.Put(firstKey, firstValue, nil)
+	err := kv.Put(ctx, firstKey, firstValue, nil)
 	require.NoError(t, err)
 
 	// Put the second key.
-	err = kv.Put(secondKey, secondValue, nil)
+	err = kv.Put(ctx, secondKey, secondValue, nil)
 	require.NoError(t, err)
 
 	err = kv.DeleteTree(prefix)
 	require.NoError(t, err)
-}
-
-type mockedBatchWrite struct {
-	dynamodbiface.DynamoDBAPI
-	BatchWriteResp *dynamodb.BatchWriteItemOutput
-	Count          int
 }
 
 func TestDecodeItem(t *testing.T) {
@@ -133,6 +130,12 @@ func TestDecodeItem(t *testing.T) {
 	kv, err = decodeItem(data)
 	assert.Error(t, err)
 	assert.Nil(t, kv)
+}
+
+type mockedBatchWrite struct {
+	dynamodbiface.DynamoDBAPI
+	BatchWriteResp *dynamodb.BatchWriteItemOutput
+	Count          int
 }
 
 func (m *mockedBatchWrite) BatchWriteItem(_ *dynamodb.BatchWriteItemInput) (*dynamodb.BatchWriteItemOutput, error) {

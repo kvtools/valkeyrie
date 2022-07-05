@@ -1,6 +1,7 @@
 package boltdb
 
 import (
+	"context"
 	"os"
 	"testing"
 	"time"
@@ -94,14 +95,16 @@ func TestConcurrentConnection(t *testing.T) {
 	require.NoError(t, err)
 	assert.NotNil(t, kv2)
 
+	ctx := context.Background()
+
 	key1 := "TestKV1"
 	value1 := []byte("TestVal1")
-	err = kv1.Put(key1, value1, nil)
+	err = kv1.Put(ctx, key1, value1, nil)
 	require.NoError(t, err)
 
 	key2 := "TestKV2"
 	value2 := []byte("TestVal2")
-	err = kv2.Put(key2, value2, nil)
+	err = kv2.Put(ctx, key2, value2, nil)
 	require.NoError(t, err)
 
 	pair1, err := kv1.Get(key1, nil)
@@ -146,7 +149,7 @@ func TestGetAllKeys(t *testing.T) {
 		_ = kv.Delete("key1")
 	})
 
-	err := kv.Put("key1", []byte("value1"), &store.WriteOptions{})
+	err := kv.Put(context.Background(), "key1", []byte("value1"), &store.WriteOptions{})
 	require.NoError(t, err)
 
 	pairs, err := kv.List("", nil)

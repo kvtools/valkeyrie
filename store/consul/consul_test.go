@@ -1,6 +1,7 @@
 package consul
 
 import (
+	"context"
 	"testing"
 	"time"
 
@@ -63,7 +64,7 @@ func TestGetActiveSession(t *testing.T) {
 	value := []byte("bar")
 
 	// Put the first key with the Ephemeral flag.
-	err := kv.Put(key, value, &store.WriteOptions{TTL: 2 * time.Second})
+	err := kv.Put(context.Background(), key, value, &store.WriteOptions{TTL: 2 * time.Second})
 	require.NoError(t, err)
 
 	// Session should not be empty.

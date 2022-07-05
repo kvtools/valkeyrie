@@ -1,6 +1,7 @@
 package etcdv3
 
 import (
+	"context"
 	"testing"
 	"time"
 
@@ -57,7 +58,9 @@ func TestEtcdV3Store(t *testing.T) {
 func TestKeepAlive(t *testing.T) {
 	kv := makeEtcdV3Client(t)
 
-	err := kv.Put("foo", []byte("bar"), &store.WriteOptions{
+	ctx := context.Background()
+
+	err := kv.Put(ctx, "foo", []byte("bar"), &store.WriteOptions{
 		TTL: 1 * time.Second,
 	})
 	require.NoError(t, err)
@@ -70,7 +73,7 @@ func TestKeepAlive(t *testing.T) {
 	assert.Nil(t, pair)
 
 	// Put the key but now with a KeepAlive.
-	err = kv.Put("foo", []byte("bar"), &store.WriteOptions{
+	err = kv.Put(ctx, "foo", []byte("bar"), &store.WriteOptions{
 		TTL:       1 * time.Second,
 		KeepAlive: true,
 	})

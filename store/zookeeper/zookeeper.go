@@ -2,6 +2,7 @@
 package zookeeper
 
 import (
+	"context"
 	"errors"
 	"strings"
 	"time"
@@ -116,7 +117,7 @@ func (s *Zookeeper) createFullPath(path []string, data []byte, ephemeral bool) e
 }
 
 // Put a value at "key".
-func (s *Zookeeper) Put(key string, value []byte, opts *store.WriteOptions) error {
+func (s *Zookeeper) Put(_ context.Context, key string, value []byte, opts *store.WriteOptions) error {
 	fkey := s.normalize(key)
 
 	exists, err := s.Exists(key, nil)

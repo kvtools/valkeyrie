@@ -140,7 +140,7 @@ func (s *Etcd) Get(key string, opts *store.ReadOptions) (pair *store.KVPair, err
 }
 
 // Put a value at "key".
-func (s *Etcd) Put(key string, value []byte, opts *store.WriteOptions) error {
+func (s *Etcd) Put(_ context.Context, key string, value []byte, opts *store.WriteOptions) error {
 	setOpts := &etcd.SetOptions{}
 
 	// Set options.

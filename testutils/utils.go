@@ -2,6 +2,7 @@
 package testutils
 
 import (
+	"context"
 	"strconv"
 	"strings"
 	"testing"
@@ -87,6 +88,8 @@ func testPutGetDeleteExists(t *testing.T, kv store.Store) {
 	_, err := kv.Get("testPutGetDelete_not_exist_key", nil)
 	assert.ErrorIs(t, err, store.ErrKeyNotFound)
 
+	ctx := context.Background()
+
 	value := []byte("bar")
 	for _, key := range []string{
 		"testPutGetDeleteExists",
@@ -95,7 +98,7 @@ func testPutGetDeleteExists(t *testing.T, kv store.Store) {
 		"testPutGetDeleteExists/testbar/testfoobar",
 	} {
 		// Put the key.
-		err = kv.Put(key, value, nil)
+		err = kv.Put(ctx, key, value, nil)
 		require.NoError(t, err)
 
 		// Get should return the value and an incremented index.
@@ -133,8 +136,10 @@ func testWatch(t *testing.T, kv store.Store) {
 	value := []byte("world")
 	newValue := []byte("world!")
 
+	ctx := context.Background()
+
 	// Put the key.
-	err := kv.Put(key, value, nil)
+	err := kv.Put(ctx, key, value, nil)
 	require.NoError(t, err)
 
 	stopCh := make(<-chan struct{})
@@ -152,7 +157,7 @@ func testWatch(t *testing.T, kv store.Store) {
 			case <-timeout:
 				return
 			case <-tick.C:
-				err := kv.Put(key, newValue, nil)
+				err := kv.Put(ctx, key, newValue, nil)
 				if assert.NoError(t, err) {
 					continue
 				}
@@ -199,11 +204,13 @@ func testWatchTree(t *testing.T, kv store.Store) {
 	node3 := "testWatchTree/node3"
 	value3 := []byte("node3")
 
-	err := kv.Put(node1, value1, nil)
+	ctx := context.Background()
+
+	err := kv.Put(ctx, node1, value1, nil)
 	require.NoError(t, err)
-	err = kv.Put(node2, value2, nil)
+	err = kv.Put(ctx, node2, value2, nil)
 	require.NoError(t, err)
-	err = kv.Put(node3, value3, nil)
+	err = kv.Put(ctx, node3, value3, nil)
 	require.NoError(t, err)
 
 	stopCh := make(<-chan struct{})
@@ -244,8 +251,10 @@ func testAtomicPut(t *testing.T, kv store.Store) {
 	key := "testAtomicPut"
 	value := []byte("world")
 
+	ctx := context.Background()
+
 	// Put the key.
-	err := kv.Put(key, value, nil)
+	err := kv.Put(ctx, key, value, nil)
 	require.NoError(t, err)
 
 	// Get should return the value and an incremented index.
@@ -317,8 +326,10 @@ func testAtomicDelete(t *testing.T, kv store.Store) {
 	key := "testAtomicDelete"
 	value := []byte("world")
 
+	ctx := context.Background()
+
 	// Put the key.
-	err := kv.Put(key, value, nil)
+	err := kv.Put(ctx, key, value, nil)
 	require.NoError(t, err)
 
 	// Get should return the value and an incremented index.
@@ -503,12 +514,14 @@ func testPutTTL(t *testing.T, kv store.Store, otherConn store.Store) {
 	secondKey := "second"
 	secondValue := []byte("bar")
 
+	ctx := context.Background()
+
 	// Put the first key with the Ephemeral flag.
-	err := otherConn.Put(firstKey, firstValue, &store.WriteOptions{TTL: 2 * time.Second})
+	err := otherConn.Put(ctx, firstKey, firstValue, &store.WriteOptions{TTL: 2 * time.Second})
 	require.NoError(t, err)
 
 	// Put a second key with the Ephemeral flag.
-	err = otherConn.Put(secondKey, secondValue, &store.WriteOptions{TTL: 2 * time.Second})
+	err = otherConn.Put(ctx, secondKey, secondValue, &store.WriteOptions{TTL: 2 * time.Second})
 	require.NoError(t, err)
 
 	// Get on firstKey should work.
@@ -545,22 +558,24 @@ func testList(t *testing.T, kv store.Store) {
 	childKey := "testList/child"
 	subfolderKey := "testList/subfolder"
 
+	ctx := context.Background()
+
 	// Put the parent key.
-	err := kv.Put(parentKey, nil, &store.WriteOptions{IsDir: true})
+	err := kv.Put(ctx, parentKey, nil, &store.WriteOptions{IsDir: true})
 	require.NoError(t, err)
 
 	// Put the first child key.
-	err = kv.Put(childKey, []byte("first"), nil)
+	err = kv.Put(ctx, childKey, []byte("first"), nil)
 	require.NoError(t, err)
 
 	// Put the second child key which is also a directory.
-	err = kv.Put(subfolderKey, []byte("second"), &store.WriteOptions{IsDir: true})
+	err = kv.Put(ctx, subfolderKey, []byte("second"), &store.WriteOptions{IsDir: true})
 	require.NoError(t, err)
 
 	// Put child keys under secondKey.
 	for i := 1; i <= 3; i++ {
 		key := "testList/subfolder/key" + strconv.Itoa(i)
-		err = kv.Put(key, []byte("value"), nil)
+		err = kv.Put(ctx, key, []byte("value"), nil)
 		require.NoError(t, err)
 	}
 
@@ -593,16 +608,18 @@ func testListLockKey(t *testing.T, kv store.Store) {
 
 	listKey := "testListLockSide"
 
-	err := kv.Put(listKey, []byte("val"), &store.WriteOptions{IsDir: true})
+	ctx := context.Background()
+
+	err := kv.Put(ctx, listKey, []byte("val"), &store.WriteOptions{IsDir: true})
 	require.NoError(t, err)
 
-	err = kv.Put(listKey+"/subfolder", []byte("val"), &store.WriteOptions{IsDir: true})
+	err = kv.Put(ctx, listKey+"/subfolder", []byte("val"), &store.WriteOptions{IsDir: true})
 	require.NoError(t, err)
 
 	// Put keys under subfolder.
 	for i := 1; i <= 3; i++ {
 		key := listKey + "/subfolder/key" + strconv.Itoa(i)
-		err := kv.Put(key, []byte("val"), nil)
+		err := kv.Put(ctx, key, []byte("val"), nil)
 		require.NoError(t, err)
 
 		// We lock the child key.
@@ -639,12 +656,14 @@ func testDeleteTree(t *testing.T, kv store.Store) {
 	secondKey := "testDeleteTree/second"
 	secondValue := []byte("second")
 
+	ctx := context.Background()
+
 	// Put the first key.
-	err := kv.Put(firstKey, firstValue, nil)
+	err := kv.Put(ctx, firstKey, firstValue, nil)
 	require.NoError(t, err)
 
 	// Put the second key.
-	err = kv.Put(secondKey, secondValue, nil)
+	err = kv.Put(ctx, secondKey, secondValue, nil)
 	require.NoError(t, err)
 
 	// Get should work on the first Key.
