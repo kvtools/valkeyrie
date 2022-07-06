@@ -58,7 +58,7 @@ func (s *Mock) Watch(_ context.Context, key string, stopCh <-chan struct{}, opts
 }
 
 // WatchTree mock.
-func (s *Mock) WatchTree(prefix string, stopCh <-chan struct{}, opts *store.ReadOptions) (<-chan []*store.KVPair, error) {
+func (s *Mock) WatchTree(_ context.Context, prefix string, stopCh <-chan struct{}, opts *store.ReadOptions) (<-chan []*store.KVPair, error) {
 	args := s.Mock.Called(prefix, stopCh, opts)
 	return args.Get(0).(chan []*store.KVPair), args.Error(1)
 }

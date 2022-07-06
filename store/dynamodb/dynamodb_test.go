@@ -60,7 +60,7 @@ func TestDynamoDBStoreUnsupported(t *testing.T) {
 
 	ctx := context.Background()
 
-	_, err := ddbStore.WatchTree("test", nil, nil)
+	_, err := ddbStore.WatchTree(ctx, "test", nil, nil)
 	assert.ErrorIs(t, err, store.ErrCallNotSupported)
 
 	_, err = ddbStore.Watch(ctx, "test", nil, nil)

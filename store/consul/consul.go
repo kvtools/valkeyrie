@@ -346,7 +346,7 @@ func (s *Consul) Watch(_ context.Context, key string, stopCh <-chan struct{}, _ 
 // It returns a channel that will receive changes or pass on errors.
 // Upon creating a watch, the current children values will be sent to the channel.
 // Providing a non-nil stopCh can be used to stop watching.
-func (s *Consul) WatchTree(directory string, stopCh <-chan struct{}, _ *store.ReadOptions) (<-chan []*store.KVPair, error) {
+func (s *Consul) WatchTree(_ context.Context, directory string, stopCh <-chan struct{}, _ *store.ReadOptions) (<-chan []*store.KVPair, error) {
 	kv := s.client.KV()
 	watchCh := make(chan []*store.KVPair)
 

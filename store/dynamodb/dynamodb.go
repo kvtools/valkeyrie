@@ -466,7 +466,7 @@ func (ddb *DynamoDB) Watch(_ context.Context, _ string, _ <-chan struct{}, _ *st
 }
 
 // WatchTree has to implemented at the library level since it's not supported by DynamoDB.
-func (ddb *DynamoDB) WatchTree(_ string, _ <-chan struct{}, _ *store.ReadOptions) (<-chan []*store.KVPair, error) {
+func (ddb *DynamoDB) WatchTree(_ context.Context, _ string, _ <-chan struct{}, _ *store.ReadOptions) (<-chan []*store.KVPair, error) {
 	return nil, store.ErrCallNotSupported
 }
 

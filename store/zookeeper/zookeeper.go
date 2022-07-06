@@ -199,7 +199,7 @@ func (s *Zookeeper) Watch(_ context.Context, key string, stopCh <-chan struct{},
 // It returns a channel that will receive changes or pass on errors.
 // Upon creating a watch, the current children values will be sent to the channel.
 // Providing a non-nil stopCh can be used to stop watching.
-func (s *Zookeeper) WatchTree(directory string, stopCh <-chan struct{}, opts *store.ReadOptions) (<-chan []*store.KVPair, error) {
+func (s *Zookeeper) WatchTree(_ context.Context, directory string, stopCh <-chan struct{}, opts *store.ReadOptions) (<-chan []*store.KVPair, error) {
 	// Catch zk notifications and fire changes into the channel.
 	watchCh := make(chan []*store.KVPair)
 	go func() {

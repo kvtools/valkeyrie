@@ -242,14 +242,14 @@ func (s *EtcdV3) Watch(ctx context.Context, key string, stopCh <-chan struct{}, 
 // It returns a channel that will receive changes or pass on errors.
 // Upon creating a watch, the current children values will be sent to the channel.
 // Providing a non-nil stopCh can be used to stop watching.
-func (s *EtcdV3) WatchTree(directory string, stopCh <-chan struct{}, opts *store.ReadOptions) (<-chan []*store.KVPair, error) {
+func (s *EtcdV3) WatchTree(ctx context.Context, directory string, stopCh <-chan struct{}, opts *store.ReadOptions) (<-chan []*store.KVPair, error) {
 	wc := etcd.NewWatcher(s.client)
 
 	// respCh is sending back events to the caller.
 	respCh := make(chan []*store.KVPair)
 
 	// Get the current value.
-	rev, pairs, err := s.list(directory, opts)
+	rev, pairs, err := s.list(ctx, directory, opts)
 	if err != nil {
 		return nil, err
 	}
@@ -264,7 +264,7 @@ func (s *EtcdV3) WatchTree(directory string, stopCh <-chan struct{}, opts *store
 		respCh <- pairs
 
 		rev++
-		watchCh := wc.Watch(context.Background(), s.normalize(directory), etcd.WithPrefix(), etcd.WithRev(rev))
+		watchCh := wc.Watch(ctx, s.normalize(directory), etcd.WithPrefix(), etcd.WithRev(rev))
 
 		for resp := range watchCh {
 			// Check if the watch was stopped by the caller.
@@ -379,7 +379,7 @@ func (s *EtcdV3) AtomicDelete(key string, previous *store.KVPair) (bool, error) 
 
 // List child nodes of a given directory.
 func (s *EtcdV3) List(directory string, opts *store.ReadOptions) ([]*store.KVPair, error) {
-	_, kv, err := s.list(directory, opts)
+	_, kv, err := s.list(context.TODO(), directory, opts)
 	return kv, err
 }
 
@@ -460,8 +460,8 @@ func (s *EtcdV3) Close() {
 }
 
 // list child nodes of a given directory and return revision number.
-func (s *EtcdV3) list(directory string, opts *store.ReadOptions) (int64, []*store.KVPair, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), etcdDefaultTimeout)
+func (s *EtcdV3) list(ctx context.Context, directory string, opts *store.ReadOptions) (int64, []*store.KVPair, error) {
+	ctx, cancel := context.WithTimeout(ctx, etcdDefaultTimeout)
 
 	var resp *etcd.GetResponse
 	var err error

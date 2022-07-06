@@ -187,11 +187,9 @@ func (r *Redis) Watch(ctx context.Context, key string, stopCh <-chan struct{}, o
 }
 
 // WatchTree watches for changes on child nodes under a given directory.
-func (r *Redis) WatchTree(directory string, stopCh <-chan struct{}, _ *store.ReadOptions) (<-chan []*store.KVPair, error) {
+func (r *Redis) WatchTree(ctx context.Context, directory string, stopCh <-chan struct{}, _ *store.ReadOptions) (<-chan []*store.KVPair, error) {
 	watchCh := make(chan []*store.KVPair)
 	nKey := normalize(directory)
-
-	ctx := context.Background()
 
 	get := getter(func() (interface{}, error) {
 		pair, err := r.list(ctx, nKey)

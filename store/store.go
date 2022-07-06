@@ -91,7 +91,7 @@ type Store interface {
 	Watch(ctx context.Context, key string, stopCh <-chan struct{}, opts *ReadOptions) (<-chan *KVPair, error) // FIXME stopCh?
 
 	// WatchTree watches for changes on child nodes under a given directory.
-	WatchTree(directory string, stopCh <-chan struct{}, opts *ReadOptions) (<-chan []*KVPair, error)
+	WatchTree(ctx context.Context, directory string, stopCh <-chan struct{}, opts *ReadOptions) (<-chan []*KVPair, error) // FIXME stopCh?
 
 	// NewLock creates a lock for a given key.
 	// The returned Locker is not held and must be acquired with `.Lock`.

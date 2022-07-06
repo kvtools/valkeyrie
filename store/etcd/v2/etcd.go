@@ -229,7 +229,7 @@ func (s *Etcd) Watch(_ context.Context, key string, stopCh <-chan struct{}, opts
 // It returns a channel that will receive changes or pass on errors.
 // Upon creating a watch, the current children values will be sent to the channel.
 // Providing a non-nil stopCh can be used to stop watching.
-func (s *Etcd) WatchTree(directory string, stopCh <-chan struct{}, opts *store.ReadOptions) (<-chan []*store.KVPair, error) {
+func (s *Etcd) WatchTree(_ context.Context, directory string, stopCh <-chan struct{}, opts *store.ReadOptions) (<-chan []*store.KVPair, error) {
 	watchOpts := &etcd.WatcherOptions{Recursive: true}
 	watcher := s.client.Watcher(s.normalize(directory), watchOpts)
 
