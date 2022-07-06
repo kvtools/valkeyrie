@@ -328,10 +328,8 @@ func (r *Redis) mget(ctx context.Context, directory string, keys ...string) ([]*
 // DeleteTree deletes a range of keys under a given directory.
 // glitch: we list all available keys first and then delete them all
 // it costs two operations on redis, so is not atomicity.
-func (r *Redis) DeleteTree(directory string) error {
+func (r *Redis) DeleteTree(ctx context.Context, directory string) error {
 	regex := scanRegex(normalize(directory)) // for all keyed with $directory.
-
-	ctx := context.Background()
 
 	allKeys, err := r.keys(ctx, regex)
 	if err != nil {

@@ -687,7 +687,7 @@ func testDeleteTree(t *testing.T, kv store.Store) {
 	assert.NotEqual(t, 0, pair.LastIndex)
 
 	// Delete Values under directory `nodes`.
-	err = kv.DeleteTree(prefix)
+	err = kv.DeleteTree(ctx, prefix)
 	require.NoError(t, err)
 
 	// Get should fail on both keys.
@@ -723,7 +723,7 @@ func RunCleanup(t *testing.T, kv store.Store) {
 		"testListLockSide",
 		"testDeleteTree",
 	} {
-		err := kv.DeleteTree(key)
+		err := kv.DeleteTree(ctx, key)
 		if err != nil {
 			assert.ErrorIsf(t, err, store.ErrKeyNotFound, "failed to delete tree key %s", key)
 		}

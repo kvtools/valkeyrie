@@ -416,7 +416,7 @@ func (b *BoltDB) Close() {
 }
 
 // DeleteTree deletes a range of keys with a given prefix.
-func (b *BoltDB) DeleteTree(keyPrefix string) error {
+func (b *BoltDB) DeleteTree(_ context.Context, keyPrefix string) error {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 

@@ -276,12 +276,12 @@ func (ddb *DynamoDB) List(ctx context.Context, directory string, opts *store.Rea
 }
 
 // DeleteTree deletes a range of keys under a given directory.
-func (ddb *DynamoDB) DeleteTree(keyPrefix string) error {
+func (ddb *DynamoDB) DeleteTree(ctx context.Context, keyPrefix string) error {
 	expAttr := make(map[string]*dynamodb.AttributeValue)
 
 	expAttr[":namePrefix"] = &dynamodb.AttributeValue{S: aws.String(keyPrefix)}
 
-	res, err := ddb.dynamoSvc.Scan(&dynamodb.ScanInput{
+	res, err := ddb.dynamoSvc.ScanWithContext(ctx, &dynamodb.ScanInput{
 		TableName:                 aws.String(ddb.tableName),
 		FilterExpression:          aws.String(fmt.Sprintf("begins_with(%s, :namePrefix)", partitionKey)),
 		ExpressionAttributeValues: expAttr,
@@ -308,7 +308,7 @@ func (ddb *DynamoDB) DeleteTree(keyPrefix string) error {
 		}
 	}
 
-	return ddb.retryDeleteTree(items)
+	return ddb.retryDeleteTree(ctx, items)
 }
 
 // AtomicPut Atomic CAS operation on a single value.
@@ -513,8 +513,8 @@ func (ddb *DynamoDB) createTable() error {
 	return nil
 }
 
-func (ddb *DynamoDB) retryDeleteTree(items map[string][]*dynamodb.WriteRequest) error {
-	batchResult, err := ddb.dynamoSvc.BatchWriteItem(&dynamodb.BatchWriteItemInput{
+func (ddb *DynamoDB) retryDeleteTree(ctx context.Context, items map[string][]*dynamodb.WriteRequest) error {
+	batchResult, err := ddb.dynamoSvc.BatchWriteItemWithContext(ctx, &dynamodb.BatchWriteItemInput{
 		RequestItems: items,
 	})
 	if err != nil {
@@ -540,7 +540,7 @@ func (ddb *DynamoDB) retryDeleteTree(items map[string][]*dynamodb.WriteRequest) 
 	for {
 		select {
 		case <-ticker.C:
-			batchResult, err = ddb.dynamoSvc.BatchWriteItem(&dynamodb.BatchWriteItemInput{
+			batchResult, err = ddb.dynamoSvc.BatchWriteItemWithContext(ctx, &dynamodb.BatchWriteItemInput{
 				RequestItems: batchResult.UnprocessedItems,
 			})
 			if err != nil {

@@ -384,8 +384,8 @@ func (s *EtcdV3) List(ctx context.Context, directory string, opts *store.ReadOpt
 }
 
 // DeleteTree deletes a range of keys under a given directory.
-func (s *EtcdV3) DeleteTree(directory string) error {
-	ctx, cancel := context.WithTimeout(context.Background(), etcdDefaultTimeout)
+func (s *EtcdV3) DeleteTree(ctx context.Context, directory string) error {
+	ctx, cancel := context.WithTimeout(ctx, etcdDefaultTimeout)
 
 	resp, err := s.client.KV.Delete(ctx, s.normalize(directory), etcd.WithPrefix())
 	cancel()

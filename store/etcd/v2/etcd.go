@@ -401,7 +401,7 @@ func (s *Etcd) List(ctx context.Context, directory string, opts *store.ReadOptio
 }
 
 // DeleteTree deletes a range of keys under a given directory.
-func (s *Etcd) DeleteTree(directory string) error {
+func (s *Etcd) DeleteTree(_ context.Context, directory string) error {
 	delOpts := &etcd.DeleteOptions{
 		Recursive: true,
 	}

@@ -102,7 +102,7 @@ type Store interface {
 	List(ctx context.Context, directory string, opts *ReadOptions) ([]*KVPair, error)
 
 	// DeleteTree deletes a range of keys under a given directory.
-	DeleteTree(directory string) error
+	DeleteTree(ctx context.Context, directory string) error
 
 	// AtomicPut Atomic CAS operation on a single value.
 	// Pass previous = nil to create a new key.

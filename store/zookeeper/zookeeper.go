@@ -296,7 +296,7 @@ func (s *Zookeeper) List(ctx context.Context, directory string, opts *store.Read
 }
 
 // DeleteTree deletes a range of keys under a given directory.
-func (s *Zookeeper) DeleteTree(directory string) error {
+func (s *Zookeeper) DeleteTree(_ context.Context, directory string) error {
 	children, err := s.listChildren(directory)
 	if err != nil {
 		return err

@@ -76,7 +76,7 @@ func (s *Mock) List(_ context.Context, prefix string, opts *store.ReadOptions) (
 }
 
 // DeleteTree mock.
-func (s *Mock) DeleteTree(prefix string) error {
+func (s *Mock) DeleteTree(_ context.Context, prefix string) error {
 	args := s.Mock.Called(prefix)
 	return args.Error(0)
 }

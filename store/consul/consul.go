@@ -284,8 +284,8 @@ func (s *Consul) List(_ context.Context, directory string, opts *store.ReadOptio
 }
 
 // DeleteTree deletes a range of keys under a given directory.
-func (s *Consul) DeleteTree(directory string) error {
-	if _, err := s.List(context.TODO(), directory, nil); err != nil {
+func (s *Consul) DeleteTree(ctx context.Context, directory string) error {
+	if _, err := s.List(ctx, directory, nil); err != nil {
 		return err
 	}
 

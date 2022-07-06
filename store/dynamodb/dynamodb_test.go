@@ -107,7 +107,7 @@ func TestBatchWrite(t *testing.T) {
 	err = kv.Put(ctx, secondKey, secondValue, nil)
 	require.NoError(t, err)
 
-	err = kv.DeleteTree(prefix)
+	err = kv.DeleteTree(ctx, prefix)
 	require.NoError(t, err)
 }
 
