@@ -90,6 +90,7 @@ func (s *EtcdV3) normalize(key string) string {
 // Returns the last modified index to use in conjunction to Atomic calls.
 func (s *EtcdV3) Get(ctx context.Context, key string, opts *store.ReadOptions) (pair *store.KVPair, err error) {
 	ctx, cancel := context.WithTimeout(ctx, etcdDefaultTimeout)
+	defer cancel()
 
 	var result *etcd.GetResponse
 	if opts != nil && !opts.Consistent {
@@ -97,8 +98,6 @@ func (s *EtcdV3) Get(ctx context.Context, key string, opts *store.ReadOptions) (
 	} else {
 		result, err = s.client.KV.Get(ctx, s.normalize(key))
 	}
-
-	cancel()
 
 	if err != nil {
 		return nil, err
@@ -108,18 +107,17 @@ func (s *EtcdV3) Get(ctx context.Context, key string, opts *store.ReadOptions) (
 		return nil, store.ErrKeyNotFound
 	}
 
-	kvs := []*store.KVPair{}
+	var kvp *store.KVPair
 
-	// FIXME why for ?
-	for _, pair := range result.Kvs {
-		kvs = append(kvs, &store.KVPair{
-			Key:       string(pair.Key),
-			Value:     pair.Value,
-			LastIndex: uint64(pair.ModRevision),
-		})
+	if len(result.Kvs) > 0 {
+		kvp = &store.KVPair{
+			Key:       string(result.Kvs[0].Key),
+			Value:     result.Kvs[0].Value,
+			LastIndex: uint64(result.Kvs[0].ModRevision),
+		}
 	}
 
-	return kvs[0], nil
+	return kvp, nil
 }
 
 // Put a value at "key".
