@@ -293,7 +293,7 @@ func (s *EtcdV3) WatchTree(ctx context.Context, directory string, stopCh <-chan 
 
 // AtomicPut puts a value at "key" if the key has not been modified in the meantime,
 // throws an error if this is the case.
-func (s *EtcdV3) AtomicPut(key string, value []byte, previous *store.KVPair, opts *store.WriteOptions) (bool, *store.KVPair, error) {
+func (s *EtcdV3) AtomicPut(ctx context.Context, key string, value []byte, previous *store.KVPair, opts *store.WriteOptions) (bool, *store.KVPair, error) {
 	var cmp etcd.Cmp
 	var testIndex bool
 
@@ -307,13 +307,13 @@ func (s *EtcdV3) AtomicPut(key string, value []byte, previous *store.KVPair, opt
 		cmp = etcd.Compare(etcd.CreateRevision(key), "=", 0)
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), etcdDefaultTimeout)
+	ctx, cancel := context.WithTimeout(ctx, etcdDefaultTimeout)
 	pr := s.client.Txn(ctx).If(cmp)
 
 	// We set the TTL if given.
 	if opts != nil && opts.TTL > 0 {
 		lease := etcd.NewLease(s.client)
-		resp, err := lease.Grant(context.Background(), int64(opts.TTL/time.Second))
+		resp, err := lease.Grant(ctx, int64(opts.TTL/time.Second))
 		if err != nil {
 			cancel()
 			return false, nil, err

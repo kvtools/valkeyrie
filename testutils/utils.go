@@ -265,18 +265,18 @@ func testAtomicPut(t *testing.T, kv store.Store) {
 	assert.NotEqual(t, pair.LastIndex, 0)
 
 	// This CAS should fail: previous exists.
-	success, _, err := kv.AtomicPut(key, []byte("WORLD"), nil, nil)
+	success, _, err := kv.AtomicPut(ctx, key, []byte("WORLD"), nil, nil)
 	assert.Error(t, err)
 	assert.False(t, success)
 
 	// This CAS should succeed.
-	success, _, err = kv.AtomicPut(key, []byte("WORLD"), pair, nil)
+	success, _, err = kv.AtomicPut(ctx, key, []byte("WORLD"), pair, nil)
 	require.NoError(t, err)
 	assert.True(t, success)
 
 	// This CAS should fail, key has wrong index.
 	pair.LastIndex = 6744
-	success, _, err = kv.AtomicPut(key, []byte("WORLDWORLD"), pair, nil)
+	success, _, err = kv.AtomicPut(ctx, key, []byte("WORLDWORLD"), pair, nil)
 	assert.Equal(t, err, store.ErrKeyModified)
 	assert.False(t, success)
 }
@@ -292,7 +292,7 @@ func testAtomicPutCreate(t *testing.T, kv store.Store) {
 	value := []byte("putcreate")
 
 	// AtomicPut the key, previous = nil indicates create.
-	success, _, err := kv.AtomicPut(key, value, nil, nil)
+	success, _, err := kv.AtomicPut(ctx, key, value, nil, nil)
 	require.NoError(t, err)
 	assert.True(t, success)
 
@@ -303,12 +303,12 @@ func testAtomicPutCreate(t *testing.T, kv store.Store) {
 	assert.Equal(t, pair.Value, value)
 
 	// Attempting to create again should fail.
-	success, _, err = kv.AtomicPut(key, value, nil, nil)
+	success, _, err = kv.AtomicPut(ctx, key, value, nil, nil)
 	assert.ErrorIs(t, err, store.ErrKeyExists)
 	assert.False(t, success)
 
 	// This CAS should succeed, since it has the value from Get().
-	success, _, err = kv.AtomicPut(key, []byte("PUTCREATE"), pair, nil)
+	success, _, err = kv.AtomicPut(ctx, key, []byte("PUTCREATE"), pair, nil)
 	require.NoError(t, err)
 	assert.True(t, success)
 }
@@ -317,7 +317,7 @@ func testAtomicPutWithSlashSuffixKey(t *testing.T, kv store.Store) {
 	t.Helper()
 
 	k1 := "testAtomicPutWithSlashSuffixKey/key/"
-	success, _, err := kv.AtomicPut(k1, []byte{}, nil, nil)
+	success, _, err := kv.AtomicPut(context.Background(), k1, []byte{}, nil, nil)
 	require.NoError(t, err)
 	assert.True(t, success)
 }

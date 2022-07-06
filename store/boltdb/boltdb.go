@@ -341,7 +341,7 @@ func (b *BoltDB) AtomicDelete(key string, previous *store.KVPair) (bool, error) 
 // AtomicPut puts a value at "key"
 // if the key has not been modified since the last Put,
 // throws an error if this is the case.
-func (b *BoltDB) AtomicPut(key string, value []byte, previous *store.KVPair, _ *store.WriteOptions) (bool, *store.KVPair, error) {
+func (b *BoltDB) AtomicPut(_ context.Context, key string, value []byte, previous *store.KVPair, opts *store.WriteOptions) (bool, *store.KVPair, error) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 

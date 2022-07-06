@@ -118,10 +118,10 @@ func TestConcurrentConnection(t *testing.T) {
 	assert.Equal(t, pair2.Value, value2)
 
 	// AtomicPut using kv1 and kv2 should succeed.
-	_, _, err = kv1.AtomicPut(key1, []byte("TestnewVal1"), pair1, nil)
+	_, _, err = kv1.AtomicPut(ctx, key1, []byte("TestnewVal1"), pair1, nil)
 	require.NoError(t, err)
 
-	_, _, err = kv2.AtomicPut(key2, []byte("TestnewVal2"), pair2, nil)
+	_, _, err = kv2.AtomicPut(ctx, key2, []byte("TestnewVal2"), pair2, nil)
 	require.NoError(t, err)
 
 	testutils.RunTestCommon(t, kv1)

@@ -342,10 +342,10 @@ func (r *Redis) DeleteTree(ctx context.Context, directory string) error {
 // AtomicPut is an atomic CAS operation on a single value.
 // Pass previous = nil to create a new key.
 // We introduced script on this page, so atomicity is guaranteed.
-func (r *Redis) AtomicPut(key string, value []byte, previous *store.KVPair, options *store.WriteOptions) (bool, *store.KVPair, error) {
+func (r *Redis) AtomicPut(ctx context.Context, key string, value []byte, previous *store.KVPair, opts *store.WriteOptions) (bool, *store.KVPair, error) {
 	expirationAfter := noExpiration
-	if options != nil && options.TTL != 0 {
-		expirationAfter = options.TTL
+	if opts != nil && opts.TTL != 0 {
+		expirationAfter = opts.TTL
 	}
 
 	newKV := &store.KVPair{
@@ -354,8 +354,6 @@ func (r *Redis) AtomicPut(key string, value []byte, previous *store.KVPair, opti
 		LastIndex: sequenceNum(),
 	}
 	nKey := normalize(key)
-
-	ctx := context.Background()
 
 	// if previous == nil, set directly.
 	if previous == nil {
@@ -534,7 +532,9 @@ type redisLock struct {
 func (l *redisLock) Lock(stopCh chan struct{}) (<-chan struct{}, error) {
 	lockHeld := make(chan struct{})
 
-	success, err := l.tryLock(lockHeld, stopCh)
+	ctx := context.TODO()
+
+	success, err := l.tryLock(ctx, lockHeld, stopCh)
 	if err != nil {
 		return nil, err
 	}
@@ -543,7 +543,7 @@ func (l *redisLock) Lock(stopCh chan struct{}) (<-chan struct{}, error) {
 	}
 
 	// wait for changes on the key.
-	watch, err := l.redis.Watch(context.TODO(), l.key, stopCh, nil)
+	watch, err := l.redis.Watch(ctx, l.key, stopCh, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -553,7 +553,7 @@ func (l *redisLock) Lock(stopCh chan struct{}) (<-chan struct{}, error) {
 		case <-stopCh:
 			return nil, ErrAbortTryLock
 		case <-watch:
-			success, err := l.tryLock(lockHeld, stopCh)
+			success, err := l.tryLock(ctx, lockHeld, stopCh)
 			if err != nil {
 				return nil, err
 			}
@@ -567,18 +567,14 @@ func (l *redisLock) Lock(stopCh chan struct{}) (<-chan struct{}, error) {
 // tryLock return `true, nil` when it acquired and hold the lock
 // and return `false, nil` when it can't lock now,
 // and return `false, err` if any unexpected error happened underlying.
-func (l *redisLock) tryLock(lockHeld, stopChan chan struct{}) (bool, error) {
-	success, item, err := l.redis.AtomicPut(
-		l.key,
-		l.value,
-		l.last,
-		&store.WriteOptions{
-			TTL: l.ttl,
-		})
+func (l *redisLock) tryLock(ctx context.Context, lockHeld, stopChan chan struct{}) (bool, error) {
+	success, item, err := l.redis.AtomicPut(ctx, l.key, l.value, l.last, &store.WriteOptions{
+		TTL: l.ttl,
+	})
 	if success {
 		l.last = item
 		// keep holding.
-		go l.holdLock(lockHeld, stopChan)
+		go l.holdLock(ctx, lockHeld, stopChan)
 		return true, nil
 	}
 	if errors.Is(err, store.ErrKeyNotFound) || errors.Is(err, store.ErrKeyModified) || errors.Is(err, store.ErrKeyExists) {
@@ -587,17 +583,13 @@ func (l *redisLock) tryLock(lockHeld, stopChan chan struct{}) (bool, error) {
 	return false, err
 }
 
-func (l *redisLock) holdLock(lockHeld, stopChan chan struct{}) {
+func (l *redisLock) holdLock(ctx context.Context, lockHeld, stopChan chan struct{}) {
 	defer close(lockHeld)
 
 	hold := func() error {
-		_, item, err := l.redis.AtomicPut(
-			l.key,
-			l.value,
-			l.last,
-			&store.WriteOptions{
-				TTL: l.ttl,
-			})
+		_, item, err := l.redis.AtomicPut(ctx, l.key, l.value, l.last, &store.WriteOptions{
+			TTL: l.ttl,
+		})
 		if err == nil {
 			l.last = item
 		}

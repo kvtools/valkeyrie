@@ -312,8 +312,8 @@ func (ddb *DynamoDB) DeleteTree(ctx context.Context, keyPrefix string) error {
 }
 
 // AtomicPut Atomic CAS operation on a single value.
-func (ddb *DynamoDB) AtomicPut(key string, value []byte, previous *store.KVPair, options *store.WriteOptions) (bool, *store.KVPair, error) {
-	getRes, err := ddb.getKey(context.TODO(), key, &store.ReadOptions{
+func (ddb *DynamoDB) AtomicPut(ctx context.Context, key string, value []byte, previous *store.KVPair, opts *store.WriteOptions) (bool, *store.KVPair, error) {
+	getRes, err := ddb.getKey(ctx, key, &store.ReadOptions{
 		Consistent: true, // enable the read consistent flag.
 	})
 	if err != nil {
@@ -341,8 +341,8 @@ func (ddb *DynamoDB) AtomicPut(key string, value []byte, previous *store.KVPair,
 	}
 
 	// if a ttl was provided validate it and append it to the update expression.
-	if options != nil && options.TTL > 0 {
-		ttlVal := time.Now().Add(options.TTL).Unix()
+	if opts != nil && opts.TTL > 0 {
+		ttlVal := time.Now().Add(opts.TTL).Unix()
 		exAttr[":ttl"] = &dynamodb.AttributeValue{N: aws.String(strconv.FormatInt(ttlVal, 10))}
 		setList = append(setList, fmt.Sprintf("%s = :ttl", ttlAttribute))
 	}
@@ -364,7 +364,7 @@ func (ddb *DynamoDB) AtomicPut(key string, value []byte, previous *store.KVPair,
 			revisionAttribute, ttlAttribute, ttlAttribute, ttlAttribute))
 	}
 
-	res, err := ddb.dynamoSvc.UpdateItem(&dynamodb.UpdateItemInput{
+	res, err := ddb.dynamoSvc.UpdateItemWithContext(ctx, &dynamodb.UpdateItemInput{
 		TableName:                 aws.String(ddb.tableName),
 		Key:                       keyAttr,
 		ExpressionAttributeValues: exAttr,
@@ -572,7 +572,9 @@ type dynamodbLock struct {
 func (l *dynamodbLock) Lock(stopChan chan struct{}) (<-chan struct{}, error) {
 	lockHeld := make(chan struct{})
 
-	success, err := l.tryLock(lockHeld, stopChan)
+	ctx := context.TODO()
+
+	success, err := l.tryLock(ctx, lockHeld, stopChan)
 	if err != nil {
 		return nil, err
 	}
@@ -586,7 +588,7 @@ func (l *dynamodbLock) Lock(stopChan chan struct{}) (<-chan struct{}, error) {
 	for {
 		select {
 		case <-ticker.C:
-			success, err := l.tryLock(lockHeld, stopChan)
+			success, err := l.tryLock(ctx, lockHeld, stopChan)
 			if err != nil {
 				return nil, err
 			}
@@ -611,12 +613,8 @@ func (l *dynamodbLock) Unlock() error {
 	return nil
 }
 
-func (l *dynamodbLock) tryLock(lockHeld chan struct{}, stopChan chan struct{}) (bool, error) {
-	success, item, err := l.ddb.AtomicPut(
-		l.key,
-		l.value,
-		l.last,
-		&store.WriteOptions{TTL: l.ttl})
+func (l *dynamodbLock) tryLock(ctx context.Context, lockHeld chan struct{}, stopChan chan struct{}) (bool, error) {
+	success, item, err := l.ddb.AtomicPut(ctx, l.key, l.value, l.last, &store.WriteOptions{TTL: l.ttl})
 	if err != nil {
 		if errors.Is(err, store.ErrKeyNotFound) || errors.Is(err, store.ErrKeyModified) || errors.Is(err, store.ErrKeyExists) {
 			return false, nil
@@ -626,22 +624,18 @@ func (l *dynamodbLock) tryLock(lockHeld chan struct{}, stopChan chan struct{}) (
 	if success {
 		l.last = item
 		// keep holding.
-		go l.holdLock(lockHeld, stopChan)
+		go l.holdLock(ctx, lockHeld, stopChan)
 		return true, nil
 	}
 
 	return false, err
 }
 
-func (l *dynamodbLock) holdLock(lockHeld, stopChan chan struct{}) {
+func (l *dynamodbLock) holdLock(ctx context.Context, lockHeld, stopChan chan struct{}) {
 	defer close(lockHeld)
 
 	hold := func() error {
-		_, item, err := l.ddb.AtomicPut(
-			l.key,
-			l.value,
-			l.last,
-			&store.WriteOptions{TTL: l.ttl})
+		_, item, err := l.ddb.AtomicPut(ctx, l.key, l.value, l.last, &store.WriteOptions{TTL: l.ttl})
 		if err != nil {
 			return err
 		}

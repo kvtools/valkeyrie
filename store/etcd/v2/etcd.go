@@ -112,7 +112,7 @@ func (s *Etcd) normalize(key string) string {
 
 // Get the value at "key".
 // Returns the last modified index to use in conjunction to Atomic calls.
-func (s *Etcd) Get(_ context.Context, key string, opts *store.ReadOptions) (pair *store.KVPair, err error) {
+func (s *Etcd) Get(ctx context.Context, key string, opts *store.ReadOptions) (pair *store.KVPair, err error) {
 	getOpts := &etcd.GetOptions{
 		Quorum: true,
 	}
@@ -122,7 +122,7 @@ func (s *Etcd) Get(_ context.Context, key string, opts *store.ReadOptions) (pair
 		getOpts.Quorum = opts.Consistent
 	}
 
-	result, err := s.client.Get(context.Background(), s.normalize(key), getOpts)
+	result, err := s.client.Get(ctx, s.normalize(key), getOpts)
 	if err != nil {
 		if keyNotFound(err) {
 			return nil, store.ErrKeyNotFound
@@ -140,7 +140,7 @@ func (s *Etcd) Get(_ context.Context, key string, opts *store.ReadOptions) (pair
 }
 
 // Put a value at "key".
-func (s *Etcd) Put(_ context.Context, key string, value []byte, opts *store.WriteOptions) error {
+func (s *Etcd) Put(ctx context.Context, key string, value []byte, opts *store.WriteOptions) error {
 	setOpts := &etcd.SetOptions{}
 
 	// Set options.
@@ -149,7 +149,7 @@ func (s *Etcd) Put(_ context.Context, key string, value []byte, opts *store.Writ
 		setOpts.TTL = opts.TTL
 	}
 
-	_, err := s.client.Set(context.Background(), s.normalize(key), string(value), setOpts)
+	_, err := s.client.Set(ctx, s.normalize(key), string(value), setOpts)
 	return err
 }
 
@@ -182,7 +182,7 @@ func (s *Etcd) Exists(ctx context.Context, key string, opts *store.ReadOptions) 
 // It returns a channel that will receive changes or pass on errors.
 // Upon creation, the current value will first be sent to the channel.
 // Providing a non-nil stopCh can be used to stop watching.
-func (s *Etcd) Watch(_ context.Context, key string, stopCh <-chan struct{}, opts *store.ReadOptions) (<-chan *store.KVPair, error) {
+func (s *Etcd) Watch(ctx context.Context, key string, stopCh <-chan struct{}, opts *store.ReadOptions) (<-chan *store.KVPair, error) {
 	wopts := &etcd.WatcherOptions{Recursive: false}
 	watcher := s.client.Watcher(s.normalize(key), wopts)
 
@@ -190,7 +190,7 @@ func (s *Etcd) Watch(_ context.Context, key string, stopCh <-chan struct{}, opts
 	watchCh := make(chan *store.KVPair)
 
 	// Get the current value.
-	pair, err := s.Get(context.TODO(), key, opts)
+	pair, err := s.Get(ctx, key, opts)
 	if err != nil {
 		return nil, err
 	}
@@ -275,7 +275,7 @@ func (s *Etcd) WatchTree(ctx context.Context, directory string, stopCh <-chan st
 
 // AtomicPut puts a value at "key" if the key has not been modified in the meantime,
 // throws an error if this is the case.
-func (s *Etcd) AtomicPut(key string, value []byte, previous *store.KVPair, opts *store.WriteOptions) (bool, *store.KVPair, error) {
+func (s *Etcd) AtomicPut(ctx context.Context, key string, value []byte, previous *store.KVPair, opts *store.WriteOptions) (bool, *store.KVPair, error) {
 	setOpts := &etcd.SetOptions{}
 
 	setOpts.PrevExist = etcd.PrevNoExist
@@ -291,7 +291,7 @@ func (s *Etcd) AtomicPut(key string, value []byte, previous *store.KVPair, opts 
 		setOpts.TTL = opts.TTL
 	}
 
-	meta, err := s.client.Set(context.Background(), s.normalize(key), string(value), setOpts)
+	meta, err := s.client.Set(ctx, s.normalize(key), string(value), setOpts)
 	if err != nil {
 		if etcdError, ok := err.(etcd.Error); ok {
 			switch etcdError.Code {

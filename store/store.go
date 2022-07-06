@@ -106,7 +106,7 @@ type Store interface {
 
 	// AtomicPut Atomic CAS operation on a single value.
 	// Pass previous = nil to create a new key.
-	AtomicPut(key string, value []byte, previous *KVPair, opts *WriteOptions) (bool, *KVPair, error)
+	AtomicPut(ctx context.Context, key string, value []byte, previous *KVPair, opts *WriteOptions) (bool, *KVPair, error)
 
 	// AtomicDelete Atomic delete of a single value.
 	AtomicDelete(key string, previous *KVPair) (bool, error)

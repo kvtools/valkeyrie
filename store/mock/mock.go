@@ -82,7 +82,7 @@ func (s *Mock) DeleteTree(_ context.Context, prefix string) error {
 }
 
 // AtomicPut mock.
-func (s *Mock) AtomicPut(key string, value []byte, previous *store.KVPair, opts *store.WriteOptions) (bool, *store.KVPair, error) {
+func (s *Mock) AtomicPut(_ context.Context, key string, value []byte, previous *store.KVPair, opts *store.WriteOptions) (bool, *store.KVPair, error) {
 	args := s.Mock.Called(key, value, previous, opts)
 	return args.Bool(0), args.Get(1).(*store.KVPair), args.Error(2)
 }
