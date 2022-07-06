@@ -248,7 +248,7 @@ func (s *Consul) Exists(ctx context.Context, key string, opts *store.ReadOptions
 }
 
 // List child nodes of a given directory.
-func (s *Consul) List(directory string, opts *store.ReadOptions) ([]*store.KVPair, error) {
+func (s *Consul) List(_ context.Context, directory string, opts *store.ReadOptions) ([]*store.KVPair, error) {
 	options := &api.QueryOptions{
 		AllowStale:        false,
 		RequireConsistent: true,
@@ -285,7 +285,7 @@ func (s *Consul) List(directory string, opts *store.ReadOptions) ([]*store.KVPai
 
 // DeleteTree deletes a range of keys under a given directory.
 func (s *Consul) DeleteTree(directory string) error {
-	if _, err := s.List(directory, nil); err != nil {
+	if _, err := s.List(context.TODO(), directory, nil); err != nil {
 		return err
 	}
 

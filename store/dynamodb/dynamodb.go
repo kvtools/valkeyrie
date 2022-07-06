@@ -210,15 +210,14 @@ func (ddb *DynamoDB) Exists(ctx context.Context, key string, opts *store.ReadOpt
 }
 
 // List the content of a given prefix.
-func (ddb *DynamoDB) List(directory string, options *store.ReadOptions) ([]*store.KVPair, error) {
-	if options == nil {
-		options = &store.ReadOptions{
+func (ddb *DynamoDB) List(ctx context.Context, directory string, opts *store.ReadOptions) ([]*store.KVPair, error) {
+	if opts == nil {
+		opts = &store.ReadOptions{
 			Consistent: true, // default to enabling read consistency.
 		}
 	}
 
 	expAttr := make(map[string]*dynamodb.AttributeValue)
-
 	expAttr[":namePrefix"] = &dynamodb.AttributeValue{S: aws.String(directory)}
 
 	filterExp := fmt.Sprintf("begins_with(%s, :namePrefix)", partitionKey)
@@ -227,11 +226,11 @@ func (ddb *DynamoDB) List(directory string, options *store.ReadOptions) ([]*stor
 		TableName:                 aws.String(ddb.tableName),
 		FilterExpression:          aws.String(filterExp),
 		ExpressionAttributeValues: expAttr,
-		ConsistentRead:            aws.Bool(options.Consistent),
+		ConsistentRead:            aws.Bool(opts.Consistent),
 	}
 
 	var items []map[string]*dynamodb.AttributeValue
-	ctx, cancel := context.WithTimeout(context.Background(), dynamodbDefaultTimeout)
+	ctx, cancel := context.WithTimeout(ctx, dynamodbDefaultTimeout)
 
 	err := ddb.dynamoSvc.ScanPagesWithContext(ctx, si,
 		func(page *dynamodb.ScanOutput, lastPage bool) bool {

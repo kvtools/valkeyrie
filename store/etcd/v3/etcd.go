@@ -378,8 +378,8 @@ func (s *EtcdV3) AtomicDelete(key string, previous *store.KVPair) (bool, error) 
 }
 
 // List child nodes of a given directory.
-func (s *EtcdV3) List(directory string, opts *store.ReadOptions) ([]*store.KVPair, error) {
-	_, kv, err := s.list(context.TODO(), directory, opts)
+func (s *EtcdV3) List(ctx context.Context, directory string, opts *store.ReadOptions) ([]*store.KVPair, error) {
+	_, kv, err := s.list(ctx, directory, opts)
 	return kv, err
 }
 

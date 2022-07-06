@@ -275,8 +275,9 @@ func (s *Zookeeper) listChildrenRecursive(list *[]string, directory string) erro
 }
 
 // List child nodes of a given directory.
-func (s *Zookeeper) List(directory string, opts *store.ReadOptions) ([]*store.KVPair, error) {
+func (s *Zookeeper) List(ctx context.Context, directory string, opts *store.ReadOptions) ([]*store.KVPair, error) {
 	children := make([]string, 0)
+
 	err := s.listChildrenRecursive(&children, directory)
 	if err != nil {
 		return nil, err
@@ -286,7 +287,7 @@ func (s *Zookeeper) List(directory string, opts *store.ReadOptions) ([]*store.KV
 	if err != nil {
 		// If node is not found: List is out of date, retry.
 		if errors.Is(err, store.ErrKeyNotFound) {
-			return s.List(directory, opts)
+			return s.List(ctx, directory, opts)
 		}
 		return nil, err
 	}

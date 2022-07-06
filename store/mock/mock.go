@@ -70,7 +70,7 @@ func (s *Mock) NewLock(key string, options *store.LockOptions) (store.Locker, er
 }
 
 // List mock.
-func (s *Mock) List(prefix string, opts *store.ReadOptions) ([]*store.KVPair, error) {
+func (s *Mock) List(_ context.Context, prefix string, opts *store.ReadOptions) ([]*store.KVPair, error) {
 	args := s.Mock.Called(prefix, opts)
 	return args.Get(0).([]*store.KVPair), args.Error(1)
 }

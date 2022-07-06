@@ -587,24 +587,24 @@ func testList(t *testing.T, kv store.Store) {
 
 	// List should work and return five child entries.
 	for _, parent := range []string{parentKey, parentKey + "/"} {
-		pairs, err := kv.List(parent, nil)
+		pairs, err := kv.List(ctx, parent, nil)
 		require.NoError(t, err)
 		assert.Len(t, pairs, 5)
 	}
 
 	// List on childKey should return 0 keys.
-	pairs, err := kv.List(childKey, nil)
+	pairs, err := kv.List(ctx, childKey, nil)
 	require.NoError(t, err)
 	assert.NotNil(t, pairs)
 	assert.Empty(t, pairs)
 
 	// List on subfolderKey should return 3 keys without the directory.
-	pairs, err = kv.List(subfolderKey, nil)
+	pairs, err = kv.List(ctx, subfolderKey, nil)
 	require.NoError(t, err)
 	assert.Len(t, pairs, 3)
 
 	// List should fail: the key does not exist.
-	pairs, err = kv.List("idontexist", nil)
+	pairs, err = kv.List(ctx, "idontexist", nil)
 	assert.ErrorIs(t, err, store.ErrKeyNotFound)
 	assert.Nil(t, pairs)
 }
@@ -640,7 +640,7 @@ func testListLockKey(t *testing.T, kv store.Store) {
 
 	// List children of the root directory (`listKey`), this should
 	// not output any `___lock` entries and must contain 4 results.
-	pairs, err := kv.List(listKey, nil)
+	pairs, err := kv.List(ctx, listKey, nil)
 	require.NoError(t, err)
 	assert.Len(t, pairs, 4)
 

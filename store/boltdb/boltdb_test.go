@@ -151,10 +151,10 @@ func TestGetAllKeys(t *testing.T) {
 		_ = kv.Delete(ctx, "key1")
 	})
 
-	err := kv.Put(context.Background(), "key1", []byte("value1"), &store.WriteOptions{})
+	err := kv.Put(ctx, "key1", []byte("value1"), &store.WriteOptions{})
 	require.NoError(t, err)
 
-	pairs, err := kv.List("", nil)
+	pairs, err := kv.List(ctx, "", nil)
 	require.NoError(t, err)
 	assert.Len(t, pairs, 1)
 }

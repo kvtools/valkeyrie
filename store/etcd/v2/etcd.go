@@ -229,7 +229,7 @@ func (s *Etcd) Watch(_ context.Context, key string, stopCh <-chan struct{}, opts
 // It returns a channel that will receive changes or pass on errors.
 // Upon creating a watch, the current children values will be sent to the channel.
 // Providing a non-nil stopCh can be used to stop watching.
-func (s *Etcd) WatchTree(_ context.Context, directory string, stopCh <-chan struct{}, opts *store.ReadOptions) (<-chan []*store.KVPair, error) {
+func (s *Etcd) WatchTree(ctx context.Context, directory string, stopCh <-chan struct{}, opts *store.ReadOptions) (<-chan []*store.KVPair, error) {
 	watchOpts := &etcd.WatcherOptions{Recursive: true}
 	watcher := s.client.Watcher(s.normalize(directory), watchOpts)
 
@@ -237,7 +237,7 @@ func (s *Etcd) WatchTree(_ context.Context, directory string, stopCh <-chan stru
 	watchCh := make(chan []*store.KVPair)
 
 	// List current children.
-	list, err := s.List(directory, opts)
+	list, err := s.List(ctx, directory, opts)
 	if err != nil {
 		return nil, err
 	}
@@ -256,12 +256,12 @@ func (s *Etcd) WatchTree(_ context.Context, directory string, stopCh <-chan stru
 			default:
 			}
 
-			_, err := watcher.Next(context.Background())
+			_, err := watcher.Next(ctx)
 			if err != nil {
 				return
 			}
 
-			list, err = s.List(directory, opts)
+			list, err = s.List(ctx, directory, opts)
 			if err != nil {
 				return
 			}
@@ -350,7 +350,7 @@ func (s *Etcd) AtomicDelete(key string, previous *store.KVPair) (bool, error) {
 }
 
 // List child nodes of a given directory.
-func (s *Etcd) List(directory string, opts *store.ReadOptions) ([]*store.KVPair, error) {
+func (s *Etcd) List(ctx context.Context, directory string, opts *store.ReadOptions) ([]*store.KVPair, error) {
 	getOpts := &etcd.GetOptions{
 		Quorum:    true,
 		Recursive: true,
@@ -362,7 +362,7 @@ func (s *Etcd) List(directory string, opts *store.ReadOptions) ([]*store.KVPair,
 		getOpts.Quorum = opts.Consistent
 	}
 
-	resp, err := s.client.Get(context.Background(), s.normalize(directory), getOpts)
+	resp, err := s.client.Get(ctx, s.normalize(directory), getOpts)
 	if err != nil {
 		if keyNotFound(err) {
 			return nil, store.ErrKeyNotFound
@@ -379,7 +379,7 @@ func (s *Etcd) List(directory string, opts *store.ReadOptions) ([]*store.KVPair,
 		// Etcd v2 seems to stop listing child keys at directories even with the "Recursive" option.
 		// If the child is a directory, we call `List` recursively to go through the whole set.
 		if n.Dir {
-			pairs, err := s.List(n.Key, opts)
+			pairs, err := s.List(ctx, n.Key, opts)
 			if err != nil {
 				return nil, err
 			}

@@ -99,7 +99,7 @@ type Store interface {
 	NewLock(key string, opts *LockOptions) (Locker, error)
 
 	// List the content of a given prefix.
-	List(directory string, opts *ReadOptions) ([]*KVPair, error)
+	List(ctx context.Context, directory string, opts *ReadOptions) ([]*KVPair, error)
 
 	// DeleteTree deletes a range of keys under a given directory.
 	DeleteTree(directory string) error

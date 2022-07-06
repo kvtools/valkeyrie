@@ -244,8 +244,8 @@ func (r *Redis) NewLock(key string, options *store.LockOptions) (store.Locker, e
 }
 
 // List the content of a given prefix.
-func (r *Redis) List(directory string, _ *store.ReadOptions) ([]*store.KVPair, error) {
-	return r.list(context.Background(), normalize(directory))
+func (r *Redis) List(ctx context.Context, directory string, _ *store.ReadOptions) ([]*store.KVPair, error) {
+	return r.list(ctx, normalize(directory))
 }
 
 func (r *Redis) list(ctx context.Context, directory string) ([]*store.KVPair, error) {

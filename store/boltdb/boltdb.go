@@ -247,7 +247,7 @@ func (b *BoltDB) Exists(_ context.Context, key string, _ *store.ReadOptions) (bo
 }
 
 // List returns the range of keys starting with the passed in prefix.
-func (b *BoltDB) List(keyPrefix string, _ *store.ReadOptions) ([]*store.KVPair, error) {
+func (b *BoltDB) List(_ context.Context, keyPrefix string, _ *store.ReadOptions) ([]*store.KVPair, error) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 
