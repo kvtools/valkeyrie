@@ -447,7 +447,7 @@ func (s *Etcd) NewLock(key string, options *store.LockOptions) (lock store.Locke
 }
 
 // Close closes the client connection.
-func (s *Etcd) Close() {}
+func (s *Etcd) Close() error { return nil }
 
 type etcdLock struct {
 	lock   sync.Mutex

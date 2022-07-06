@@ -455,8 +455,8 @@ func (s *EtcdV3) NewLock(key string, options *store.LockOptions) (lock store.Loc
 }
 
 // Close closes the client connection.
-func (s *EtcdV3) Close() {
-	_ = s.client.Close()
+func (s *EtcdV3) Close() error {
+	return s.client.Close()
 }
 
 // list child nodes of a given directory and return revision number.

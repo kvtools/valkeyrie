@@ -428,8 +428,9 @@ func (s *Zookeeper) NewLock(key string, options *store.LockOptions) (lock store.
 }
 
 // Close closes the client connection.
-func (s *Zookeeper) Close() {
+func (s *Zookeeper) Close() error {
 	s.client.Close()
+	return nil
 }
 
 // normalize the key for usage in Zookeeper.

@@ -476,7 +476,7 @@ func testLockTTL(t *testing.T, kv store.Store, otherConn store.Store) {
 	}
 
 	// Close the connection.
-	otherConn.Close()
+	_ = otherConn.Close()
 
 	// Force to stop the session renewal for the lock.
 	close(renewCh)
@@ -541,7 +541,7 @@ func testPutTTL(t *testing.T, kv store.Store, otherConn store.Store) {
 	checkPairNotNil(t, pair)
 
 	// Close the connection.
-	otherConn.Close()
+	_ = otherConn.Close()
 
 	// Let the session expire.
 	time.Sleep(3 * time.Second)

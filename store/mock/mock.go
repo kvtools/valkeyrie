@@ -111,4 +111,4 @@ func (l *Lock) Unlock() error {
 }
 
 // Close mock.
-func (s *Mock) Close() {}
+func (s *Mock) Close() error { return nil }

@@ -414,8 +414,8 @@ func (r *Redis) cad(ctx context.Context, key string, old *store.KVPair) error {
 }
 
 // Close the store connection.
-func (r *Redis) Close() {
-	_ = r.client.Close()
+func (r *Redis) Close() error {
+	return r.client.Close()
 }
 
 func (r *Redis) runScript(ctx context.Context, args ...interface{}) error {

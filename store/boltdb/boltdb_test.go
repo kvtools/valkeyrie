@@ -127,8 +127,8 @@ func TestConcurrentConnection(t *testing.T) {
 	testutils.RunTestCommon(t, kv1)
 	testutils.RunTestCommon(t, kv2)
 
-	kv1.Close()
-	kv2.Close()
+	_ = kv1.Close()
+	_ = kv2.Close()
 
 	_ = os.Remove("/tmp/__boltdbtest")
 }

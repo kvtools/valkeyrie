@@ -430,7 +430,7 @@ func (ddb *DynamoDB) AtomicDelete(ctx context.Context, key string, previous *sto
 }
 
 // Close nothing to see here.
-func (ddb *DynamoDB) Close() {}
+func (ddb *DynamoDB) Close() error { return nil }
 
 // NewLock has to implemented at the library level since it's not supported by DynamoDB.
 func (ddb *DynamoDB) NewLock(key string, options *store.LockOptions) (store.Locker, error) {

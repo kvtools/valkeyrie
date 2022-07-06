@@ -404,15 +404,16 @@ func (b *BoltDB) AtomicPut(_ context.Context, key string, value []byte, previous
 }
 
 // Close the db connection to the BoltDB.
-func (b *BoltDB) Close() {
+func (b *BoltDB) Close() error {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 
-	if !b.PersistConnection {
-		b.reset()
-	} else {
-		_ = b.client.Close()
+	if b.PersistConnection {
+		return b.client.Close()
 	}
+
+	b.reset()
+	return nil
 }
 
 // DeleteTree deletes a range of keys with a given prefix.

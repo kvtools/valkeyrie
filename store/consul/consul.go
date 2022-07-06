@@ -556,7 +556,7 @@ func (s *Consul) AtomicDelete(ctx context.Context, key string, previous *store.K
 }
 
 // Close closes the client connection.
-func (s *Consul) Close() {}
+func (s *Consul) Close() error { return nil }
 
 type consulLock struct {
 	lock    *api.Lock

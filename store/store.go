@@ -112,7 +112,7 @@ type Store interface {
 	AtomicDelete(ctx context.Context, key string, previous *KVPair) (bool, error)
 
 	// Close the store connection.
-	Close() // FIXME error?
+	Close() error
 }
 
 // KVPair represents {Key, Value, LastIndex} tuple.
