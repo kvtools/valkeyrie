@@ -533,7 +533,7 @@ func (s *Consul) AtomicPut(_ context.Context, key string, value []byte, previous
 
 // AtomicDelete deletes a value at "key" if the key has not been modified in the meantime,
 // throws an error if this is the case.
-func (s *Consul) AtomicDelete(key string, previous *store.KVPair) (bool, error) {
+func (s *Consul) AtomicDelete(ctx context.Context, key string, previous *store.KVPair) (bool, error) {
 	if previous == nil {
 		return false, store.ErrPreviousNotSpecified
 	}
@@ -541,7 +541,7 @@ func (s *Consul) AtomicDelete(key string, previous *store.KVPair) (bool, error) 
 	p := &api.KVPair{Key: s.normalize(key), ModifyIndex: previous.LastIndex, Flags: api.LockFlagValue}
 
 	// Extra Get operation to check on the key.
-	_, err := s.Get(context.TODO(), key, nil)
+	_, err := s.Get(ctx, key, nil)
 	if errors.Is(err, store.ErrKeyNotFound) {
 		return false, err
 	}

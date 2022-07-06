@@ -318,7 +318,7 @@ func (s *Etcd) AtomicPut(ctx context.Context, key string, value []byte, previous
 
 // AtomicDelete deletes a value at "key" if the key has not been modified in the meantime,
 // throws an error if this is the case.
-func (s *Etcd) AtomicDelete(key string, previous *store.KVPair) (bool, error) {
+func (s *Etcd) AtomicDelete(ctx context.Context, key string, previous *store.KVPair) (bool, error) {
 	if previous == nil {
 		return false, store.ErrPreviousNotSpecified
 	}
@@ -330,7 +330,7 @@ func (s *Etcd) AtomicDelete(key string, previous *store.KVPair) (bool, error) {
 		delOpts.PrevValue = string(previous.Value)
 	}
 
-	_, err := s.client.Delete(context.Background(), s.normalize(key), delOpts)
+	_, err := s.client.Delete(ctx, s.normalize(key), delOpts)
 	if err != nil {
 		if etcdError, ok := err.(etcd.Error); ok {
 			switch etcdError.Code {

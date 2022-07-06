@@ -109,7 +109,7 @@ type Store interface {
 	AtomicPut(ctx context.Context, key string, value []byte, previous *KVPair, opts *WriteOptions) (bool, *KVPair, error)
 
 	// AtomicDelete Atomic delete of a single value.
-	AtomicDelete(key string, previous *KVPair) (bool, error)
+	AtomicDelete(ctx context.Context, key string, previous *KVPair) (bool, error)
 
 	// Close the store connection.
 	Close()

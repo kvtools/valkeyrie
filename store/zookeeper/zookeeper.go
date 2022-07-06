@@ -384,7 +384,7 @@ func (s *Zookeeper) AtomicPut(_ context.Context, key string, value []byte, previ
 
 // AtomicDelete deletes a value at "key" if the key has not been modified in the meantime,
 // throws an error if this is the case.
-func (s *Zookeeper) AtomicDelete(key string, previous *store.KVPair) (bool, error) {
+func (s *Zookeeper) AtomicDelete(_ context.Context, key string, previous *store.KVPair) (bool, error) {
 	if previous == nil {
 		return false, store.ErrPreviousNotSpecified
 	}

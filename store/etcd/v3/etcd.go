@@ -308,6 +308,8 @@ func (s *EtcdV3) AtomicPut(ctx context.Context, key string, value []byte, previo
 	}
 
 	ctx, cancel := context.WithTimeout(ctx, etcdDefaultTimeout)
+	defer cancel()
+
 	pr := s.client.Txn(ctx).If(cmp)
 
 	// We set the TTL if given.
@@ -315,7 +317,6 @@ func (s *EtcdV3) AtomicPut(ctx context.Context, key string, value []byte, previo
 		lease := etcd.NewLease(s.client)
 		resp, err := lease.Grant(ctx, int64(opts.TTL/time.Second))
 		if err != nil {
-			cancel()
 			return false, nil, err
 		}
 		pr.Then(etcd.OpPut(key, string(value), etcd.WithLease(resp.ID)))
@@ -324,7 +325,6 @@ func (s *EtcdV3) AtomicPut(ctx context.Context, key string, value []byte, previo
 	}
 
 	txn, err := pr.Commit()
-	cancel()
 	if err != nil {
 		return false, nil, err
 	}
@@ -347,7 +347,7 @@ func (s *EtcdV3) AtomicPut(ctx context.Context, key string, value []byte, previo
 
 // AtomicDelete deletes a value at "key" if the key has not been modified in the meantime,
 // throws an error if this is the case.
-func (s *EtcdV3) AtomicDelete(key string, previous *store.KVPair) (bool, error) {
+func (s *EtcdV3) AtomicDelete(ctx context.Context, key string, previous *store.KVPair) (bool, error) {
 	if previous == nil {
 		return false, store.ErrPreviousNotSpecified
 	}
@@ -355,13 +355,13 @@ func (s *EtcdV3) AtomicDelete(key string, previous *store.KVPair) (bool, error) 
 	// We compare on the last modified index.
 	cmp := etcd.Compare(etcd.ModRevision(key), "=", int64(previous.LastIndex))
 
-	ctx, cancel := context.WithTimeout(context.Background(), etcdDefaultTimeout)
+	ctx, cancel := context.WithTimeout(ctx, etcdDefaultTimeout)
+	defer cancel()
+
 	txn, err := s.client.Txn(ctx).
 		If(cmp).
 		Then(etcd.OpDelete(key)).
 		Commit()
-	cancel()
-
 	if err != nil {
 		return false, err
 	}
@@ -386,9 +386,9 @@ func (s *EtcdV3) List(ctx context.Context, directory string, opts *store.ReadOpt
 // DeleteTree deletes a range of keys under a given directory.
 func (s *EtcdV3) DeleteTree(ctx context.Context, directory string) error {
 	ctx, cancel := context.WithTimeout(ctx, etcdDefaultTimeout)
+	defer cancel()
 
 	resp, err := s.client.KV.Delete(ctx, s.normalize(directory), etcd.WithPrefix())
-	cancel()
 	if err != nil {
 		return err
 	}
@@ -462,6 +462,7 @@ func (s *EtcdV3) Close() {
 // list child nodes of a given directory and return revision number.
 func (s *EtcdV3) list(ctx context.Context, directory string, opts *store.ReadOptions) (int64, []*store.KVPair, error) {
 	ctx, cancel := context.WithTimeout(ctx, etcdDefaultTimeout)
+	defer cancel()
 
 	var resp *etcd.GetResponse
 	var err error
@@ -471,8 +472,6 @@ func (s *EtcdV3) list(ctx context.Context, directory string, opts *store.ReadOpt
 	} else {
 		resp, err = s.client.KV.Get(ctx, s.normalize(directory), etcd.WithPrefix(), etcd.WithSort(etcd.SortByKey, etcd.SortDescend))
 	}
-
-	cancel()
 
 	if err != nil {
 		return 0, nil, err

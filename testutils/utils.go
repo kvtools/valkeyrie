@@ -345,18 +345,18 @@ func testAtomicDelete(t *testing.T, kv store.Store) {
 
 	// AtomicDelete should fail.
 	pair.LastIndex = 6744
-	success, err := kv.AtomicDelete(key, pair)
+	success, err := kv.AtomicDelete(ctx, key, pair)
 	assert.Error(t, err)
 	assert.False(t, success)
 
 	// AtomicDelete should succeed.
 	pair.LastIndex = tempIndex
-	success, err = kv.AtomicDelete(key, pair)
+	success, err = kv.AtomicDelete(ctx, key, pair)
 	require.NoError(t, err)
 	assert.True(t, success)
 
 	// Delete a non-existent key; should fail.
-	success, err = kv.AtomicDelete(key, pair)
+	success, err = kv.AtomicDelete(ctx, key, pair)
 	assert.ErrorIs(t, err, store.ErrKeyNotFound)
 	assert.False(t, success)
 }

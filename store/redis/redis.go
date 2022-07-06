@@ -397,7 +397,7 @@ func (r *Redis) cas(ctx context.Context, key string, oldPair, newPair *store.KVP
 
 // AtomicDelete is an atomic delete operation on a single value
 // the value will be deleted if previous matched the one stored in db.
-func (r *Redis) AtomicDelete(key string, previous *store.KVPair) (bool, error) {
+func (r *Redis) AtomicDelete(ctex context.Context, key string, previous *store.KVPair) (bool, error) {
 	if err := r.cad(context.Background(), normalize(key), previous); err != nil {
 		return false, err
 	}
@@ -616,7 +616,7 @@ func (l *redisLock) holdLock(ctx context.Context, lockHeld, stopChan chan struct
 func (l *redisLock) Unlock() error {
 	l.unlockCh <- struct{}{}
 
-	_, err := l.redis.AtomicDelete(l.key, l.last)
+	_, err := l.redis.AtomicDelete(context.TODO(), l.key, l.last)
 	if err != nil {
 		return err
 	}

@@ -88,7 +88,7 @@ func (s *Mock) AtomicPut(_ context.Context, key string, value []byte, previous *
 }
 
 // AtomicDelete mock.
-func (s *Mock) AtomicDelete(key string, previous *store.KVPair) (bool, error) {
+func (s *Mock) AtomicDelete(_ context.Context, key string, previous *store.KVPair) (bool, error) {
 	args := s.Mock.Called(key, previous)
 	return args.Bool(0), args.Error(1)
 }

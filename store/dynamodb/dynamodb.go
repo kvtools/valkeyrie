@@ -390,8 +390,8 @@ func (ddb *DynamoDB) AtomicPut(ctx context.Context, key string, value []byte, pr
 }
 
 // AtomicDelete delete of a single value.
-func (ddb *DynamoDB) AtomicDelete(key string, previous *store.KVPair) (bool, error) {
-	getRes, err := ddb.getKey(context.TODO(), key, &store.ReadOptions{
+func (ddb *DynamoDB) AtomicDelete(ctx context.Context, key string, previous *store.KVPair) (bool, error) {
+	getRes, err := ddb.getKey(ctx, key, &store.ReadOptions{
 		Consistent: true, // enable the read consistent flag.
 	})
 	if err != nil {
@@ -415,7 +415,8 @@ func (ddb *DynamoDB) AtomicDelete(key string, previous *store.KVPair) (bool, err
 		ConditionExpression:       aws.String(fmt.Sprintf("%s = :lastRevision", revisionAttribute)),
 		ExpressionAttributeValues: expAttr,
 	}
-	_, err = ddb.dynamoSvc.DeleteItem(req)
+
+	_, err = ddb.dynamoSvc.DeleteItemWithContext(ctx, req)
 	if err != nil {
 		if awsErr, ok := err.(awserr.Error); ok {
 			if awsErr.Code() == dynamodb.ErrCodeConditionalCheckFailedException {
@@ -604,7 +605,7 @@ func (l *dynamodbLock) Lock(stopChan chan struct{}) (<-chan struct{}, error) {
 func (l *dynamodbLock) Unlock() error {
 	l.unlockCh <- struct{}{}
 
-	_, err := l.ddb.AtomicDelete(l.key, l.last)
+	_, err := l.ddb.AtomicDelete(context.TODO(), l.key, l.last)
 	if err != nil {
 		return err
 	}
