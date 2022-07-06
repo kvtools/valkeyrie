@@ -117,10 +117,10 @@ func (s *Zookeeper) createFullPath(path []string, data []byte, ephemeral bool) e
 }
 
 // Put a value at "key".
-func (s *Zookeeper) Put(_ context.Context, key string, value []byte, opts *store.WriteOptions) error {
+func (s *Zookeeper) Put(ctx context.Context, key string, value []byte, opts *store.WriteOptions) error {
 	fkey := s.normalize(key)
 
-	exists, err := s.Exists(context.TODO(), key, nil)
+	exists, err := s.Exists(ctx, key, nil)
 	if err != nil {
 		return err
 	}
@@ -199,9 +199,10 @@ func (s *Zookeeper) Watch(_ context.Context, key string, stopCh <-chan struct{},
 // It returns a channel that will receive changes or pass on errors.
 // Upon creating a watch, the current children values will be sent to the channel.
 // Providing a non-nil stopCh can be used to stop watching.
-func (s *Zookeeper) WatchTree(_ context.Context, directory string, stopCh <-chan struct{}, opts *store.ReadOptions) (<-chan []*store.KVPair, error) {
+func (s *Zookeeper) WatchTree(ctx context.Context, directory string, stopCh <-chan struct{}, opts *store.ReadOptions) (<-chan []*store.KVPair, error) {
 	// Catch zk notifications and fire changes into the channel.
 	watchCh := make(chan []*store.KVPair)
+
 	go func() {
 		defer close(watchCh)
 
@@ -213,7 +214,7 @@ func (s *Zookeeper) WatchTree(_ context.Context, directory string, stopCh <-chan
 				return
 			}
 			if fireEvt {
-				kvs, err := s.getListWithPath(directory, keys, opts)
+				kvs, err := s.getListWithPath(ctx, directory, keys, opts)
 				if err != nil {
 					// Failed to get values for one or more of the keys,
 					// the list may be out of date so try again.
@@ -283,7 +284,7 @@ func (s *Zookeeper) List(ctx context.Context, directory string, opts *store.Read
 		return nil, err
 	}
 
-	kvs, err := s.getList(children, opts)
+	kvs, err := s.getList(ctx, children, opts)
 	if err != nil {
 		// If node is not found: List is out of date, retry.
 		if errors.Is(err, store.ErrKeyNotFound) {
@@ -503,11 +504,11 @@ func (s *Zookeeper) getW(key string) ([]byte, *zk.Stat, <-chan zk.Event, error) 
 //
 // This is generally used when we get a list of child keys which
 // are stripped out of their path (for example when using ChildrenW).
-func (s *Zookeeper) getListWithPath(path string, keys []string, opts *store.ReadOptions) ([]*store.KVPair, error) {
+func (s *Zookeeper) getListWithPath(ctx context.Context, path string, keys []string, opts *store.ReadOptions) ([]*store.KVPair, error) {
 	kvs := []*store.KVPair{}
 
 	for _, key := range keys {
-		pair, err := s.Get(context.TODO(), strings.TrimSuffix(path, "/")+s.normalize(key), opts)
+		pair, err := s.Get(ctx, strings.TrimSuffix(path, "/")+s.normalize(key), opts)
 		if err != nil {
 			return nil, err
 		}
@@ -525,11 +526,11 @@ func (s *Zookeeper) getListWithPath(path string, keys []string, opts *store.Read
 // getList returns key/value pairs from a list of keys.
 //
 // This is generally used when we have a full list of keys with their full path included.
-func (s *Zookeeper) getList(keys []string, _ *store.ReadOptions) ([]*store.KVPair, error) {
+func (s *Zookeeper) getList(ctx context.Context, keys []string, _ *store.ReadOptions) ([]*store.KVPair, error) {
 	kvs := []*store.KVPair{}
 
 	for _, key := range keys {
-		pair, err := s.Get(context.TODO(), strings.TrimSuffix(key, "/"), nil)
+		pair, err := s.Get(ctx, strings.TrimSuffix(key, "/"), nil)
 		if err != nil {
 			return nil, err
 		}

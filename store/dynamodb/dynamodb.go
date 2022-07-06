@@ -573,7 +573,7 @@ type dynamodbLock struct {
 func (l *dynamodbLock) Lock(stopChan chan struct{}) (<-chan struct{}, error) {
 	lockHeld := make(chan struct{})
 
-	ctx := context.TODO()
+	ctx := context.Background()
 
 	success, err := l.tryLock(ctx, lockHeld, stopChan)
 	if err != nil {
@@ -605,7 +605,7 @@ func (l *dynamodbLock) Lock(stopChan chan struct{}) (<-chan struct{}, error) {
 func (l *dynamodbLock) Unlock() error {
 	l.unlockCh <- struct{}{}
 
-	_, err := l.ddb.AtomicDelete(context.TODO(), l.key, l.last)
+	_, err := l.ddb.AtomicDelete(context.Background(), l.key, l.last)
 	if err != nil {
 		return err
 	}

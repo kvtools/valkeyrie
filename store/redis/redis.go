@@ -177,7 +177,7 @@ func (r *Redis) Watch(ctx context.Context, key string, stopCh <-chan struct{}, o
 	go func(sub *subscribe, stopCh <-chan struct{}, get getter, push pusher) {
 		defer func() { _ = sub.Close() }()
 
-		msgCh := sub.Receive(stopCh)
+		msgCh := sub.Receive(ctx, stopCh)
 		if err := watchLoop(msgCh, stopCh, get, push); err != nil {
 			log.Printf("watchLoop in Watch err:%v\n", err)
 		}
@@ -210,7 +210,7 @@ func (r *Redis) WatchTree(ctx context.Context, directory string, stopCh <-chan s
 	go func(sub *subscribe, stopCh <-chan struct{}, get getter, push pusher) {
 		defer func() { _ = sub.Close() }()
 
-		msgCh := sub.Receive(stopCh)
+		msgCh := sub.Receive(ctx, stopCh)
 		if err := watchLoop(msgCh, stopCh, get, push); err != nil {
 			log.Printf("watchLoop in WatchTree err:%v\n", err)
 		}
@@ -397,8 +397,8 @@ func (r *Redis) cas(ctx context.Context, key string, oldPair, newPair *store.KVP
 
 // AtomicDelete is an atomic delete operation on a single value
 // the value will be deleted if previous matched the one stored in db.
-func (r *Redis) AtomicDelete(ctex context.Context, key string, previous *store.KVPair) (bool, error) {
-	if err := r.cad(context.Background(), normalize(key), previous); err != nil {
+func (r *Redis) AtomicDelete(ctx context.Context, key string, previous *store.KVPair) (bool, error) {
+	if err := r.cad(ctx, normalize(key), previous); err != nil {
 		return false, err
 	}
 	return true, nil
@@ -492,9 +492,9 @@ func (s *subscribe) Close() error {
 	return s.pubsub.Close()
 }
 
-func (s *subscribe) Receive(stopCh <-chan struct{}) chan *redis.Message {
+func (s *subscribe) Receive(ctx context.Context, stopCh <-chan struct{}) chan *redis.Message {
 	msgCh := make(chan *redis.Message)
-	go s.receiveLoop(context.Background(), msgCh, stopCh)
+	go s.receiveLoop(ctx, msgCh, stopCh)
 	return msgCh
 }
 
@@ -532,7 +532,7 @@ type redisLock struct {
 func (l *redisLock) Lock(stopCh chan struct{}) (<-chan struct{}, error) {
 	lockHeld := make(chan struct{})
 
-	ctx := context.TODO()
+	ctx := context.Background()
 
 	success, err := l.tryLock(ctx, lockHeld, stopCh)
 	if err != nil {
@@ -616,7 +616,7 @@ func (l *redisLock) holdLock(ctx context.Context, lockHeld, stopChan chan struct
 func (l *redisLock) Unlock() error {
 	l.unlockCh <- struct{}{}
 
-	_, err := l.redis.AtomicDelete(context.TODO(), l.key, l.last)
+	_, err := l.redis.AtomicDelete(context.Background(), l.key, l.last)
 	if err != nil {
 		return err
 	}

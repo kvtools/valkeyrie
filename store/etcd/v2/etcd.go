@@ -209,7 +209,7 @@ func (s *Etcd) Watch(ctx context.Context, key string, stopCh <-chan struct{}, op
 			default:
 			}
 
-			result, err := watcher.Next(context.Background())
+			result, err := watcher.Next(ctx)
 			if err != nil {
 				return
 			}
@@ -401,12 +401,12 @@ func (s *Etcd) List(ctx context.Context, directory string, opts *store.ReadOptio
 }
 
 // DeleteTree deletes a range of keys under a given directory.
-func (s *Etcd) DeleteTree(_ context.Context, directory string) error {
+func (s *Etcd) DeleteTree(ctx context.Context, directory string) error {
 	delOpts := &etcd.DeleteOptions{
 		Recursive: true,
 	}
 
-	_, err := s.client.Delete(context.Background(), s.normalize(directory), delOpts)
+	_, err := s.client.Delete(ctx, s.normalize(directory), delOpts)
 	if keyNotFound(err) {
 		return store.ErrKeyNotFound
 	}
@@ -469,6 +469,8 @@ func (l *etcdLock) Lock(stopChan chan struct{}) (<-chan struct{}, error) {
 	l.lock.Lock()
 	defer l.lock.Unlock()
 
+	ctx := context.Background()
+
 	// Lock holder channel.
 	lockHeld := make(chan struct{})
 	stopLocking := l.stopRenew
@@ -478,7 +480,7 @@ func (l *etcdLock) Lock(stopChan chan struct{}) (<-chan struct{}, error) {
 	for {
 		setOpts.PrevExist = etcd.PrevNoExist
 
-		resp, err := l.client.Set(context.Background(), l.mutexKey, "", setOpts)
+		resp, err := l.client.Set(ctx, l.mutexKey, "", setOpts)
 		if err != nil {
 			if etcdError, ok := err.(etcd.Error); ok {
 				if etcdError.Code != etcd.ErrorCodeNodeExist {
@@ -492,14 +494,14 @@ func (l *etcdLock) Lock(stopChan chan struct{}) (<-chan struct{}, error) {
 
 		setOpts.PrevExist = etcd.PrevExist
 
-		l.last, err = l.client.Set(context.Background(), l.mutexKey, "", setOpts)
+		l.last, err = l.client.Set(ctx, l.mutexKey, "", setOpts)
 		if err == nil {
 			// Leader section.
 			l.stopLock = stopLocking
-			go l.holdLock(l.mutexKey, lockHeld, stopLocking)
+			go l.holdLock(ctx, l.mutexKey, lockHeld, stopLocking)
 
 			// We are holding the lock, set the write key.
-			_, err = l.client.Set(context.Background(), l.writeKey, l.value, nil)
+			_, err = l.client.Set(ctx, l.writeKey, l.value, nil)
 			if err != nil {
 				return nil, err
 			}
@@ -519,7 +521,7 @@ func (l *etcdLock) Lock(stopChan chan struct{}) (<-chan struct{}, error) {
 		chWStop := make(chan bool)
 		free := make(chan bool)
 
-		go l.waitLock(l.mutexKey, errorCh, chWStop, free)
+		go l.waitLock(ctx, l.mutexKey, errorCh, chWStop, free)
 
 		// Wait for the key to be available or
 		// for a signal to stop trying to lock the key.
@@ -541,7 +543,7 @@ func (l *etcdLock) Lock(stopChan chan struct{}) (<-chan struct{}, error) {
 // holdLock holds the lock
 // as long as we can update the key ttl periodically
 // until we receive an explicit stop signal from the Unlock method.
-func (l *etcdLock) holdLock(key string, lockHeld chan struct{}, stopLocking <-chan struct{}) {
+func (l *etcdLock) holdLock(ctx context.Context, key string, lockHeld chan struct{}, stopLocking <-chan struct{}) {
 	defer close(lockHeld)
 
 	update := time.NewTicker(l.ttl / 3)
@@ -554,7 +556,7 @@ func (l *etcdLock) holdLock(key string, lockHeld chan struct{}, stopLocking <-ch
 		select {
 		case <-update.C:
 			setOpts.PrevIndex = l.last.Node.ModifiedIndex
-			l.last, err = l.client.Set(context.Background(), key, "", setOpts)
+			l.last, err = l.client.Set(ctx, key, "", setOpts)
 			if err != nil {
 				return
 			}
@@ -566,12 +568,12 @@ func (l *etcdLock) holdLock(key string, lockHeld chan struct{}, stopLocking <-ch
 }
 
 // waitLock simply waits for the key to be available for creation.
-func (l *etcdLock) waitLock(key string, errorCh chan error, _ chan bool, free chan<- bool) {
+func (l *etcdLock) waitLock(ctx context.Context, key string, errorCh chan error, _ chan bool, free chan<- bool) {
 	opts := &etcd.WatcherOptions{Recursive: false}
 	watcher := l.client.Watcher(key, opts)
 
 	for {
-		event, err := watcher.Next(context.Background())
+		event, err := watcher.Next(ctx)
 		if err != nil {
 			errorCh <- err
 			return

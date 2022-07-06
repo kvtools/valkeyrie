@@ -502,7 +502,7 @@ func (s *Consul) renewLockSession(initialTTL string, id string, stopRenew chan s
 
 // AtomicPut puts a value at "key" if the key has not been modified in the meantime,
 // throws an error if this is the case.
-func (s *Consul) AtomicPut(_ context.Context, key string, value []byte, previous *store.KVPair, _ *store.WriteOptions) (bool, *store.KVPair, error) {
+func (s *Consul) AtomicPut(ctx context.Context, key string, value []byte, previous *store.KVPair, _ *store.WriteOptions) (bool, *store.KVPair, error) {
 	p := &api.KVPair{Key: s.normalize(key), Value: value, Flags: api.LockFlagValue}
 
 	// Consul interprets ModifyIndex = 0 as new key.
@@ -523,7 +523,7 @@ func (s *Consul) AtomicPut(_ context.Context, key string, value []byte, previous
 		return false, nil, store.ErrKeyModified
 	}
 
-	pair, err := s.Get(context.TODO(), key, nil)
+	pair, err := s.Get(ctx, key, nil)
 	if err != nil {
 		return false, nil, err
 	}

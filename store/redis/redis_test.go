@@ -16,11 +16,13 @@ const client = "localhost:6379"
 func makeRedisClient(t *testing.T) store.Store {
 	t.Helper()
 
-	kv := newRedis(context.Background(), []string{client}, "", nil)
+	ctx := context.Background()
+
+	kv := newRedis(ctx, []string{client}, "", nil)
 
 	// NOTE: please turn on redis's notification
 	// before you using watch/watchtree/lock related features.
-	kv.client.ConfigSet(context.Background(), "notify-keyspace-events", "KA")
+	kv.client.ConfigSet(ctx, "notify-keyspace-events", "KA")
 
 	return kv
 }

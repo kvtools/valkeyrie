@@ -112,7 +112,7 @@ type Store interface {
 	AtomicDelete(ctx context.Context, key string, previous *KVPair) (bool, error)
 
 	// Close the store connection.
-	Close()
+	Close() // FIXME error?
 }
 
 // KVPair represents {Key, Value, LastIndex} tuple.
@@ -150,6 +150,7 @@ type LockOptions struct {
 
 // Locker provides locking mechanism on top of the store.
 // Similar to sync.Locker except it may return errors.
+// FIXME context?
 type Locker interface {
 	Lock(stopChan chan struct{}) (<-chan struct{}, error)
 	Unlock() error
