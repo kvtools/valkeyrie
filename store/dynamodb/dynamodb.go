@@ -570,12 +570,10 @@ type dynamodbLock struct {
 	ttl   time.Duration
 }
 
-func (l *dynamodbLock) Lock(stopChan chan struct{}) (<-chan struct{}, error) {
+func (l *dynamodbLock) Lock(ctx context.Context) (<-chan struct{}, error) {
 	lockHeld := make(chan struct{})
 
-	ctx := context.Background()
-
-	success, err := l.tryLock(ctx, lockHeld, stopChan)
+	success, err := l.tryLock(ctx, lockHeld)
 	if err != nil {
 		return nil, err
 	}
@@ -589,14 +587,14 @@ func (l *dynamodbLock) Lock(stopChan chan struct{}) (<-chan struct{}, error) {
 	for {
 		select {
 		case <-ticker.C:
-			success, err := l.tryLock(ctx, lockHeld, stopChan)
+			success, err := l.tryLock(ctx, lockHeld)
 			if err != nil {
 				return nil, err
 			}
 			if success {
 				return lockHeld, nil
 			}
-		case <-stopChan:
+		case <-ctx.Done():
 			return nil, ErrLockAcquireCancelled
 		}
 	}
@@ -614,7 +612,7 @@ func (l *dynamodbLock) Unlock() error {
 	return nil
 }
 
-func (l *dynamodbLock) tryLock(ctx context.Context, lockHeld chan struct{}, stopChan chan struct{}) (bool, error) {
+func (l *dynamodbLock) tryLock(ctx context.Context, lockHeld chan struct{}) (bool, error) {
 	success, item, err := l.ddb.AtomicPut(ctx, l.key, l.value, l.last, &store.WriteOptions{TTL: l.ttl})
 	if err != nil {
 		if errors.Is(err, store.ErrKeyNotFound) || errors.Is(err, store.ErrKeyModified) || errors.Is(err, store.ErrKeyExists) {
@@ -625,14 +623,14 @@ func (l *dynamodbLock) tryLock(ctx context.Context, lockHeld chan struct{}, stop
 	if success {
 		l.last = item
 		// keep holding.
-		go l.holdLock(ctx, lockHeld, stopChan)
+		go l.holdLock(ctx, lockHeld)
 		return true, nil
 	}
 
 	return false, err
 }
 
-func (l *dynamodbLock) holdLock(ctx context.Context, lockHeld, stopChan chan struct{}) {
+func (l *dynamodbLock) holdLock(ctx context.Context, lockHeld chan struct{}) {
 	defer close(lockHeld)
 
 	hold := func() error {
@@ -659,7 +657,7 @@ func (l *dynamodbLock) holdLock(ctx context.Context, lockHeld, stopChan chan str
 			return
 		case <-l.unlockCh:
 			return
-		case <-stopChan:
+		case <-ctx.Done():
 			return
 		}
 	}

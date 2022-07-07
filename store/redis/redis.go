@@ -174,14 +174,14 @@ func (r *Redis) Watch(ctx context.Context, key string, stopCh <-chan struct{}, o
 
 	sub := newSubscribe(ctx, r.client, regexWatch(nKey, false))
 
-	go func(sub *subscribe, stopCh <-chan struct{}, get getter, push pusher) {
+	go func(ctx context.Context, sub *subscribe, get getter, push pusher) {
 		defer func() { _ = sub.Close() }()
 
-		msgCh := sub.Receive(ctx, stopCh)
-		if err := watchLoop(msgCh, stopCh, get, push); err != nil {
-			log.Printf("watchLoop in Watch err:%v\n", err)
+		msgCh := sub.Receive(ctx)
+		if err := watchLoop(ctx, msgCh, get, push); err != nil {
+			log.Printf("watchLoop in Watch err: %v", err)
 		}
-	}(sub, stopCh, get, push)
+	}(ctx, sub, get, push)
 
 	return watchCh, nil
 }
@@ -207,14 +207,14 @@ func (r *Redis) WatchTree(ctx context.Context, directory string, stopCh <-chan s
 
 	sub := newSubscribe(ctx, r.client, regexWatch(nKey, true))
 
-	go func(sub *subscribe, stopCh <-chan struct{}, get getter, push pusher) {
+	go func(ctx context.Context, sub *subscribe, get getter, push pusher) {
 		defer func() { _ = sub.Close() }()
 
-		msgCh := sub.Receive(ctx, stopCh)
-		if err := watchLoop(msgCh, stopCh, get, push); err != nil {
+		msgCh := sub.Receive(ctx)
+		if err := watchLoop(ctx, msgCh, get, push); err != nil {
 			log.Printf("watchLoop in WatchTree err:%v\n", err)
 		}
-	}(sub, stopCh, get, push)
+	}(ctx, sub, get, push)
 
 	return watchCh, nil
 }
@@ -444,7 +444,7 @@ type getter func() (interface{}, error)
 // pusher defines a func type which pushes data blob into watch channel.
 type pusher func(interface{})
 
-func watchLoop(msgCh chan *redis.Message, _ <-chan struct{}, get getter, push pusher) error {
+func watchLoop(ctx context.Context, msgCh chan *redis.Message, get getter, push pusher) error {
 	// deliver the original data before we setup any events.
 	pair, err := get()
 	if err != nil && !errors.Is(err, store.ErrKeyNotFound) {
@@ -470,6 +470,12 @@ func watchLoop(msgCh chan *redis.Message, _ <-chan struct{}, get getter, push pu
 		}
 
 		push(pair)
+
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		default:
+		}
 	}
 
 	return nil
@@ -492,20 +498,20 @@ func (s *subscribe) Close() error {
 	return s.pubsub.Close()
 }
 
-func (s *subscribe) Receive(ctx context.Context, stopCh <-chan struct{}) chan *redis.Message {
+func (s *subscribe) Receive(ctx context.Context) chan *redis.Message {
 	msgCh := make(chan *redis.Message)
-	go s.receiveLoop(ctx, msgCh, stopCh)
+	go s.receiveLoop(ctx, msgCh)
 	return msgCh
 }
 
-func (s *subscribe) receiveLoop(ctx context.Context, msgCh chan *redis.Message, stopCh <-chan struct{}) {
+func (s *subscribe) receiveLoop(ctx context.Context, msgCh chan *redis.Message) {
 	defer close(msgCh)
 
 	for {
 		select {
 		case <-s.closeCh:
 			return
-		case <-stopCh:
+		case <-ctx.Done():
 			return
 		default:
 			msg, err := s.pubsub.ReceiveMessage(ctx)
@@ -529,12 +535,10 @@ type redisLock struct {
 	ttl   time.Duration
 }
 
-func (l *redisLock) Lock(stopCh chan struct{}) (<-chan struct{}, error) {
+func (l *redisLock) Lock(ctx context.Context) (<-chan struct{}, error) {
 	lockHeld := make(chan struct{})
 
-	ctx := context.Background()
-
-	success, err := l.tryLock(ctx, lockHeld, stopCh)
+	success, err := l.tryLock(ctx, lockHeld)
 	if err != nil {
 		return nil, err
 	}
@@ -543,17 +547,17 @@ func (l *redisLock) Lock(stopCh chan struct{}) (<-chan struct{}, error) {
 	}
 
 	// wait for changes on the key.
-	watch, err := l.redis.Watch(ctx, l.key, stopCh, nil)
+	watch, err := l.redis.Watch(ctx, l.key, nil, nil)
 	if err != nil {
 		return nil, err
 	}
 
 	for {
 		select {
-		case <-stopCh:
+		case <-ctx.Done():
 			return nil, ErrAbortTryLock
 		case <-watch:
-			success, err := l.tryLock(ctx, lockHeld, stopCh)
+			success, err := l.tryLock(ctx, lockHeld)
 			if err != nil {
 				return nil, err
 			}
@@ -567,14 +571,14 @@ func (l *redisLock) Lock(stopCh chan struct{}) (<-chan struct{}, error) {
 // tryLock return `true, nil` when it acquired and hold the lock
 // and return `false, nil` when it can't lock now,
 // and return `false, err` if any unexpected error happened underlying.
-func (l *redisLock) tryLock(ctx context.Context, lockHeld, stopChan chan struct{}) (bool, error) {
+func (l *redisLock) tryLock(ctx context.Context, lockHeld chan struct{}) (bool, error) {
 	success, item, err := l.redis.AtomicPut(ctx, l.key, l.value, l.last, &store.WriteOptions{
 		TTL: l.ttl,
 	})
 	if success {
 		l.last = item
 		// keep holding.
-		go l.holdLock(ctx, lockHeld, stopChan)
+		go l.holdLock(ctx, lockHeld)
 		return true, nil
 	}
 	if errors.Is(err, store.ErrKeyNotFound) || errors.Is(err, store.ErrKeyModified) || errors.Is(err, store.ErrKeyExists) {
@@ -583,7 +587,7 @@ func (l *redisLock) tryLock(ctx context.Context, lockHeld, stopChan chan struct{
 	return false, err
 }
 
-func (l *redisLock) holdLock(ctx context.Context, lockHeld, stopChan chan struct{}) {
+func (l *redisLock) holdLock(ctx context.Context, lockHeld chan struct{}) {
 	defer close(lockHeld)
 
 	hold := func() error {
@@ -607,7 +611,7 @@ func (l *redisLock) holdLock(ctx context.Context, lockHeld, stopChan chan struct
 			}
 		case <-l.unlockCh:
 			return
-		case <-stopChan:
+		case <-ctx.Done():
 			return
 		}
 	}

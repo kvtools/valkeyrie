@@ -379,7 +379,7 @@ func testLockUnlock(t *testing.T, kv store.Store) {
 	require.NotNil(t, lock)
 
 	// Lock should successfully succeed or block.
-	lockChan, err := lock.Lock(nil)
+	lockChan, err := lock.Lock(context.Background())
 	require.NoError(t, err)
 	assert.NotNil(t, lockChan)
 
@@ -395,7 +395,7 @@ func testLockUnlock(t *testing.T, kv store.Store) {
 	require.NoError(t, err)
 
 	// Lock should succeed again.
-	lockChan, err = lock.Lock(nil)
+	lockChan, err = lock.Lock(context.Background())
 	require.NoError(t, err)
 	assert.NotNil(t, lockChan)
 
@@ -430,7 +430,7 @@ func testLockTTL(t *testing.T, kv store.Store, otherConn store.Store) {
 	require.NotNil(t, lock)
 
 	// Lock should successfully succeed.
-	lockChan, err := lock.Lock(nil)
+	lockChan, err := lock.Lock(context.Background())
 	require.NoError(t, err)
 	assert.NotNil(t, lockChan)
 
@@ -462,7 +462,7 @@ func testLockTTL(t *testing.T, kv store.Store, otherConn store.Store) {
 	// Lock should block, the session on the lock
 	// is still active and renewed periodically.
 	go func(<-chan struct{}) {
-		_, _ = lock.Lock(stop)
+		_, _ = lock.Lock(context.Background())
 		done <- struct{}{}
 	}(done)
 
@@ -487,7 +487,7 @@ func testLockTTL(t *testing.T, kv store.Store, otherConn store.Store) {
 
 	// Lock should now succeed for the other client.
 	go func(<-chan struct{}) {
-		lockChan, err = lock.Lock(nil)
+		lockChan, err = lock.Lock(context.Background())
 		require.NoError(t, err)
 		assert.NotNil(t, lockChan)
 		locked <- struct{}{}
@@ -633,7 +633,7 @@ func testListLockKey(t *testing.T, kv store.Store) {
 		require.NoError(t, err)
 		require.NotNil(t, lock)
 
-		lockChan, err := lock.Lock(nil)
+		lockChan, err := lock.Lock(context.Background())
 		require.NoError(t, err)
 		assert.NotNil(t, lockChan)
 	}

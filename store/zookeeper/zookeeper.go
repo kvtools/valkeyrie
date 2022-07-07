@@ -555,7 +555,7 @@ type zookeeperLock struct {
 
 // Lock attempts to acquire the lock and blocks while doing so.
 // It returns a channel that is closed if our lock is lost or if an error occurs.
-func (l *zookeeperLock) Lock(stopChan chan struct{}) (<-chan struct{}, error) {
+func (l *zookeeperLock) Lock(ctx context.Context) (<-chan struct{}, error) {
 	err := l.lock.Lock()
 
 	lostCh := make(chan struct{})
@@ -563,7 +563,7 @@ func (l *zookeeperLock) Lock(stopChan chan struct{}) (<-chan struct{}, error) {
 		// We hold the lock, we can set our value.
 		_, err = l.client.Set(l.key, l.value, -1)
 		if err == nil {
-			go l.monitorLock(stopChan, lostCh)
+			go l.monitorLock(ctx, lostCh)
 		}
 	}
 
@@ -576,7 +576,7 @@ func (l *zookeeperLock) Unlock() error {
 	return l.lock.Unlock()
 }
 
-func (l *zookeeperLock) monitorLock(stopCh <-chan struct{}, lostCh chan struct{}) {
+func (l *zookeeperLock) monitorLock(ctx context.Context, lostCh chan struct{}) {
 	defer close(lostCh)
 
 	for {
@@ -596,7 +596,7 @@ func (l *zookeeperLock) monitorLock(stopCh <-chan struct{}, lostCh chan struct{}
 				// Someone else has written to the lock node and believes that they have the lock.
 				return
 			}
-		case <-stopCh:
+		case <-ctx.Done():
 			// The caller has requested that we relinquish our lock.
 			return
 		}

@@ -152,6 +152,6 @@ type LockOptions struct {
 // Similar to sync.Locker except it may return errors.
 // FIXME context?
 type Locker interface {
-	Lock(stopChan chan struct{}) (<-chan struct{}, error)
+	Lock(ctx context.Context) (<-chan struct{}, error)
 	Unlock() error
 }

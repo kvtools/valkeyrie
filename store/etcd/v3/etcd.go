@@ -517,15 +517,10 @@ type etcdLock struct {
 
 // Lock attempts to acquire the lock and blocks while doing so.
 // It returns a channel that is closed if our lock is lost or if an error occurs.
-func (l *etcdLock) Lock(stopChan chan struct{}) (<-chan struct{}, error) {
+func (l *etcdLock) Lock(ctx context.Context) (<-chan struct{}, error) {
 	l.lock.Lock()
 	defer l.lock.Unlock()
 
-	ctx, cancel := context.WithCancel(context.Background())
-	go func() {
-		<-stopChan
-		cancel()
-	}()
 	err := l.mutex.Lock(ctx)
 	if err != nil {
 		if errors.Is(err, context.Canceled) {
