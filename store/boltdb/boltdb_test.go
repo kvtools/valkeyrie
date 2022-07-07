@@ -13,12 +13,17 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+const testTimeout = 60 * time.Second
+
 func makeBoltDBClient(t *testing.T) store.Store {
 	t.Helper()
 
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
 	config := &store.Config{Bucket: "boltDBTest"}
 
-	kv, err := New(context.Background(), []string{"/tmp/not_exist_dir/__boltdbtest"}, config)
+	kv, err := New(ctx, []string{"/tmp/not_exist_dir/__boltdbtest"}, config)
 	require.NoErrorf(t, err, "cannot create store")
 
 	return kv
@@ -27,9 +32,12 @@ func makeBoltDBClient(t *testing.T) store.Store {
 func TestRegister(t *testing.T) {
 	Register()
 
+	ctx, cancel := context.WithTimeout(context.Background(), testTimeout)
+	defer cancel()
+
 	config := &store.Config{Bucket: "boltDBTest"}
 
-	kv, err := valkeyrie.NewStore(context.Background(), store.BOLTDB, []string{"/tmp/not_exist_dir/__boltdbtest"}, config)
+	kv, err := valkeyrie.NewStore(ctx, store.BOLTDB, []string{"/tmp/not_exist_dir/__boltdbtest"}, config)
 	require.NoError(t, err)
 	require.NotNil(t, kv)
 
@@ -47,7 +55,8 @@ func TestMultiplePersistConnection(t *testing.T) {
 		PersistConnection: true,
 	}
 
-	ctx := context.Background()
+	ctx, cancel := context.WithTimeout(context.Background(), testTimeout)
+	defer cancel()
 
 	kv, err := valkeyrie.NewStore(ctx, store.BOLTDB, []string{"/tmp/not_exist_dir/__boltdbtest"}, config)
 	require.NoError(t, err)
@@ -70,7 +79,8 @@ func TestConcurrentConnection(t *testing.T) {
 		ConnectionTimeout: 1 * time.Second,
 	}
 
-	ctx := context.Background()
+	ctx, cancel := context.WithTimeout(context.Background(), testTimeout)
+	defer cancel()
 
 	kv1, err := valkeyrie.NewStore(ctx, store.BOLTDB, []string{"/tmp/__boltdbtest"}, config)
 	require.NoError(t, err)
@@ -128,7 +138,8 @@ func TestBoltDBStore(t *testing.T) {
 func TestGetAllKeys(t *testing.T) {
 	kv := makeBoltDBClient(t)
 
-	ctx := context.Background()
+	ctx, cancel := context.WithTimeout(context.Background(), testTimeout)
+	defer cancel()
 
 	t.Cleanup(func() {
 		_ = kv.Delete(ctx, "key1")

@@ -3,6 +3,7 @@ package dynamodb
 import (
 	"context"
 	"testing"
+	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
@@ -22,9 +23,12 @@ const TestTableName = "test-1-valkeyrie"
 func TestRegister(t *testing.T) {
 	Register()
 
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	defer cancel()
+
 	config := &store.Config{Bucket: "test-1-valkeyrie"}
 
-	kv, err := valkeyrie.NewStore(context.Background(), store.DYNAMODB, []string{}, config)
+	kv, err := valkeyrie.NewStore(ctx, store.DYNAMODB, []string{}, config)
 	require.NoError(t, err)
 	assert.NotNil(t, kv)
 
@@ -41,6 +45,7 @@ func TestSetup(t *testing.T) {
 func TestDynamoDBStore(t *testing.T) {
 	ddbStore := newDynamoDBStore(t)
 	backupStore := newDynamoDBStore(t)
+
 	testutils.RunTestCommon(t, ddbStore)
 	testutils.RunTestAtomic(t, ddbStore)
 	testutils.RunTestTTL(t, ddbStore, backupStore)
@@ -49,6 +54,7 @@ func TestDynamoDBStore(t *testing.T) {
 func TestDynamoDBStoreLock(t *testing.T) {
 	ddbStore := newDynamoDBStore(t)
 	backupStore := newDynamoDBStore(t)
+
 	testutils.RunTestLock(t, ddbStore)
 	testutils.RunTestLockTTL(t, ddbStore, backupStore)
 }
@@ -56,7 +62,8 @@ func TestDynamoDBStoreLock(t *testing.T) {
 func TestDynamoDBStoreUnsupported(t *testing.T) {
 	ddbStore := newDynamoDBStore(t)
 
-	ctx := context.Background()
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	defer cancel()
 
 	_, err := ddbStore.WatchTree(ctx, "test", nil)
 	assert.ErrorIs(t, err, store.ErrCallNotSupported)
@@ -95,7 +102,8 @@ func TestBatchWrite(t *testing.T) {
 	secondKey := "testDeleteTree/second"
 	secondValue := []byte("second")
 
-	ctx := context.Background()
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	defer cancel()
 
 	// Put the first key.
 	err := kv.Put(ctx, firstKey, firstValue, nil)

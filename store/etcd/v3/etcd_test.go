@@ -12,10 +12,15 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+const testTimeout = 60 * time.Second
+
 const client = "localhost:4001"
 
 func makeEtcdV3Client(t *testing.T) store.Store {
 	t.Helper()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
 
 	config := &store.Config{
 		ConnectionTimeout: 3 * time.Second,
@@ -23,16 +28,19 @@ func makeEtcdV3Client(t *testing.T) store.Store {
 		Password:          "very-secure",
 	}
 
-	kv, err := New(context.Background(), []string{client}, config)
+	kv, err := New(ctx, []string{client}, config)
 	require.NoErrorf(t, err, "cannot create store")
 
 	return kv
 }
 
-func TestRegister(t *testing.T) {
+func TestEtcdV3Register(t *testing.T) {
 	Register()
 
-	kv, err := valkeyrie.NewStore(context.Background(), store.ETCDV3, []string{client}, nil)
+	ctx, cancel := context.WithTimeout(context.Background(), testTimeout)
+	defer cancel()
+
+	kv, err := valkeyrie.NewStore(ctx, store.ETCDV3, []string{client}, nil)
 	require.NoError(t, err)
 	assert.NotNil(t, kv)
 
@@ -44,6 +52,10 @@ func TestEtcdV3Store(t *testing.T) {
 	lockKV := makeEtcdV3Client(t)
 	ttlKV := makeEtcdV3Client(t)
 
+	t.Cleanup(func() {
+		testutils.RunCleanup(t, kv)
+	})
+
 	testutils.RunTestCommon(t, kv)
 	testutils.RunTestAtomic(t, kv)
 	testutils.RunTestWatch(t, kv)
@@ -51,13 +63,17 @@ func TestEtcdV3Store(t *testing.T) {
 	testutils.RunTestLockTTL(t, kv, lockKV)
 	testutils.RunTestListLock(t, kv)
 	testutils.RunTestTTL(t, kv, ttlKV)
-	testutils.RunCleanup(t, kv)
 }
 
-func TestKeepAlive(t *testing.T) {
+func TestEtcdV3KeepAlive(t *testing.T) {
 	kv := makeEtcdV3Client(t)
 
-	ctx := context.Background()
+	ctx, cancel := context.WithTimeout(context.Background(), testTimeout)
+	defer cancel()
+
+	t.Cleanup(func() {
+		_ = kv.Delete(ctx, "foo")
+	})
 
 	err := kv.Put(ctx, "foo", []byte("bar"), &store.WriteOptions{
 		TTL: 1 * time.Second,
@@ -84,7 +100,4 @@ func TestKeepAlive(t *testing.T) {
 	pair, err = kv.Get(ctx, "foo", nil)
 	require.NoError(t, err)
 	assert.Equal(t, pair.Value, []byte("bar"))
-
-	err = kv.Delete(ctx, "foo")
-	require.NoError(t, err)
 }

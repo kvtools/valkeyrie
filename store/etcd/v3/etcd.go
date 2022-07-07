@@ -122,10 +122,10 @@ func (s *EtcdV3) Get(ctx context.Context, key string, opts *store.ReadOptions) (
 
 // Put a value at "key".
 func (s *EtcdV3) Put(ctx context.Context, key string, value []byte, opts *store.WriteOptions) error {
-	ctx, cancel := context.WithTimeout(ctx, etcdDefaultTimeout)
+	ctxTxn, cancel := context.WithTimeout(ctx, etcdDefaultTimeout)
 	defer cancel()
 
-	pr := s.client.Txn(ctx)
+	pr := s.client.Txn(ctxTxn)
 
 	if opts == nil || opts.TTL <= 0 {
 		pr.Then(etcd.OpPut(key, string(value)))
@@ -148,6 +148,7 @@ func (s *EtcdV3) Put(ctx context.Context, key string, value []byte, opts *store.
 		if err != nil {
 			return err
 		}
+
 		// We do not care the element in the keepalive channel
 		// Just eat messages from the channel
 		go func() {

@@ -12,16 +12,21 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+const testTimeout = 60 * time.Second
+
 const client = "localhost:8500"
 
 func makeConsulClient(t *testing.T) store.Store {
 	t.Helper()
 
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
 	config := &store.Config{
 		ConnectionTimeout: 3 * time.Second,
 	}
 
-	kv, err := New(context.Background(), []string{client}, config)
+	kv, err := New(ctx, []string{client}, config)
 	require.NoErrorf(t, err, "cannot create store")
 
 	return kv
@@ -30,7 +35,10 @@ func makeConsulClient(t *testing.T) store.Store {
 func TestRegister(t *testing.T) {
 	Register()
 
-	kv, err := valkeyrie.NewStore(context.Background(), store.CONSUL, []string{client}, nil)
+	ctx, cancel := context.WithTimeout(context.Background(), testTimeout)
+	defer cancel()
+
+	kv, err := valkeyrie.NewStore(ctx, store.CONSUL, []string{client}, nil)
 	require.NoError(t, err)
 	assert.NotNil(t, kv)
 
@@ -42,13 +50,16 @@ func TestConsulStore(t *testing.T) {
 	lockKV := makeConsulClient(t)
 	ttlKV := makeConsulClient(t)
 
+	t.Cleanup(func() {
+		testutils.RunCleanup(t, kv)
+	})
+
 	testutils.RunTestCommon(t, kv)
 	testutils.RunTestAtomic(t, kv)
 	testutils.RunTestWatch(t, kv)
 	testutils.RunTestLock(t, kv)
 	testutils.RunTestLockTTL(t, kv, lockKV)
 	testutils.RunTestTTL(t, kv, ttlKV)
-	testutils.RunCleanup(t, kv)
 }
 
 func TestGetActiveSession(t *testing.T) {
@@ -62,7 +73,8 @@ func TestGetActiveSession(t *testing.T) {
 	key := "foo"
 	value := []byte("bar")
 
-	ctx := context.Background()
+	ctx, cancel := context.WithTimeout(context.Background(), testTimeout)
+	defer cancel()
 
 	// Put the first key with the Ephemeral flag.
 	err := kv.Put(ctx, key, value, &store.WriteOptions{TTL: 2 * time.Second})
