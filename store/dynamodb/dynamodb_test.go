@@ -22,11 +22,9 @@ const TestTableName = "test-1-valkeyrie"
 func TestRegister(t *testing.T) {
 	Register()
 
-	kv, err := valkeyrie.NewStore(
-		store.DYNAMODB,
-		[]string{},
-		&store.Config{Bucket: "test-1-valkeyrie"},
-	)
+	config := &store.Config{Bucket: "test-1-valkeyrie"}
+
+	kv, err := valkeyrie.NewStore(store.DYNAMODB, []string{}, config)
 	require.NoError(t, err)
 	assert.NotNil(t, kv)
 
