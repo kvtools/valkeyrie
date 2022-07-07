@@ -585,22 +585,24 @@ func (l *etcdLock) waitLock(ctx context.Context, key string, errorCh chan error,
 
 // Unlock the "key".
 // Calling unlock while not holding the lock will throw an error.
-func (l *etcdLock) Unlock() error {
+func (l *etcdLock) Unlock(ctx context.Context) error {
 	l.lock.Lock()
 	defer l.lock.Unlock()
 
 	if l.stopLock != nil {
 		l.stopLock <- struct{}{}
 	}
+
 	if l.last != nil {
 		delOpts := &etcd.DeleteOptions{
 			PrevIndex: l.last.Node.ModifiedIndex,
 		}
-		_, err := l.client.Delete(context.Background(), l.mutexKey, delOpts)
+		_, err := l.client.Delete(ctx, l.mutexKey, delOpts)
 		if err != nil {
 			return err
 		}
 	}
+
 	return nil
 }
 

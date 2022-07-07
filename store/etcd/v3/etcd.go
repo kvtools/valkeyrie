@@ -543,13 +543,13 @@ func (l *etcdLock) Lock(ctx context.Context) (<-chan struct{}, error) {
 
 // Unlock the "key".
 // Calling unlock while not holding the lock will throw an error.
-func (l *etcdLock) Unlock() error {
+func (l *etcdLock) Unlock(ctx context.Context) error {
 	l.lock.Lock()
 	defer l.lock.Unlock()
 
-	ctx := context.Background()
 	if l.deleteOnUnlock {
 		_, _ = l.store.client.Delete(ctx, l.writeKey)
 	}
+
 	return l.mutex.Unlock(ctx)
 }

@@ -617,16 +617,17 @@ func (l *redisLock) holdLock(ctx context.Context, lockHeld chan struct{}) {
 	}
 }
 
-func (l *redisLock) Unlock() error {
+func (l *redisLock) Unlock(ctx context.Context) error {
 	l.unlockCh <- struct{}{}
 
-	_, err := l.redis.AtomicDelete(context.Background(), l.key, l.last)
+	_, err := l.redis.AtomicDelete(ctx, l.key, l.last)
 	if err != nil {
 		return err
 	}
+
 	l.last = nil
 
-	return err
+	return nil
 }
 
 func scanRegex(directory string) string {

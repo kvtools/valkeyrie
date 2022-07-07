@@ -571,9 +571,10 @@ func (l *consulLock) Lock(ctx context.Context) (<-chan struct{}, error) {
 
 // Unlock the "key".
 // Calling unlock while not holding the lock will throw an error.
-func (l *consulLock) Unlock() error {
+func (l *consulLock) Unlock(_ context.Context) error {
 	if l.renewCh != nil {
 		close(l.renewCh)
 	}
+
 	return l.lock.Unlock()
 }

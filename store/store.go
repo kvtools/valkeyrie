@@ -150,8 +150,7 @@ type LockOptions struct {
 
 // Locker provides locking mechanism on top of the store.
 // Similar to sync.Locker except it may return errors.
-// FIXME context?
 type Locker interface {
 	Lock(ctx context.Context) (<-chan struct{}, error)
-	Unlock() error
+	Unlock(ctx context.Context) error
 }

@@ -105,7 +105,7 @@ func (l *Lock) Lock(ctx context.Context) (<-chan struct{}, error) {
 }
 
 // Unlock mock.
-func (l *Lock) Unlock() error {
+func (l *Lock) Unlock(_ context.Context) error {
 	args := l.Mock.Called()
 	return args.Error(0)
 }

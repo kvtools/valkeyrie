@@ -600,13 +600,14 @@ func (l *dynamodbLock) Lock(ctx context.Context) (<-chan struct{}, error) {
 	}
 }
 
-func (l *dynamodbLock) Unlock() error {
+func (l *dynamodbLock) Unlock(ctx context.Context) error {
 	l.unlockCh <- struct{}{}
 
-	_, err := l.ddb.AtomicDelete(context.Background(), l.key, l.last)
+	_, err := l.ddb.AtomicDelete(ctx, l.key, l.last)
 	if err != nil {
 		return err
 	}
+
 	l.last = nil
 
 	return nil

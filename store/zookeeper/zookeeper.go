@@ -572,7 +572,7 @@ func (l *zookeeperLock) Lock(ctx context.Context) (<-chan struct{}, error) {
 
 // Unlock the "key".
 // Calling unlock while not holding the lock will throw an error.
-func (l *zookeeperLock) Unlock() error {
+func (l *zookeeperLock) Unlock(_ context.Context) error {
 	return l.lock.Unlock()
 }
 

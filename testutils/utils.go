@@ -391,7 +391,7 @@ func testLockUnlock(t *testing.T, kv store.Store) {
 	assert.NotEqual(t, pair.LastIndex, 0)
 
 	// Unlock should succeed.
-	err = lock.Unlock()
+	err = lock.Unlock(context.Background())
 	require.NoError(t, err)
 
 	// Lock should succeed again.
@@ -406,7 +406,7 @@ func testLockUnlock(t *testing.T, kv store.Store) {
 	assert.Equal(t, pair.Value, value)
 	assert.NotEqual(t, pair.LastIndex, 0)
 
-	err = lock.Unlock()
+	err = lock.Unlock(context.Background())
 	require.NoError(t, err)
 }
 
@@ -507,7 +507,7 @@ func testLockTTL(t *testing.T, kv store.Store, otherConn store.Store) {
 	assert.Equal(t, pair.Value, value)
 	assert.NotEqual(t, pair.LastIndex, 0)
 
-	err = lock.Unlock()
+	err = lock.Unlock(context.Background())
 	require.NoError(t, err)
 }
 
