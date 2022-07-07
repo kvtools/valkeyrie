@@ -143,7 +143,7 @@ func testWatch(t *testing.T, kv store.Store) {
 	require.NoError(t, err)
 
 	stopCh := make(<-chan struct{})
-	events, err := kv.Watch(ctx, key, stopCh, nil)
+	events, err := kv.Watch(ctx, key, nil)
 	require.NoError(t, err)
 	require.NotNil(t, events)
 
@@ -214,7 +214,7 @@ func testWatchTree(t *testing.T, kv store.Store) {
 	require.NoError(t, err)
 
 	stopCh := make(<-chan struct{})
-	events, err := kv.WatchTree(context.TODO(), dir, stopCh, nil)
+	events, err := kv.WatchTree(context.TODO(), dir, nil)
 	require.NoError(t, err)
 	require.NotNil(t, events)
 

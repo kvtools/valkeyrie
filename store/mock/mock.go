@@ -52,14 +52,14 @@ func (s *Mock) Exists(_ context.Context, key string, opts *store.ReadOptions) (b
 }
 
 // Watch mock.
-func (s *Mock) Watch(_ context.Context, key string, stopCh <-chan struct{}, opts *store.ReadOptions) (<-chan *store.KVPair, error) {
-	args := s.Mock.Called(key, stopCh, opts)
+func (s *Mock) Watch(ctx context.Context, key string, opts *store.ReadOptions) (<-chan *store.KVPair, error) {
+	args := s.Mock.Called(key, opts)
 	return args.Get(0).(<-chan *store.KVPair), args.Error(1)
 }
 
 // WatchTree mock.
-func (s *Mock) WatchTree(_ context.Context, prefix string, stopCh <-chan struct{}, opts *store.ReadOptions) (<-chan []*store.KVPair, error) {
-	args := s.Mock.Called(prefix, stopCh, opts)
+func (s *Mock) WatchTree(_ context.Context, prefix string, opts *store.ReadOptions) (<-chan []*store.KVPair, error) {
+	args := s.Mock.Called(prefix, opts)
 	return args.Get(0).(chan []*store.KVPair), args.Error(1)
 }
 

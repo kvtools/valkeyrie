@@ -146,7 +146,7 @@ func (r *Redis) Delete(ctx context.Context, key string) error {
 }
 
 // Exists verify if a Key exists in the store.
-func (r *Redis) Exists(ctx context.Context, key string, opts *store.ReadOptions) (bool, error) {
+func (r *Redis) Exists(ctx context.Context, key string, _ *store.ReadOptions) (bool, error) {
 	count, err := r.client.Exists(ctx, normalize(key)).Result()
 	return count != 0, err
 }
@@ -154,7 +154,7 @@ func (r *Redis) Exists(ctx context.Context, key string, opts *store.ReadOptions)
 // Watch for changes on a key.
 // glitch: we use notified-then-retrieve to retrieve *store.KVPair.
 // so the responses may sometimes inaccurate.
-func (r *Redis) Watch(ctx context.Context, key string, stopCh <-chan struct{}, opts *store.ReadOptions) (<-chan *store.KVPair, error) {
+func (r *Redis) Watch(ctx context.Context, key string, _ *store.ReadOptions) (<-chan *store.KVPair, error) {
 	watchCh := make(chan *store.KVPair)
 	nKey := normalize(key)
 
@@ -187,7 +187,7 @@ func (r *Redis) Watch(ctx context.Context, key string, stopCh <-chan struct{}, o
 }
 
 // WatchTree watches for changes on child nodes under a given directory.
-func (r *Redis) WatchTree(ctx context.Context, directory string, stopCh <-chan struct{}, _ *store.ReadOptions) (<-chan []*store.KVPair, error) {
+func (r *Redis) WatchTree(ctx context.Context, directory string, _ *store.ReadOptions) (<-chan []*store.KVPair, error) {
 	watchCh := make(chan []*store.KVPair)
 	nKey := normalize(directory)
 
@@ -547,7 +547,7 @@ func (l *redisLock) Lock(ctx context.Context) (<-chan struct{}, error) {
 	}
 
 	// wait for changes on the key.
-	watch, err := l.redis.Watch(ctx, l.key, nil, nil)
+	watch, err := l.redis.Watch(ctx, l.key, nil)
 	if err != nil {
 		return nil, err
 	}

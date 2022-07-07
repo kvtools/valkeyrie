@@ -192,7 +192,7 @@ func (s *EtcdV3) Exists(ctx context.Context, key string, opts *store.ReadOptions
 // It returns a channel that will receive changes or pass on errors.
 // Upon creation, the current value will first be sent to the channel.
 // Providing a non-nil stopCh can be used to stop watching.
-func (s *EtcdV3) Watch(ctx context.Context, key string, stopCh <-chan struct{}, opts *store.ReadOptions) (<-chan *store.KVPair, error) {
+func (s *EtcdV3) Watch(ctx context.Context, key string, opts *store.ReadOptions) (<-chan *store.KVPair, error) {
 	wc := etcd.NewWatcher(s.client)
 
 	// respCh is sending back events to the caller.
@@ -218,7 +218,7 @@ func (s *EtcdV3) Watch(ctx context.Context, key string, stopCh <-chan struct{}, 
 		for resp := range watchCh {
 			// Check if the watch was stopped by the caller.
 			select {
-			case <-stopCh:
+			case <-ctx.Done():
 				return
 			default:
 			}
@@ -240,7 +240,7 @@ func (s *EtcdV3) Watch(ctx context.Context, key string, stopCh <-chan struct{}, 
 // It returns a channel that will receive changes or pass on errors.
 // Upon creating a watch, the current children values will be sent to the channel.
 // Providing a non-nil stopCh can be used to stop watching.
-func (s *EtcdV3) WatchTree(ctx context.Context, directory string, stopCh <-chan struct{}, opts *store.ReadOptions) (<-chan []*store.KVPair, error) {
+func (s *EtcdV3) WatchTree(ctx context.Context, directory string, opts *store.ReadOptions) (<-chan []*store.KVPair, error) {
 	wc := etcd.NewWatcher(s.client)
 
 	// respCh is sending back events to the caller.
@@ -267,7 +267,7 @@ func (s *EtcdV3) WatchTree(ctx context.Context, directory string, stopCh <-chan 
 		for resp := range watchCh {
 			// Check if the watch was stopped by the caller.
 			select {
-			case <-stopCh:
+			case <-ctx.Done():
 				return
 			default:
 			}

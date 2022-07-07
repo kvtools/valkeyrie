@@ -160,7 +160,7 @@ func (s *Zookeeper) Exists(_ context.Context, key string, _ *store.ReadOptions) 
 // It returns a channel that will receive changes or pass on errors.
 // Upon creation, the current value will first be sent to the channel.
 // Providing a non-nil stopCh can be used to stop watching.
-func (s *Zookeeper) Watch(_ context.Context, key string, stopCh <-chan struct{}, _ *store.ReadOptions) (<-chan *store.KVPair, error) {
+func (s *Zookeeper) Watch(ctx context.Context, key string, _ *store.ReadOptions) (<-chan *store.KVPair, error) {
 	// Catch zk notifications and fire changes into the channel.
 	watchCh := make(chan *store.KVPair)
 	go func() {
@@ -185,7 +185,7 @@ func (s *Zookeeper) Watch(_ context.Context, key string, stopCh <-chan struct{},
 				// Simply reset the watch if this is any other event
 				// (e.g. a session event).
 				fireEvt = e.Type == zk.EventNodeDataChanged
-			case <-stopCh:
+			case <-ctx.Done():
 				// There is no way to stop GetW so just quit.
 				return
 			}
@@ -199,7 +199,7 @@ func (s *Zookeeper) Watch(_ context.Context, key string, stopCh <-chan struct{},
 // It returns a channel that will receive changes or pass on errors.
 // Upon creating a watch, the current children values will be sent to the channel.
 // Providing a non-nil stopCh can be used to stop watching.
-func (s *Zookeeper) WatchTree(ctx context.Context, directory string, stopCh <-chan struct{}, opts *store.ReadOptions) (<-chan []*store.KVPair, error) {
+func (s *Zookeeper) WatchTree(ctx context.Context, directory string, opts *store.ReadOptions) (<-chan []*store.KVPair, error) {
 	// Catch zk notifications and fire changes into the channel.
 	watchCh := make(chan []*store.KVPair)
 
@@ -228,7 +228,7 @@ func (s *Zookeeper) WatchTree(ctx context.Context, directory string, stopCh <-ch
 				// Simply reset the watch if this is any other event
 				// (e.g. a session event).
 				fireEvt = e.Type == zk.EventNodeChildrenChanged
-			case <-stopCh:
+			case <-ctx.Done():
 				// There is no way to stop ChildrenW so just quit.
 				return
 			}

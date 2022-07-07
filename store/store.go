@@ -88,10 +88,10 @@ type Store interface {
 	Exists(ctx context.Context, key string, opts *ReadOptions) (bool, error)
 
 	// Watch for changes on a key.
-	Watch(ctx context.Context, key string, stopCh <-chan struct{}, opts *ReadOptions) (<-chan *KVPair, error) // FIXME stopCh?
+	Watch(ctx context.Context, key string, opts *ReadOptions) (<-chan *KVPair, error)
 
 	// WatchTree watches for changes on child nodes under a given directory.
-	WatchTree(ctx context.Context, directory string, stopCh <-chan struct{}, opts *ReadOptions) (<-chan []*KVPair, error) // FIXME stopCh?
+	WatchTree(ctx context.Context, directory string, opts *ReadOptions) (<-chan []*KVPair, error)
 
 	// NewLock creates a lock for a given key.
 	// The returned Locker is not held and must be acquired with `.Lock`.
