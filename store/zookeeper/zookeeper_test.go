@@ -30,7 +30,7 @@ func makeZkClient(t *testing.T) store.Store {
 func TestRegister(t *testing.T) {
 	Register()
 
-	kv, err := valkeyrie.NewStore(store.ZK, []string{client}, nil)
+	kv, err := valkeyrie.NewStore(context.Background(), store.ZK, []string{client}, nil)
 	require.NoError(t, err)
 	assert.NotNil(t, kv)
 

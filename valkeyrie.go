@@ -17,9 +17,9 @@ type Initialize func(ctx context.Context, endpoints []string, options *store.Con
 var initializers = make(map[store.Backend]Initialize)
 
 // NewStore creates an instance of store.
-func NewStore(backend store.Backend, endpoints []string, options *store.Config) (store.Store, error) {
+func NewStore(ctx context.Context, backend store.Backend, endpoints []string, options *store.Config) (store.Store, error) {
 	if init, exists := initializers[backend]; exists {
-		return init(context.Background(), endpoints, options)
+		return init(ctx, endpoints, options)
 	}
 
 	return nil, fmt.Errorf("%w %s", store.ErrBackendNotSupported, supportedBackend())

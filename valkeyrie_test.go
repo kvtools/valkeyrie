@@ -1,6 +1,7 @@
 package valkeyrie
 
 import (
+	"context"
 	"testing"
 	"time"
 
@@ -12,13 +13,11 @@ import (
 func TestNewStoreUnsupported(t *testing.T) {
 	client := "localhost:9999"
 
-	kv, err := NewStore(
-		"unsupported",
-		[]string{client},
-		&store.Config{
-			ConnectionTimeout: 10 * time.Second,
-		},
-	)
+	config := &store.Config{
+		ConnectionTimeout: 10 * time.Second,
+	}
+
+	kv, err := NewStore(context.Background(), "unsupported", []string{client}, config)
 	assert.Error(t, err)
 	assert.Nil(t, kv)
 	assert.Equal(t, "Backend storage not supported yet, please choose one of ", err.Error())

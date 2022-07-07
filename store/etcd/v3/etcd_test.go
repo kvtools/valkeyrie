@@ -32,7 +32,7 @@ func makeEtcdV3Client(t *testing.T) store.Store {
 func TestRegister(t *testing.T) {
 	Register()
 
-	kv, err := valkeyrie.NewStore(store.ETCDV3, []string{client}, nil)
+	kv, err := valkeyrie.NewStore(context.Background(), store.ETCDV3, []string{client}, nil)
 	require.NoError(t, err)
 	assert.NotNil(t, kv)
 

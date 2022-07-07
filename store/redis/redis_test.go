@@ -30,7 +30,7 @@ func makeRedisClient(t *testing.T) store.Store {
 func TestRegister(t *testing.T) {
 	Register()
 
-	kv, err := valkeyrie.NewStore(store.REDIS, []string{client}, nil)
+	kv, err := valkeyrie.NewStore(context.Background(), store.REDIS, []string{client}, nil)
 	require.NoError(t, err)
 	assert.NotNil(t, kv)
 

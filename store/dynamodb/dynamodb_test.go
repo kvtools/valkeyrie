@@ -24,7 +24,7 @@ func TestRegister(t *testing.T) {
 
 	config := &store.Config{Bucket: "test-1-valkeyrie"}
 
-	kv, err := valkeyrie.NewStore(store.DYNAMODB, []string{}, config)
+	kv, err := valkeyrie.NewStore(context.Background(), store.DYNAMODB, []string{}, config)
 	require.NoError(t, err)
 	assert.NotNil(t, kv)
 
