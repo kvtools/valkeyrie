@@ -33,7 +33,7 @@ type Zookeeper struct {
 }
 
 // New creates a new Zookeeper client given a list of endpoints and an optional TLS config.
-func New(endpoints []string, options *store.Config) (store.Store, error) {
+func New(_ context.Context, endpoints []string, options *store.Config) (store.Store, error) {
 	s := &Zookeeper{}
 	s.timeout = defaultTimeout
 
@@ -75,7 +75,7 @@ func (s *Zookeeper) setTimeout(timeout time.Duration) {
 
 // Get the value at "key".
 // Returns the last modified index to use in conjunction to Atomic calls.
-func (s *Zookeeper) Get(_ context.Context, key string, opts *store.ReadOptions) (pair *store.KVPair, err error) {
+func (s *Zookeeper) Get(_ context.Context, key string, _ *store.ReadOptions) (pair *store.KVPair, err error) {
 	resp, meta, err := s.get(key)
 	if err != nil {
 		return nil, err

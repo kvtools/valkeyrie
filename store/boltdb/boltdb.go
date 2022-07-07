@@ -55,7 +55,7 @@ type BoltDB struct {
 }
 
 // New opens a new BoltDB connection to the specified path and bucket.
-func New(endpoints []string, options *store.Config) (store.Store, error) {
+func New(_ context.Context, endpoints []string, options *store.Config) (store.Store, error) {
 	if len(endpoints) > 1 {
 		return nil, ErrMultipleEndpointsUnsupported
 	}

@@ -37,7 +37,7 @@ type Etcd struct {
 }
 
 // New creates a new Etcd client given a list of endpoints and an optional TLS config.
-func New(addrs []string, options *store.Config) (store.Store, error) {
+func New(ctx context.Context, addrs []string, options *store.Config) (store.Store, error) {
 	cfg := &etcd.Config{
 		Endpoints:               store.CreateEndpoints(addrs, "http"),
 		Transport:               etcd.DefaultTransport,
@@ -70,7 +70,7 @@ func New(addrs []string, options *store.Config) (store.Store, error) {
 	if options != nil && options.SyncPeriod != 0 {
 		go func() {
 			for {
-				_ = c.AutoSync(context.Background(), options.SyncPeriod)
+				_ = c.AutoSync(ctx, options.SyncPeriod)
 			}
 		}()
 	}

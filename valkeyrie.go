@@ -2,6 +2,7 @@
 package valkeyrie
 
 import (
+	"context"
 	"fmt"
 	"sort"
 	"strings"
@@ -10,7 +11,7 @@ import (
 )
 
 // Initialize creates a new Store object, initializing the client.
-type Initialize func(endpoints []string, options *store.Config) (store.Store, error)
+type Initialize func(ctx context.Context, endpoints []string, options *store.Config) (store.Store, error)
 
 // Backend initializers.
 var initializers = make(map[store.Backend]Initialize)
@@ -18,7 +19,7 @@ var initializers = make(map[store.Backend]Initialize)
 // NewStore creates an instance of store.
 func NewStore(backend store.Backend, endpoints []string, options *store.Config) (store.Store, error) {
 	if init, exists := initializers[backend]; exists {
-		return init(endpoints, options)
+		return init(context.Background(), endpoints, options)
 	}
 
 	return nil, fmt.Errorf("%w %s", store.ErrBackendNotSupported, supportedBackend())

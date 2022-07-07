@@ -32,7 +32,7 @@ type EtcdV3 struct {
 }
 
 // New creates a new Etcd client given a list of endpoints and an optional tls config.
-func New(addrs []string, options *store.Config) (store.Store, error) {
+func New(ctx context.Context, addrs []string, options *store.Config) (store.Store, error) {
 	cfg := &etcd.Config{
 		Endpoints: store.CreateEndpoints(addrs, "http"),
 	}

@@ -16,7 +16,9 @@ import (
 func makeBoltDBClient(t *testing.T) store.Store {
 	t.Helper()
 
-	kv, err := New([]string{"/tmp/not_exist_dir/__boltdbtest"}, &store.Config{Bucket: "boltDBTest"})
+	config := &store.Config{Bucket: "boltDBTest"}
+
+	kv, err := New(context.Background(), []string{"/tmp/not_exist_dir/__boltdbtest"}, config)
 	require.NoErrorf(t, err, "cannot create store")
 
 	return kv

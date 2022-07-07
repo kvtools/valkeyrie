@@ -51,7 +51,7 @@ type Consul struct {
 }
 
 // New creates a new Consul client given a list of endpoints and optional tls config.
-func New(endpoints []string, options *store.Config) (store.Store, error) {
+func New(_ context.Context, endpoints []string, options *store.Config) (store.Store, error) {
 	if len(endpoints) > 1 {
 		return nil, ErrMultipleEndpointsUnsupported
 	}

@@ -1,6 +1,7 @@
 package etcd
 
 import (
+	"context"
 	"testing"
 	"time"
 
@@ -16,14 +17,13 @@ const client = "localhost:4001"
 func makeEtcdClient(t *testing.T) store.Store {
 	t.Helper()
 
-	kv, err := New(
-		[]string{client},
-		&store.Config{
-			ConnectionTimeout: 3 * time.Second,
-			Username:          "test",
-			Password:          "very-secure",
-		},
-	)
+	config := &store.Config{
+		ConnectionTimeout: 3 * time.Second,
+		Username:          "test",
+		Password:          "very-secure",
+	}
+
+	kv, err := New(context.Background(), []string{client}, config)
 	require.NoErrorf(t, err, "cannot create store")
 
 	return kv

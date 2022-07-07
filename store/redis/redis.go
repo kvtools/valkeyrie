@@ -39,12 +39,12 @@ func Register() {
 }
 
 // New creates a new Redis client given a list  of endpoints and optional tls config.
-func New(endpoints []string, options *store.Config) (store.Store, error) {
-	return NewWithCodec(endpoints, options, &RawCodec{})
+func New(ctx context.Context, endpoints []string, options *store.Config) (store.Store, error) {
+	return NewWithCodec(ctx, endpoints, options, &RawCodec{})
 }
 
 // NewWithCodec creates a new Redis client with codec config.
-func NewWithCodec(endpoints []string, options *store.Config, codec Codec) (store.Store, error) {
+func NewWithCodec(ctx context.Context, endpoints []string, options *store.Config, codec Codec) (store.Store, error) {
 	if len(endpoints) > 1 {
 		return nil, ErrMultipleEndpointsUnsupported
 	}
@@ -57,7 +57,14 @@ func NewWithCodec(endpoints []string, options *store.Config, codec Codec) (store
 		password = options.Password
 	}
 
-	return newRedis(context.Background(), endpoints, password, codec), nil
+	return newRedis(ctx, endpoints, password, codec), nil
+}
+
+// Redis implements valkeyrie.Store interface with redis backend.
+type Redis struct {
+	client *redis.Client
+	script *redis.Script
+	codec  Codec
 }
 
 func newRedis(ctx context.Context, endpoints []string, password string, codec Codec) *Redis {
@@ -83,13 +90,6 @@ func newRedis(ctx context.Context, endpoints []string, password string, codec Co
 		script: redis.NewScript(luaScript()),
 		codec:  c,
 	}
-}
-
-// Redis implements valkeyrie.Store interface with redis backend.
-type Redis struct {
-	client *redis.Client
-	script *redis.Script
-	codec  Codec
 }
 
 // Put a value at the specified key.

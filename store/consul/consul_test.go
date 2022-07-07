@@ -17,12 +17,11 @@ const client = "localhost:8500"
 func makeConsulClient(t *testing.T) store.Store {
 	t.Helper()
 
-	kv, err := New(
-		[]string{client},
-		&store.Config{
-			ConnectionTimeout: 3 * time.Second,
-		},
-	)
+	config := &store.Config{
+		ConnectionTimeout: 3 * time.Second,
+	}
+
+	kv, err := New(context.Background(), []string{client}, config)
 	require.NoErrorf(t, err, "cannot create store")
 
 	return kv
