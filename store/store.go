@@ -58,6 +58,7 @@ type Config struct {
 	Password          string
 	Token             string
 	Namespace         string
+	MaxBufferSize     int
 }
 
 // ClientTLSConfig contains data for a Client TLS configuration
