@@ -27,11 +27,9 @@ func makeBoltDBClient(t *testing.T) store.Store {
 func TestRegister(t *testing.T) {
 	Register()
 
-	kv, err := valkeyrie.NewStore(
-		store.BOLTDB,
-		[]string{"/tmp/not_exist_dir/__boltdbtest"},
-		&store.Config{Bucket: "boltDBTest"},
-	)
+	config := &store.Config{Bucket: "boltDBTest"}
+
+	kv, err := valkeyrie.NewStore(store.BOLTDB, []string{"/tmp/not_exist_dir/__boltdbtest"}, config)
 	require.NoError(t, err)
 	require.NotNil(t, kv)
 
@@ -43,30 +41,20 @@ func TestRegister(t *testing.T) {
 // TestMultiplePersistConnection tests the second connection to a
 // BoltDB fails when one is already open with PersistConnection flag.
 func TestMultiplePersistConnection(t *testing.T) {
-	kv, err := valkeyrie.NewStore(
-		store.BOLTDB,
-		[]string{"/tmp/not_exist_dir/__boltdbtest"},
-		&store.Config{
-			Bucket:            "boltDBTest",
-			ConnectionTimeout: 1 * time.Second,
-			PersistConnection: true,
-		},
-	)
+	config := &store.Config{
+		Bucket:            "boltDBTest",
+		ConnectionTimeout: 1 * time.Second,
+		PersistConnection: true,
+	}
+
+	kv, err := valkeyrie.NewStore(store.BOLTDB, []string{"/tmp/not_exist_dir/__boltdbtest"}, config)
 	require.NoError(t, err)
 	assert.NotNil(t, kv)
 
 	assert.IsTypef(t, kv, new(BoltDB), "Error registering and initializing boltDB")
 
 	// Must fail if multiple boltdb requests are made with a valid timeout.
-	_, err = valkeyrie.NewStore(
-		store.BOLTDB,
-		[]string{"/tmp/not_exist_dir/__boltdbtest"},
-		&store.Config{
-			Bucket:            "boltDBTest",
-			ConnectionTimeout: 1 * time.Second,
-			PersistConnection: true,
-		},
-	)
+	_, err = valkeyrie.NewStore(store.BOLTDB, []string{"/tmp/not_exist_dir/__boltdbtest"}, config)
 	assert.Error(t, err)
 
 	_ = os.Remove("/tmp/not_exist_dir/__boltdbtest")
@@ -75,25 +63,16 @@ func TestMultiplePersistConnection(t *testing.T) {
 // TestConcurrentConnection tests simultaneous get/put using
 // two handles.
 func TestConcurrentConnection(t *testing.T) {
-	kv1, err := valkeyrie.NewStore(
-		store.BOLTDB,
-		[]string{"/tmp/__boltdbtest"},
-		&store.Config{
-			Bucket:            "boltDBTest",
-			ConnectionTimeout: 1 * time.Second,
-		},
-	)
+	config := &store.Config{
+		Bucket:            "boltDBTest",
+		ConnectionTimeout: 1 * time.Second,
+	}
+
+	kv1, err := valkeyrie.NewStore(store.BOLTDB, []string{"/tmp/__boltdbtest"}, config)
 	require.NoError(t, err)
 	assert.NotNil(t, kv1)
 
-	kv2, err := valkeyrie.NewStore(
-		store.BOLTDB,
-		[]string{"/tmp/__boltdbtest"},
-		&store.Config{
-			Bucket:            "boltDBTest",
-			ConnectionTimeout: 1 * time.Second,
-		},
-	)
+	kv2, err := valkeyrie.NewStore(store.BOLTDB, []string{"/tmp/__boltdbtest"}, config)
 	require.NoError(t, err)
 	assert.NotNil(t, kv2)
 
