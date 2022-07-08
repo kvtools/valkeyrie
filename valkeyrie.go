@@ -12,10 +12,8 @@ import (
 // Initialize creates a new Store object, initializing the client.
 type Initialize func(endpoints []string, options *store.Config) (store.Store, error)
 
-var (
-	// Backend initializers.
-	initializers = make(map[store.Backend]Initialize)
-)
+// Backend initializers.
+var initializers = make(map[store.Backend]Initialize)
 
 // NewStore creates an instance of store.
 func NewStore(backend store.Backend, endpoints []string, options *store.Config) (store.Store, error) {
