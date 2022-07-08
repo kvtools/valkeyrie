@@ -222,15 +222,18 @@ func (r *Redis) WatchTree(ctx context.Context, directory string, _ *store.ReadOp
 // NewLock creates a lock for a given key.
 // The returned Locker is not held and must be acquired
 // with `.Lock`. The Value is optional.
-func (r *Redis) NewLock(key string, options *store.LockOptions) (store.Locker, error) {
+func (r *Redis) NewLock(_ context.Context, key string, opts *store.LockOptions) (store.Locker, error) {
 	ttl := defaultLockTTL
-	if options != nil && options.TTL != 0 {
-		ttl = options.TTL
-	}
-
 	var value []byte
-	if options != nil && len(options.Value) != 0 {
-		value = options.Value
+
+	if opts != nil {
+		if opts.TTL != 0 {
+			ttl = opts.TTL
+		}
+
+		if len(opts.Value) != 0 {
+			value = opts.Value
+		}
 	}
 
 	return &redisLock{

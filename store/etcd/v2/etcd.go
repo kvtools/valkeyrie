@@ -415,21 +415,23 @@ func (s *Etcd) DeleteTree(ctx context.Context, directory string) error {
 
 // NewLock returns a handle to a lock struct
 // which can be used to provide mutual exclusion on a key.
-func (s *Etcd) NewLock(key string, options *store.LockOptions) (lock store.Locker, err error) {
+func (s *Etcd) NewLock(_ context.Context, key string, opts *store.LockOptions) (lock store.Locker, err error) {
 	ttl := defaultLockTTL
 	renewCh := make(chan struct{})
 
 	// Apply options on Lock.
 	var value string
-	if options != nil {
-		if options.Value != nil {
-			value = string(options.Value)
+	if opts != nil {
+		if opts.Value != nil {
+			value = string(opts.Value)
 		}
-		if options.TTL != 0 {
-			ttl = options.TTL
+
+		if opts.TTL != 0 {
+			ttl = opts.TTL
 		}
-		if options.RenewLock != nil {
-			renewCh = options.RenewLock
+
+		if opts.RenewLock != nil {
+			renewCh = opts.RenewLock
 		}
 	}
 

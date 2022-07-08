@@ -64,8 +64,8 @@ func (s *Mock) WatchTree(_ context.Context, prefix string, opts *store.ReadOptio
 }
 
 // NewLock mock.
-func (s *Mock) NewLock(key string, options *store.LockOptions) (store.Locker, error) {
-	args := s.Mock.Called(key, options)
+func (s *Mock) NewLock(_ context.Context, key string, opts *store.LockOptions) (store.Locker, error) {
+	args := s.Mock.Called(key, opts)
 	return args.Get(0).(store.Locker), args.Error(1)
 }
 

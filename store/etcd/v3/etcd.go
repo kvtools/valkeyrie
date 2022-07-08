@@ -398,29 +398,31 @@ func (s *EtcdV3) DeleteTree(ctx context.Context, directory string) error {
 }
 
 // NewLock returns a handle to a lock struct which can be used to provide mutual exclusion on a key.
-func (s *EtcdV3) NewLock(key string, options *store.LockOptions) (lock store.Locker, err error) {
-	ttl := defaultLockTTL
-
+func (s *EtcdV3) NewLock(ctx context.Context, key string, opts *store.LockOptions) (lock store.Locker, err error) {
 	var value string
-	var deleteOnUnlock bool
+	ttl := defaultLockTTL
 	renewCh := make(chan struct{})
+	var deleteOnUnlock bool
 
 	// Apply options on Lock.
-	if options != nil {
-		if options.Value != nil {
-			value = string(options.Value)
+	if opts != nil {
+		if opts.Value != nil {
+			value = string(opts.Value)
 		}
-		if options.TTL != 0 {
-			ttl = options.TTL
+
+		if opts.TTL != 0 {
+			ttl = opts.TTL
 		}
-		if options.RenewLock != nil {
-			renewCh = options.RenewLock
+
+		if opts.RenewLock != nil {
+			renewCh = opts.RenewLock
 		}
-		deleteOnUnlock = options.DeleteOnUnlock
+
+		deleteOnUnlock = opts.DeleteOnUnlock
 	}
 
 	// Create Session for Mutex.
-	session, err := concurrency.NewSession(s.client, concurrency.WithTTL(int(ttl/time.Second)))
+	session, err := concurrency.NewSession(s.client, concurrency.WithTTL(int(ttl/time.Second)), concurrency.WithContext(ctx))
 	if err != nil {
 		return nil, err
 	}

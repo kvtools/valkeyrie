@@ -396,23 +396,21 @@ func (s *Consul) WatchTree(ctx context.Context, directory string, _ *store.ReadO
 }
 
 // NewLock returns a handle to a lock struct which can be used to provide mutual exclusion on a key.
-func (s *Consul) NewLock(key string, options *store.LockOptions) (store.Locker, error) {
+func (s *Consul) NewLock(ctx context.Context, key string, opts *store.LockOptions) (store.Locker, error) {
+	ttl := defaultLockTTL
+
 	lockOpts := &api.LockOptions{
 		Key: s.normalize(key),
 	}
 
-	lock := &consulLock{}
-
-	ttl := defaultLockTTL
-
-	if options != nil {
+	if opts != nil {
 		// Set optional TTL on Lock.
-		if options.TTL != 0 {
-			ttl = options.TTL
+		if opts.TTL != 0 {
+			ttl = opts.TTL
 		}
 		// Set optional value on Lock.
-		if options.Value != nil {
-			lockOpts.Value = options.Value
+		if opts.Value != nil {
+			lockOpts.Value = opts.Value
 		}
 	}
 
@@ -422,16 +420,20 @@ func (s *Consul) NewLock(key string, options *store.LockOptions) (store.Locker, 
 		LockDelay: 1 * time.Millisecond,       // Virtually disable lock delay.
 	}
 
+	q := (&api.WriteOptions{}).WithContext(ctx)
+
 	// Create the key session.
-	session, _, err := s.client.Session().Create(entry, nil)
+	session, _, err := s.client.Session().Create(entry, q.WithContext(ctx))
 	if err != nil {
 		return nil, err
 	}
 
+	lock := &consulLock{}
+
 	// Place the session and renew chan on lock.
 	lockOpts.Session = session
-	if options != nil {
-		lock.renewCh = options.RenewLock
+	if opts != nil {
+		lock.renewCh = opts.RenewLock
 	}
 
 	l, err := s.client.LockOpts(lockOpts)
@@ -440,11 +442,12 @@ func (s *Consul) NewLock(key string, options *store.LockOptions) (store.Locker, 
 	}
 
 	// Renew the session ttl lock periodically.
-	if options != nil {
-		s.renewLockSession(entry.TTL, session, options.RenewLock)
+	if opts != nil {
+		s.renewLockSession(entry.TTL, session, opts.RenewLock, q)
 	}
 
 	lock.lock = l
+
 	return lock, nil
 }
 
@@ -455,17 +458,19 @@ func (s *Consul) NewLock(key string, options *store.LockOptions) (store.Locker, 
 // it keeps trying to delete the session periodically until it can contact the store,
 // this ensures that the lock is not maintained indefinitely which ensures liveness
 // over safety for the lock when the store becomes unavailable.
-func (s *Consul) renewLockSession(initialTTL string, id string, stopRenew chan struct{}) {
-	sessionDestroyAttempts := 0
+func (s *Consul) renewLockSession(initialTTL string, id string, stopRenew chan struct{}, q *api.WriteOptions) {
 	ttl, err := time.ParseDuration(initialTTL)
 	if err != nil {
 		return
 	}
+
+	sessionDestroyAttempts := 0
+
 	go func() {
 		for {
 			select {
 			case <-time.After(ttl / 2):
-				entry, _, err := s.client.Session().Renew(id, nil)
+				entry, _, err := s.client.Session().Renew(id, q)
 				if err != nil {
 					// If an error occurs,
 					// continue until the session gets destroyed explicitly or the session ttl times out.
@@ -480,7 +485,7 @@ func (s *Consul) renewLockSession(initialTTL string, id string, stopRenew chan s
 
 			case <-stopRenew:
 				// Attempt a session destroy.
-				_, err := s.client.Session().Destroy(id, nil)
+				_, err := s.client.Session().Destroy(id, q)
 				if err == nil {
 					return
 				}

@@ -96,7 +96,7 @@ type Store interface {
 	// NewLock creates a lock for a given key.
 	// The returned Locker is not held and must be acquired with `.Lock`.
 	// The Value is optional.
-	NewLock(key string, opts *LockOptions) (Locker, error)
+	NewLock(ctx context.Context, key string, opts *LockOptions) (Locker, error)
 
 	// List the content of a given prefix.
 	List(ctx context.Context, directory string, opts *ReadOptions) ([]*KVPair, error)

@@ -407,13 +407,13 @@ func (s *Zookeeper) AtomicDelete(_ context.Context, key string, previous *store.
 }
 
 // NewLock returns a handle to a lock struct which can be used to provide mutual exclusion on a key.
-func (s *Zookeeper) NewLock(key string, options *store.LockOptions) (lock store.Locker, err error) {
+func (s *Zookeeper) NewLock(_ context.Context, key string, opts *store.LockOptions) (lock store.Locker, err error) {
 	value := []byte("")
 
 	// Apply options.
-	if options != nil {
-		if options.Value != nil {
-			value = options.Value
+	if opts != nil {
+		if opts.Value != nil {
+			value = opts.Value
 		}
 	}
 

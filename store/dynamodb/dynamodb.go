@@ -433,20 +433,23 @@ func (ddb *DynamoDB) AtomicDelete(ctx context.Context, key string, previous *sto
 func (ddb *DynamoDB) Close() error { return nil }
 
 // NewLock has to implemented at the library level since it's not supported by DynamoDB.
-func (ddb *DynamoDB) NewLock(key string, options *store.LockOptions) (store.Locker, error) {
+func (ddb *DynamoDB) NewLock(_ context.Context, key string, opts *store.LockOptions) (store.Locker, error) {
 	ttl := defaultLockTTL
-	if options != nil && options.TTL != 0 {
-		ttl = options.TTL
-	}
-
 	var value []byte
-	if options != nil && len(options.Value) != 0 {
-		value = options.Value
-	}
-
 	renewCh := make(chan struct{})
-	if options != nil && options.RenewLock != nil {
-		renewCh = options.RenewLock
+
+	if opts != nil {
+		if opts.TTL != 0 {
+			ttl = opts.TTL
+		}
+
+		if len(opts.Value) != 0 {
+			value = opts.Value
+		}
+
+		if opts.RenewLock != nil {
+			renewCh = opts.RenewLock
+		}
 	}
 
 	return &dynamodbLock{

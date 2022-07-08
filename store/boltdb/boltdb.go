@@ -444,7 +444,7 @@ func (b *BoltDB) DeleteTree(_ context.Context, keyPrefix string) error {
 }
 
 // NewLock has to implemented at the library level since it's not supported by BoltDB.
-func (b *BoltDB) NewLock(_ string, _ *store.LockOptions) (store.Locker, error) {
+func (b *BoltDB) NewLock(_ context.Context, _ string, _ *store.LockOptions) (store.Locker, error) {
 	return nil, store.ErrCallNotSupported
 }
 

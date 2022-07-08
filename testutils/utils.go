@@ -380,7 +380,7 @@ func testLockUnlock(t *testing.T, kv store.Store) {
 	value := []byte("bar")
 
 	// We should be able to create a new lock on key.
-	lock, err := kv.NewLock(key, &store.LockOptions{
+	lock, err := kv.NewLock(ctx, key, &store.LockOptions{
 		Value:          value,
 		TTL:            2 * time.Second,
 		DeleteOnUnlock: true,
@@ -432,7 +432,7 @@ func testLockTTL(t *testing.T, kv store.Store, otherConn store.Store) {
 	renewCh := make(chan struct{})
 
 	// We should be able to create a new lock on key.
-	lockOC, err := otherConn.NewLock(key, &store.LockOptions{
+	lockOC, err := otherConn.NewLock(ctx, key, &store.LockOptions{
 		Value:     value,
 		TTL:       2 * time.Second,
 		RenewLock: renewCh,
@@ -457,13 +457,10 @@ func testLockTTL(t *testing.T, kv store.Store, otherConn store.Store) {
 	value = []byte("foobar")
 
 	// Create a new lock with another connection.
-	lock, err := kv.NewLock(
-		key,
-		&store.LockOptions{
-			Value: value,
-			TTL:   3 * time.Second,
-		},
-	)
+	lock, err := kv.NewLock(ctx, key, &store.LockOptions{
+		Value: value,
+		TTL:   3 * time.Second,
+	})
 	require.NoError(t, err)
 	require.NotNil(t, lock)
 
@@ -642,7 +639,7 @@ func testListLockKey(t *testing.T, kv store.Store) {
 		require.NoError(t, err)
 
 		// We lock the child key.
-		lock, err := kv.NewLock(key, &store.LockOptions{Value: []byte("locked"), TTL: 2 * time.Second})
+		lock, err := kv.NewLock(ctx, key, &store.LockOptions{Value: []byte("locked"), TTL: 2 * time.Second})
 		require.NoError(t, err)
 		require.NotNil(t, lock)
 
