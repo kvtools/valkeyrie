@@ -458,6 +458,12 @@ func watchLoop(ctx context.Context, msgCh chan *redis.Message, get getter, push 
 	push(pair)
 
 	for m := range msgCh {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		default:
+		}
+
 		// retrieve and send back.
 		pair, err := get()
 		if err != nil && !errors.Is(err, store.ErrKeyNotFound) {
@@ -470,12 +476,6 @@ func watchLoop(ctx context.Context, msgCh chan *redis.Message, get getter, push 
 		}
 
 		push(pair)
-
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
-		default:
-		}
 	}
 
 	return nil

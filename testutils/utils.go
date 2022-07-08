@@ -389,7 +389,7 @@ func testLockUnlock(t *testing.T, kv store.Store) {
 	require.NotNil(t, lock)
 
 	// Lock should successfully succeed or block.
-	lockChan, err := lock.Lock(context.Background())
+	lockChan, err := lock.Lock(ctx)
 	require.NoError(t, err)
 	assert.NotNil(t, lockChan)
 
@@ -401,11 +401,11 @@ func testLockUnlock(t *testing.T, kv store.Store) {
 	assert.NotEqual(t, pair.LastIndex, 0)
 
 	// Unlock should succeed.
-	err = lock.Unlock(context.Background())
+	err = lock.Unlock(ctx)
 	require.NoError(t, err)
 
 	// Lock should succeed again.
-	lockChan, err = lock.Lock(context.Background())
+	lockChan, err = lock.Lock(ctx)
 	require.NoError(t, err)
 	assert.NotNil(t, lockChan)
 
@@ -416,7 +416,7 @@ func testLockUnlock(t *testing.T, kv store.Store) {
 	assert.Equal(t, pair.Value, value)
 	assert.NotEqual(t, pair.LastIndex, 0)
 
-	err = lock.Unlock(context.Background())
+	err = lock.Unlock(ctx)
 	require.NoError(t, err)
 }
 
@@ -432,16 +432,16 @@ func testLockTTL(t *testing.T, kv store.Store, otherConn store.Store) {
 	renewCh := make(chan struct{})
 
 	// We should be able to create a new lock on key.
-	lock, err := otherConn.NewLock(key, &store.LockOptions{
+	lockOC, err := otherConn.NewLock(key, &store.LockOptions{
 		Value:     value,
 		TTL:       2 * time.Second,
 		RenewLock: renewCh,
 	})
 	require.NoError(t, err)
-	require.NotNil(t, lock)
+	require.NotNil(t, lockOC)
 
 	// Lock should successfully succeed.
-	lockChan, err := lock.Lock(ctx)
+	lockChan, err := lockOC.Lock(ctx)
 	require.NoError(t, err)
 	assert.NotNil(t, lockChan)
 
@@ -457,7 +457,7 @@ func testLockTTL(t *testing.T, kv store.Store, otherConn store.Store) {
 	value = []byte("foobar")
 
 	// Create a new lock with another connection.
-	lock, err = kv.NewLock(
+	lock, err := kv.NewLock(
 		key,
 		&store.LockOptions{
 			Value: value,
@@ -467,8 +467,8 @@ func testLockTTL(t *testing.T, kv store.Store, otherConn store.Store) {
 	require.NoError(t, err)
 	require.NotNil(t, lock)
 
-	ctxLock, cancel := context.WithTimeout(ctx, 4*time.Second)
-	defer cancel()
+	ctxLock, cancelLock := context.WithTimeout(ctx, 4*time.Second)
+	defer cancelLock()
 
 	// Lock should block, the session on the lock
 	// is still active and renewed periodically.
@@ -492,7 +492,7 @@ func testLockTTL(t *testing.T, kv store.Store, otherConn store.Store) {
 	close(renewCh)
 
 	// Let the session on the lock expire.
-	time.Sleep(5 * time.Second)
+	time.Sleep(3 * time.Second)
 
 	// Lock should now succeed for the other client.
 	locked := make(chan struct{})
@@ -646,7 +646,7 @@ func testListLockKey(t *testing.T, kv store.Store) {
 		require.NoError(t, err)
 		require.NotNil(t, lock)
 
-		lockChan, err := lock.Lock(context.Background())
+		lockChan, err := lock.Lock(ctx)
 		require.NoError(t, err)
 		assert.NotNil(t, lockChan)
 	}

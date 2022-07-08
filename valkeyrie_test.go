@@ -56,9 +56,9 @@ func TestListSupportedBackends(t *testing.T) {
 			t.Cleanup(func() { initializers = make(map[store.Backend]Initialize) })
 
 			for _, s := range test.stores {
-				AddStore(store.Backend(s), func(_ []string, _ *store.Config) (store.Store, error) { return nil, nil })
+				AddStore(store.Backend(s), func(_ context.Context, _ []string, _ *store.Config) (store.Store, error) { return nil, nil })
 
-				kv, err := NewStore(store.Backend(s), nil, nil)
+				kv, err := NewStore(context.Background(), store.Backend(s), nil, nil)
 				require.NoError(t, err)
 				require.Nil(t, kv) // AddStore return nil
 			}
