@@ -79,6 +79,10 @@ func TestConcurrentConnection(t *testing.T) {
 		ConnectionTimeout: 1 * time.Second,
 	}
 
+	t.Cleanup(func() {
+		_ = os.Remove("/tmp/__boltdbtest")
+	})
+
 	ctx, cancel := context.WithTimeout(context.Background(), testTimeout)
 	defer cancel()
 
@@ -122,8 +126,6 @@ func TestConcurrentConnection(t *testing.T) {
 
 	_ = kv1.Close()
 	_ = kv2.Close()
-
-	_ = os.Remove("/tmp/__boltdbtest")
 }
 
 func TestBoltDBStore(t *testing.T) {

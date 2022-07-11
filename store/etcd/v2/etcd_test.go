@@ -14,6 +14,8 @@ import (
 
 const client = "localhost:4001"
 
+const testTimeout = 60 * time.Second
+
 func makeEtcdClient(t *testing.T) store.Store {
 	t.Helper()
 
@@ -35,7 +37,7 @@ func makeEtcdClient(t *testing.T) store.Store {
 func TestEtcdV2Register(t *testing.T) {
 	Register()
 
-	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), testTimeout)
 	defer cancel()
 
 	kv, err := valkeyrie.NewStore(ctx, store.ETCD, []string{client}, nil)

@@ -423,7 +423,7 @@ func (s *Consul) NewLock(ctx context.Context, key string, opts *store.LockOption
 	q := (&api.WriteOptions{}).WithContext(ctx)
 
 	// Create the key session.
-	session, _, err := s.client.Session().Create(entry, q.WithContext(ctx))
+	session, _, err := s.client.Session().Create(entry, q)
 	if err != nil {
 		return nil, err
 	}

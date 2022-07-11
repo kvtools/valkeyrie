@@ -32,7 +32,7 @@ type EtcdV3 struct {
 }
 
 // New creates a new Etcd client given a list of endpoints and an optional tls config.
-func New(ctx context.Context, addrs []string, options *store.Config) (store.Store, error) {
+func New(_ context.Context, addrs []string, options *store.Config) (store.Store, error) {
 	cfg := &etcd.Config{
 		Endpoints: store.CreateEndpoints(addrs, "http"),
 	}
@@ -107,14 +107,14 @@ func (s *EtcdV3) Get(ctx context.Context, key string, opts *store.ReadOptions) (
 		return nil, store.ErrKeyNotFound
 	}
 
-	var kvp *store.KVPair
+	if len(result.Kvs) == 0 {
+		return nil, nil
+	}
 
-	if len(result.Kvs) > 0 {
-		kvp = &store.KVPair{
-			Key:       string(result.Kvs[0].Key),
-			Value:     result.Kvs[0].Value,
-			LastIndex: uint64(result.Kvs[0].ModRevision),
-		}
+	kvp := &store.KVPair{
+		Key:       string(result.Kvs[0].Key),
+		Value:     result.Kvs[0].Value,
+		LastIndex: uint64(result.Kvs[0].ModRevision),
 	}
 
 	return kvp, nil

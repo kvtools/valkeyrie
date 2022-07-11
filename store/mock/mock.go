@@ -52,7 +52,7 @@ func (s *Mock) Exists(_ context.Context, key string, opts *store.ReadOptions) (b
 }
 
 // Watch mock.
-func (s *Mock) Watch(ctx context.Context, key string, opts *store.ReadOptions) (<-chan *store.KVPair, error) {
+func (s *Mock) Watch(_ context.Context, key string, opts *store.ReadOptions) (<-chan *store.KVPair, error) {
 	args := s.Mock.Called(key, opts)
 	return args.Get(0).(<-chan *store.KVPair), args.Error(1)
 }
@@ -99,7 +99,7 @@ type Lock struct {
 }
 
 // Lock mock.
-func (l *Lock) Lock(ctx context.Context) (<-chan struct{}, error) {
+func (l *Lock) Lock(_ context.Context) (<-chan struct{}, error) {
 	args := l.Mock.Called()
 	return args.Get(0).(<-chan struct{}), args.Error(1)
 }

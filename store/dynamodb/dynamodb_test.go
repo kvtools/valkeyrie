@@ -20,10 +20,12 @@ import (
 
 const TestTableName = "test-1-valkeyrie"
 
+const testTimeout = 60 * time.Second
+
 func TestRegister(t *testing.T) {
 	Register()
 
-	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), testTimeout)
 	defer cancel()
 
 	config := &store.Config{Bucket: "test-1-valkeyrie"}
@@ -62,7 +64,7 @@ func TestDynamoDBStoreLock(t *testing.T) {
 func TestDynamoDBStoreUnsupported(t *testing.T) {
 	ddbStore := newDynamoDBStore(t)
 
-	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), testTimeout)
 	defer cancel()
 
 	_, err := ddbStore.WatchTree(ctx, "test", nil)
@@ -102,7 +104,7 @@ func TestBatchWrite(t *testing.T) {
 	secondKey := "testDeleteTree/second"
 	secondValue := []byte("second")
 
-	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), testTimeout)
 	defer cancel()
 
 	// Put the first key.
