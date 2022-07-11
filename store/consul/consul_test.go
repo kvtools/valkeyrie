@@ -54,6 +54,7 @@ func TestConsulStore(t *testing.T) {
 		testutils.RunCleanup(t, kv)
 	})
 
+	testutils.RunCleanup(t, kv)
 	testutils.RunTestCommon(t, kv)
 	testutils.RunTestAtomic(t, kv)
 	testutils.RunTestWatch(t, kv)

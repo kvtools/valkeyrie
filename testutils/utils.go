@@ -469,18 +469,8 @@ func testLockTTL(t *testing.T, kv store.Store, otherConn store.Store) {
 
 	// Lock should block, the session on the lock
 	// is still active and renewed periodically.
-	done := make(chan struct{})
-	go func(<-chan struct{}) {
-		_, _ = lock.Lock(ctxLock)
-		done <- struct{}{}
-	}(done)
-
-	select {
-	case <-done:
-		t.Fatal("Lock succeeded on a key that is supposed to be locked by another client")
-	case <-ctxLock.Done():
-		// Stop requesting the lock as we are blocked as expected.
-	}
+	lockChan, _ = lock.Lock(ctxLock)
+	require.Nil(t, lockChan)
 
 	// Close the connection.
 	_ = otherConn.Close()
