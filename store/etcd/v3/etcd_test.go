@@ -1,6 +1,7 @@
 package etcdv3
 
 import (
+	"context"
 	"testing"
 	"time"
 
@@ -11,28 +12,35 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+const testTimeout = 60 * time.Second
+
 const client = "localhost:4001"
 
 func makeEtcdV3Client(t *testing.T) store.Store {
 	t.Helper()
 
-	kv, err := New(
-		[]string{client},
-		&store.Config{
-			ConnectionTimeout: 3 * time.Second,
-			Username:          "test",
-			Password:          "very-secure",
-		},
-	)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	config := &store.Config{
+		ConnectionTimeout: 3 * time.Second,
+		Username:          "test",
+		Password:          "very-secure",
+	}
+
+	kv, err := New(ctx, []string{client}, config)
 	require.NoErrorf(t, err, "cannot create store")
 
 	return kv
 }
 
-func TestRegister(t *testing.T) {
+func TestEtcdV3Register(t *testing.T) {
 	Register()
 
-	kv, err := valkeyrie.NewStore(store.ETCDV3, []string{client}, nil)
+	ctx, cancel := context.WithTimeout(context.Background(), testTimeout)
+	defer cancel()
+
+	kv, err := valkeyrie.NewStore(ctx, store.ETCDV3, []string{client}, nil)
 	require.NoError(t, err)
 	assert.NotNil(t, kv)
 
@@ -44,6 +52,10 @@ func TestEtcdV3Store(t *testing.T) {
 	lockKV := makeEtcdV3Client(t)
 	ttlKV := makeEtcdV3Client(t)
 
+	t.Cleanup(func() {
+		testutils.RunCleanup(t, kv)
+	})
+
 	testutils.RunTestCommon(t, kv)
 	testutils.RunTestAtomic(t, kv)
 	testutils.RunTestWatch(t, kv)
@@ -51,13 +63,19 @@ func TestEtcdV3Store(t *testing.T) {
 	testutils.RunTestLockTTL(t, kv, lockKV)
 	testutils.RunTestListLock(t, kv)
 	testutils.RunTestTTL(t, kv, ttlKV)
-	testutils.RunCleanup(t, kv)
 }
 
-func TestKeepAlive(t *testing.T) {
+func TestEtcdV3KeepAlive(t *testing.T) {
 	kv := makeEtcdV3Client(t)
 
-	err := kv.Put("foo", []byte("bar"), &store.WriteOptions{
+	ctx, cancel := context.WithTimeout(context.Background(), testTimeout)
+	defer cancel()
+
+	t.Cleanup(func() {
+		_ = kv.Delete(ctx, "foo")
+	})
+
+	err := kv.Put(ctx, "foo", []byte("bar"), &store.WriteOptions{
 		TTL: 1 * time.Second,
 	})
 	require.NoError(t, err)
@@ -65,12 +83,12 @@ func TestKeepAlive(t *testing.T) {
 	time.Sleep(3 * time.Second)
 
 	// The key should be gone because we didn't use KeepAlive.
-	pair, err := kv.Get("foo", nil)
+	pair, err := kv.Get(ctx, "foo", nil)
 	assert.Error(t, err, store.ErrKeyNotFound)
 	assert.Nil(t, pair)
 
 	// Put the key but now with a KeepAlive.
-	err = kv.Put("foo", []byte("bar"), &store.WriteOptions{
+	err = kv.Put(ctx, "foo", []byte("bar"), &store.WriteOptions{
 		TTL:       1 * time.Second,
 		KeepAlive: true,
 	})
@@ -79,10 +97,7 @@ func TestKeepAlive(t *testing.T) {
 	time.Sleep(3 * time.Second)
 
 	// We should still be able to get the key after the TTL expires.
-	pair, err = kv.Get("foo", nil)
+	pair, err = kv.Get(ctx, "foo", nil)
 	require.NoError(t, err)
 	assert.Equal(t, pair.Value, []byte("bar"))
-
-	err = kv.Delete("foo")
-	require.NoError(t, err)
 }

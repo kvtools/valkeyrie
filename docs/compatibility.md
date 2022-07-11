@@ -35,12 +35,14 @@ For example:
 package example
 
 import (
+	"context"
+
 	"github.com/kvtools/valkeyrie/store"
 )
 
-func foo(kv store.Store) {
-	_ = kv.Put("path/to/key/bis", []byte("foo"), nil)
-	_ = kv.Put("path/to/key", []byte("bar"), nil)
+func foo(ctx context.Context, kv store.Store) {
+	_ = kv.Put(ctx, "path/to/key/bis", []byte("foo"), nil)
+	_ = kv.Put(ctx, "path/to/key", []byte("bar"), nil)
 }
 ```
 
@@ -56,14 +58,16 @@ When initializing the `WatchTree`, the natural way to do so is through the follo
 package example
 
 import (
+	"context"
+
 	"github.com/kvtools/valkeyrie/store"
 )
 
-func foo(kv store.Store) error {
+func foo(ctx context.Context, kv store.Store) error {
 	key := "path/to/key"
-	exists, _ := kv.Exists(key, nil)
+	exists, _ := kv.Exists(ctx, key, nil)
 	if !exists {
-		err := kv.Put(key, []byte("data"), nil)
+		err := kv.Put(ctx, key, []byte("data"), nil)
 		if err != nil {
 			return err
 		}
@@ -88,21 +92,23 @@ To use `WatchTree` with every supported backend, we need to enforce a parameter 
 package example
 
 import (
+	"context"
+
 	"github.com/kvtools/valkeyrie/store"
 )
 
-func foo(kv store.Store) error {
+func foo(ctx context.Context, kv store.Store) error {
 	key := "path/to/key"
-	exists, _ := kv.Exists(key, nil)
+	exists, _ := kv.Exists(ctx, key, nil)
 	if !exists {
 		// We enforce IsDir = true to make sure etcd creates a directory
-		err := kv.Put(key, []byte("data"), &store.WriteOptions{IsDir: true})
+		err := kv.Put(ctx, key, []byte("data"), &store.WriteOptions{IsDir: true})
 		if err != nil {
 			return err
 		}
 	}
 
-	events, err := kv.WatchTree(key, nil, nil)
+	events, err := kv.WatchTree(ctx, key, nil)
 	// ...
 
 	return nil

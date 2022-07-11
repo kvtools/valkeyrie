@@ -32,7 +32,7 @@ type EtcdV3 struct {
 }
 
 // New creates a new Etcd client given a list of endpoints and an optional tls config.
-func New(addrs []string, options *store.Config) (store.Store, error) {
+func New(_ context.Context, addrs []string, options *store.Config) (store.Store, error) {
 	cfg := &etcd.Config{
 		Endpoints: store.CreateEndpoints(addrs, "http"),
 	}
@@ -88,8 +88,9 @@ func (s *EtcdV3) normalize(key string) string {
 
 // Get the value at "key".
 // Returns the last modified index to use in conjunction to Atomic calls.
-func (s *EtcdV3) Get(key string, opts *store.ReadOptions) (pair *store.KVPair, err error) {
-	ctx, cancel := context.WithTimeout(context.Background(), etcdDefaultTimeout)
+func (s *EtcdV3) Get(ctx context.Context, key string, opts *store.ReadOptions) (pair *store.KVPair, err error) {
+	ctx, cancel := context.WithTimeout(ctx, etcdDefaultTimeout)
+	defer cancel()
 
 	var result *etcd.GetResponse
 	if opts != nil && !opts.Consistent {
@@ -97,8 +98,6 @@ func (s *EtcdV3) Get(key string, opts *store.ReadOptions) (pair *store.KVPair, e
 	} else {
 		result, err = s.client.KV.Get(ctx, s.normalize(key))
 	}
-
-	cancel()
 
 	if err != nil {
 		return nil, err
@@ -108,25 +107,25 @@ func (s *EtcdV3) Get(key string, opts *store.ReadOptions) (pair *store.KVPair, e
 		return nil, store.ErrKeyNotFound
 	}
 
-	kvs := []*store.KVPair{}
-
-	for _, pair := range result.Kvs {
-		kvs = append(kvs, &store.KVPair{
-			Key:       string(pair.Key),
-			Value:     pair.Value,
-			LastIndex: uint64(pair.ModRevision),
-		})
+	if len(result.Kvs) == 0 {
+		return nil, nil
 	}
 
-	return kvs[0], nil
+	kvp := &store.KVPair{
+		Key:       string(result.Kvs[0].Key),
+		Value:     result.Kvs[0].Value,
+		LastIndex: uint64(result.Kvs[0].ModRevision),
+	}
+
+	return kvp, nil
 }
 
 // Put a value at "key".
-func (s *EtcdV3) Put(key string, value []byte, opts *store.WriteOptions) error {
-	ctx, cancel := context.WithTimeout(context.Background(), etcdDefaultTimeout)
+func (s *EtcdV3) Put(ctx context.Context, key string, value []byte, opts *store.WriteOptions) error {
+	ctxTxn, cancel := context.WithTimeout(ctx, etcdDefaultTimeout)
 	defer cancel()
 
-	pr := s.client.Txn(ctx)
+	pr := s.client.Txn(ctxTxn)
 
 	if opts == nil || opts.TTL <= 0 {
 		pr.Then(etcd.OpPut(key, string(value)))
@@ -139,16 +138,17 @@ func (s *EtcdV3) Put(key string, value []byte, opts *store.WriteOptions) error {
 	}
 
 	lease := etcd.NewLease(s.client)
-	grant, err := lease.Grant(context.Background(), int64(opts.TTL/time.Second))
+	grant, err := lease.Grant(ctx, int64(opts.TTL/time.Second))
 	if err != nil {
 		return err
 	}
 
 	if opts.KeepAlive {
-		ch, err := lease.KeepAlive(context.Background(), grant.ID)
+		ch, err := lease.KeepAlive(ctx, grant.ID)
 		if err != nil {
 			return err
 		}
+
 		// We do not care the element in the keepalive channel
 		// Just eat messages from the channel
 		go func() {
@@ -169,8 +169,8 @@ func (s *EtcdV3) Put(key string, value []byte, opts *store.WriteOptions) error {
 }
 
 // Delete a value at "key".
-func (s *EtcdV3) Delete(key string) error {
-	resp, err := s.client.KV.Delete(context.Background(), s.normalize(key))
+func (s *EtcdV3) Delete(ctx context.Context, key string) error {
+	resp, err := s.client.KV.Delete(ctx, s.normalize(key))
 	if resp != nil && resp.Deleted == 0 {
 		return store.ErrKeyNotFound
 	}
@@ -178,8 +178,8 @@ func (s *EtcdV3) Delete(key string) error {
 }
 
 // Exists checks if the key exists inside the store.
-func (s *EtcdV3) Exists(key string, opts *store.ReadOptions) (bool, error) {
-	_, err := s.Get(key, opts)
+func (s *EtcdV3) Exists(ctx context.Context, key string, opts *store.ReadOptions) (bool, error) {
+	_, err := s.Get(ctx, key, opts)
 	if err != nil {
 		if errors.Is(err, store.ErrKeyNotFound) {
 			return false, nil
@@ -193,14 +193,14 @@ func (s *EtcdV3) Exists(key string, opts *store.ReadOptions) (bool, error) {
 // It returns a channel that will receive changes or pass on errors.
 // Upon creation, the current value will first be sent to the channel.
 // Providing a non-nil stopCh can be used to stop watching.
-func (s *EtcdV3) Watch(key string, stopCh <-chan struct{}, opts *store.ReadOptions) (<-chan *store.KVPair, error) {
+func (s *EtcdV3) Watch(ctx context.Context, key string, opts *store.ReadOptions) (<-chan *store.KVPair, error) {
 	wc := etcd.NewWatcher(s.client)
 
 	// respCh is sending back events to the caller.
 	respCh := make(chan *store.KVPair)
 
 	// Get the current value.
-	pair, err := s.Get(key, opts)
+	pair, err := s.Get(ctx, key, opts)
 	if err != nil {
 		return nil, err
 	}
@@ -214,12 +214,12 @@ func (s *EtcdV3) Watch(key string, stopCh <-chan struct{}, opts *store.ReadOptio
 		// Push the current value through the channel.
 		respCh <- pair
 
-		watchCh := wc.Watch(context.Background(), s.normalize(key))
+		watchCh := wc.Watch(ctx, s.normalize(key))
 
 		for resp := range watchCh {
 			// Check if the watch was stopped by the caller.
 			select {
-			case <-stopCh:
+			case <-ctx.Done():
 				return
 			default:
 			}
@@ -241,14 +241,14 @@ func (s *EtcdV3) Watch(key string, stopCh <-chan struct{}, opts *store.ReadOptio
 // It returns a channel that will receive changes or pass on errors.
 // Upon creating a watch, the current children values will be sent to the channel.
 // Providing a non-nil stopCh can be used to stop watching.
-func (s *EtcdV3) WatchTree(directory string, stopCh <-chan struct{}, opts *store.ReadOptions) (<-chan []*store.KVPair, error) {
+func (s *EtcdV3) WatchTree(ctx context.Context, directory string, opts *store.ReadOptions) (<-chan []*store.KVPair, error) {
 	wc := etcd.NewWatcher(s.client)
 
 	// respCh is sending back events to the caller.
 	respCh := make(chan []*store.KVPair)
 
 	// Get the current value.
-	rev, pairs, err := s.list(directory, opts)
+	rev, pairs, err := s.list(ctx, directory, opts)
 	if err != nil {
 		return nil, err
 	}
@@ -263,12 +263,12 @@ func (s *EtcdV3) WatchTree(directory string, stopCh <-chan struct{}, opts *store
 		respCh <- pairs
 
 		rev++
-		watchCh := wc.Watch(context.Background(), s.normalize(directory), etcd.WithPrefix(), etcd.WithRev(rev))
+		watchCh := wc.Watch(ctx, s.normalize(directory), etcd.WithPrefix(), etcd.WithRev(rev))
 
 		for resp := range watchCh {
 			// Check if the watch was stopped by the caller.
 			select {
-			case <-stopCh:
+			case <-ctx.Done():
 				return
 			default:
 			}
@@ -292,7 +292,7 @@ func (s *EtcdV3) WatchTree(directory string, stopCh <-chan struct{}, opts *store
 
 // AtomicPut puts a value at "key" if the key has not been modified in the meantime,
 // throws an error if this is the case.
-func (s *EtcdV3) AtomicPut(key string, value []byte, previous *store.KVPair, opts *store.WriteOptions) (bool, *store.KVPair, error) {
+func (s *EtcdV3) AtomicPut(ctx context.Context, key string, value []byte, previous *store.KVPair, opts *store.WriteOptions) (bool, *store.KVPair, error) {
 	var cmp etcd.Cmp
 	var testIndex bool
 
@@ -306,15 +306,16 @@ func (s *EtcdV3) AtomicPut(key string, value []byte, previous *store.KVPair, opt
 		cmp = etcd.Compare(etcd.CreateRevision(key), "=", 0)
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), etcdDefaultTimeout)
+	ctx, cancel := context.WithTimeout(ctx, etcdDefaultTimeout)
+	defer cancel()
+
 	pr := s.client.Txn(ctx).If(cmp)
 
 	// We set the TTL if given.
 	if opts != nil && opts.TTL > 0 {
 		lease := etcd.NewLease(s.client)
-		resp, err := lease.Grant(context.Background(), int64(opts.TTL/time.Second))
+		resp, err := lease.Grant(ctx, int64(opts.TTL/time.Second))
 		if err != nil {
-			cancel()
 			return false, nil, err
 		}
 		pr.Then(etcd.OpPut(key, string(value), etcd.WithLease(resp.ID)))
@@ -323,7 +324,6 @@ func (s *EtcdV3) AtomicPut(key string, value []byte, previous *store.KVPair, opt
 	}
 
 	txn, err := pr.Commit()
-	cancel()
 	if err != nil {
 		return false, nil, err
 	}
@@ -346,7 +346,7 @@ func (s *EtcdV3) AtomicPut(key string, value []byte, previous *store.KVPair, opt
 
 // AtomicDelete deletes a value at "key" if the key has not been modified in the meantime,
 // throws an error if this is the case.
-func (s *EtcdV3) AtomicDelete(key string, previous *store.KVPair) (bool, error) {
+func (s *EtcdV3) AtomicDelete(ctx context.Context, key string, previous *store.KVPair) (bool, error) {
 	if previous == nil {
 		return false, store.ErrPreviousNotSpecified
 	}
@@ -354,13 +354,13 @@ func (s *EtcdV3) AtomicDelete(key string, previous *store.KVPair) (bool, error) 
 	// We compare on the last modified index.
 	cmp := etcd.Compare(etcd.ModRevision(key), "=", int64(previous.LastIndex))
 
-	ctx, cancel := context.WithTimeout(context.Background(), etcdDefaultTimeout)
+	ctx, cancel := context.WithTimeout(ctx, etcdDefaultTimeout)
+	defer cancel()
+
 	txn, err := s.client.Txn(ctx).
 		If(cmp).
 		Then(etcd.OpDelete(key)).
 		Commit()
-	cancel()
-
 	if err != nil {
 		return false, err
 	}
@@ -377,17 +377,17 @@ func (s *EtcdV3) AtomicDelete(key string, previous *store.KVPair) (bool, error) 
 }
 
 // List child nodes of a given directory.
-func (s *EtcdV3) List(directory string, opts *store.ReadOptions) ([]*store.KVPair, error) {
-	_, kv, err := s.list(directory, opts)
+func (s *EtcdV3) List(ctx context.Context, directory string, opts *store.ReadOptions) ([]*store.KVPair, error) {
+	_, kv, err := s.list(ctx, directory, opts)
 	return kv, err
 }
 
 // DeleteTree deletes a range of keys under a given directory.
-func (s *EtcdV3) DeleteTree(directory string) error {
-	ctx, cancel := context.WithTimeout(context.Background(), etcdDefaultTimeout)
+func (s *EtcdV3) DeleteTree(ctx context.Context, directory string) error {
+	ctx, cancel := context.WithTimeout(ctx, etcdDefaultTimeout)
+	defer cancel()
 
 	resp, err := s.client.KV.Delete(ctx, s.normalize(directory), etcd.WithPrefix())
-	cancel()
 	if err != nil {
 		return err
 	}
@@ -398,29 +398,31 @@ func (s *EtcdV3) DeleteTree(directory string) error {
 }
 
 // NewLock returns a handle to a lock struct which can be used to provide mutual exclusion on a key.
-func (s *EtcdV3) NewLock(key string, options *store.LockOptions) (lock store.Locker, err error) {
-	ttl := defaultLockTTL
-
+func (s *EtcdV3) NewLock(ctx context.Context, key string, opts *store.LockOptions) (lock store.Locker, err error) {
 	var value string
-	var deleteOnUnlock bool
+	ttl := defaultLockTTL
 	renewCh := make(chan struct{})
+	var deleteOnUnlock bool
 
 	// Apply options on Lock.
-	if options != nil {
-		if options.Value != nil {
-			value = string(options.Value)
+	if opts != nil {
+		if opts.Value != nil {
+			value = string(opts.Value)
 		}
-		if options.TTL != 0 {
-			ttl = options.TTL
+
+		if opts.TTL != 0 {
+			ttl = opts.TTL
 		}
-		if options.RenewLock != nil {
-			renewCh = options.RenewLock
+
+		if opts.RenewLock != nil {
+			renewCh = opts.RenewLock
 		}
-		deleteOnUnlock = options.DeleteOnUnlock
+
+		deleteOnUnlock = opts.DeleteOnUnlock
 	}
 
 	// Create Session for Mutex.
-	session, err := concurrency.NewSession(s.client, concurrency.WithTTL(int(ttl/time.Second)))
+	session, err := concurrency.NewSession(s.client, concurrency.WithTTL(int(ttl/time.Second)), concurrency.WithContext(ctx))
 	if err != nil {
 		return nil, err
 	}
@@ -454,13 +456,14 @@ func (s *EtcdV3) NewLock(key string, options *store.LockOptions) (lock store.Loc
 }
 
 // Close closes the client connection.
-func (s *EtcdV3) Close() {
-	_ = s.client.Close()
+func (s *EtcdV3) Close() error {
+	return s.client.Close()
 }
 
 // list child nodes of a given directory and return revision number.
-func (s *EtcdV3) list(directory string, opts *store.ReadOptions) (int64, []*store.KVPair, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), etcdDefaultTimeout)
+func (s *EtcdV3) list(ctx context.Context, directory string, opts *store.ReadOptions) (int64, []*store.KVPair, error) {
+	ctx, cancel := context.WithTimeout(ctx, etcdDefaultTimeout)
+	defer cancel()
 
 	var resp *etcd.GetResponse
 	var err error
@@ -470,8 +473,6 @@ func (s *EtcdV3) list(directory string, opts *store.ReadOptions) (int64, []*stor
 	} else {
 		resp, err = s.client.KV.Get(ctx, s.normalize(directory), etcd.WithPrefix(), etcd.WithSort(etcd.SortByKey, etcd.SortDescend))
 	}
-
-	cancel()
 
 	if err != nil {
 		return 0, nil, err
@@ -519,15 +520,10 @@ type etcdLock struct {
 
 // Lock attempts to acquire the lock and blocks while doing so.
 // It returns a channel that is closed if our lock is lost or if an error occurs.
-func (l *etcdLock) Lock(stopChan chan struct{}) (<-chan struct{}, error) {
+func (l *etcdLock) Lock(ctx context.Context) (<-chan struct{}, error) {
 	l.lock.Lock()
 	defer l.lock.Unlock()
 
-	ctx, cancel := context.WithCancel(context.Background())
-	go func() {
-		<-stopChan
-		cancel()
-	}()
 	err := l.mutex.Lock(ctx)
 	if err != nil {
 		if errors.Is(err, context.Canceled) {
@@ -550,13 +546,13 @@ func (l *etcdLock) Lock(stopChan chan struct{}) (<-chan struct{}, error) {
 
 // Unlock the "key".
 // Calling unlock while not holding the lock will throw an error.
-func (l *etcdLock) Unlock() error {
+func (l *etcdLock) Unlock(ctx context.Context) error {
 	l.lock.Lock()
 	defer l.lock.Unlock()
 
-	ctx := context.Background()
 	if l.deleteOnUnlock {
 		_, _ = l.store.client.Delete(ctx, l.writeKey)
 	}
+
 	return l.mutex.Unlock(ctx)
 }

@@ -2,6 +2,7 @@
 package consul
 
 import (
+	"context"
 	"crypto/tls"
 	"errors"
 	"net/http"
@@ -50,7 +51,7 @@ type Consul struct {
 }
 
 // New creates a new Consul client given a list of endpoints and optional tls config.
-func New(endpoints []string, options *store.Config) (store.Store, error) {
+func New(_ context.Context, endpoints []string, options *store.Config) (store.Store, error) {
 	if len(endpoints) > 1 {
 		return nil, ErrMultipleEndpointsUnsupported
 	}
@@ -174,7 +175,7 @@ func (s *Consul) getActiveSession(key string) (string, error) {
 
 // Get the value at "key".
 // Returns the last modified index to use in conjunction to CAS calls.
-func (s *Consul) Get(key string, opts *store.ReadOptions) (*store.KVPair, error) {
+func (s *Consul) Get(_ context.Context, key string, opts *store.ReadOptions) (*store.KVPair, error) {
 	options := &api.QueryOptions{
 		AllowStale:        false,
 		RequireConsistent: true,
@@ -199,7 +200,7 @@ func (s *Consul) Get(key string, opts *store.ReadOptions) (*store.KVPair, error)
 }
 
 // Put a value at "key".
-func (s *Consul) Put(key string, value []byte, opts *store.WriteOptions) error {
+func (s *Consul) Put(_ context.Context, key string, value []byte, opts *store.WriteOptions) error {
 	p := &api.KVPair{
 		Key:   s.normalize(key),
 		Value: value,
@@ -225,8 +226,8 @@ func (s *Consul) Put(key string, value []byte, opts *store.WriteOptions) error {
 }
 
 // Delete a value at "key".
-func (s *Consul) Delete(key string) error {
-	if _, err := s.Get(key, nil); err != nil {
+func (s *Consul) Delete(ctx context.Context, key string) error {
+	if _, err := s.Get(ctx, key, nil); err != nil {
 		return err
 	}
 
@@ -235,8 +236,8 @@ func (s *Consul) Delete(key string) error {
 }
 
 // Exists checks that the key exists inside the store.
-func (s *Consul) Exists(key string, opts *store.ReadOptions) (bool, error) {
-	_, err := s.Get(key, opts)
+func (s *Consul) Exists(ctx context.Context, key string, opts *store.ReadOptions) (bool, error) {
+	_, err := s.Get(ctx, key, opts)
 	if err != nil {
 		if errors.Is(err, store.ErrKeyNotFound) {
 			return false, nil
@@ -247,7 +248,7 @@ func (s *Consul) Exists(key string, opts *store.ReadOptions) (bool, error) {
 }
 
 // List child nodes of a given directory.
-func (s *Consul) List(directory string, opts *store.ReadOptions) ([]*store.KVPair, error) {
+func (s *Consul) List(_ context.Context, directory string, opts *store.ReadOptions) ([]*store.KVPair, error) {
 	options := &api.QueryOptions{
 		AllowStale:        false,
 		RequireConsistent: true,
@@ -283,8 +284,8 @@ func (s *Consul) List(directory string, opts *store.ReadOptions) ([]*store.KVPai
 }
 
 // DeleteTree deletes a range of keys under a given directory.
-func (s *Consul) DeleteTree(directory string) error {
-	if _, err := s.List(directory, nil); err != nil {
+func (s *Consul) DeleteTree(ctx context.Context, directory string) error {
+	if _, err := s.List(ctx, directory, nil); err != nil {
 		return err
 	}
 
@@ -296,7 +297,7 @@ func (s *Consul) DeleteTree(directory string) error {
 // It returns a channel that will receive changes or pass on errors.
 // Upon creation, the current value will first be sent to the channel.
 // Providing a non-nil stopCh can be used to stop watching.
-func (s *Consul) Watch(key string, stopCh <-chan struct{}, _ *store.ReadOptions) (<-chan *store.KVPair, error) {
+func (s *Consul) Watch(ctx context.Context, key string, _ *store.ReadOptions) (<-chan *store.KVPair, error) {
 	kv := s.client.KV()
 	watchCh := make(chan *store.KVPair)
 
@@ -309,7 +310,7 @@ func (s *Consul) Watch(key string, stopCh <-chan struct{}, _ *store.ReadOptions)
 		for {
 			// Check if we should quit.
 			select {
-			case <-stopCh:
+			case <-ctx.Done():
 				return
 			default:
 			}
@@ -345,7 +346,7 @@ func (s *Consul) Watch(key string, stopCh <-chan struct{}, _ *store.ReadOptions)
 // It returns a channel that will receive changes or pass on errors.
 // Upon creating a watch, the current children values will be sent to the channel.
 // Providing a non-nil stopCh can be used to stop watching.
-func (s *Consul) WatchTree(directory string, stopCh <-chan struct{}, _ *store.ReadOptions) (<-chan []*store.KVPair, error) {
+func (s *Consul) WatchTree(ctx context.Context, directory string, _ *store.ReadOptions) (<-chan []*store.KVPair, error) {
 	kv := s.client.KV()
 	watchCh := make(chan []*store.KVPair)
 
@@ -357,7 +358,7 @@ func (s *Consul) WatchTree(directory string, stopCh <-chan struct{}, _ *store.Re
 		for {
 			// Check if we should quit.
 			select {
-			case <-stopCh:
+			case <-ctx.Done():
 				return
 			default:
 			}
@@ -395,23 +396,21 @@ func (s *Consul) WatchTree(directory string, stopCh <-chan struct{}, _ *store.Re
 }
 
 // NewLock returns a handle to a lock struct which can be used to provide mutual exclusion on a key.
-func (s *Consul) NewLock(key string, options *store.LockOptions) (store.Locker, error) {
+func (s *Consul) NewLock(ctx context.Context, key string, opts *store.LockOptions) (store.Locker, error) {
+	ttl := defaultLockTTL
+
 	lockOpts := &api.LockOptions{
 		Key: s.normalize(key),
 	}
 
-	lock := &consulLock{}
-
-	ttl := defaultLockTTL
-
-	if options != nil {
+	if opts != nil {
 		// Set optional TTL on Lock.
-		if options.TTL != 0 {
-			ttl = options.TTL
+		if opts.TTL != 0 {
+			ttl = opts.TTL
 		}
 		// Set optional value on Lock.
-		if options.Value != nil {
-			lockOpts.Value = options.Value
+		if opts.Value != nil {
+			lockOpts.Value = opts.Value
 		}
 	}
 
@@ -421,16 +420,20 @@ func (s *Consul) NewLock(key string, options *store.LockOptions) (store.Locker, 
 		LockDelay: 1 * time.Millisecond,       // Virtually disable lock delay.
 	}
 
+	q := (&api.WriteOptions{}).WithContext(ctx)
+
 	// Create the key session.
-	session, _, err := s.client.Session().Create(entry, nil)
+	session, _, err := s.client.Session().Create(entry, q)
 	if err != nil {
 		return nil, err
 	}
 
+	lock := &consulLock{}
+
 	// Place the session and renew chan on lock.
 	lockOpts.Session = session
-	if options != nil {
-		lock.renewCh = options.RenewLock
+	if opts != nil {
+		lock.renewCh = opts.RenewLock
 	}
 
 	l, err := s.client.LockOpts(lockOpts)
@@ -439,11 +442,12 @@ func (s *Consul) NewLock(key string, options *store.LockOptions) (store.Locker, 
 	}
 
 	// Renew the session ttl lock periodically.
-	if options != nil {
-		s.renewLockSession(entry.TTL, session, options.RenewLock)
+	if opts != nil {
+		s.renewLockSession(entry.TTL, session, opts.RenewLock, q)
 	}
 
 	lock.lock = l
+
 	return lock, nil
 }
 
@@ -454,17 +458,19 @@ func (s *Consul) NewLock(key string, options *store.LockOptions) (store.Locker, 
 // it keeps trying to delete the session periodically until it can contact the store,
 // this ensures that the lock is not maintained indefinitely which ensures liveness
 // over safety for the lock when the store becomes unavailable.
-func (s *Consul) renewLockSession(initialTTL string, id string, stopRenew chan struct{}) {
-	sessionDestroyAttempts := 0
+func (s *Consul) renewLockSession(initialTTL string, id string, stopRenew chan struct{}, q *api.WriteOptions) {
 	ttl, err := time.ParseDuration(initialTTL)
 	if err != nil {
 		return
 	}
+
+	sessionDestroyAttempts := 0
+
 	go func() {
 		for {
 			select {
 			case <-time.After(ttl / 2):
-				entry, _, err := s.client.Session().Renew(id, nil)
+				entry, _, err := s.client.Session().Renew(id, q)
 				if err != nil {
 					// If an error occurs,
 					// continue until the session gets destroyed explicitly or the session ttl times out.
@@ -479,7 +485,7 @@ func (s *Consul) renewLockSession(initialTTL string, id string, stopRenew chan s
 
 			case <-stopRenew:
 				// Attempt a session destroy.
-				_, err := s.client.Session().Destroy(id, nil)
+				_, err := s.client.Session().Destroy(id, q)
 				if err == nil {
 					return
 				}
@@ -501,7 +507,7 @@ func (s *Consul) renewLockSession(initialTTL string, id string, stopRenew chan s
 
 // AtomicPut puts a value at "key" if the key has not been modified in the meantime,
 // throws an error if this is the case.
-func (s *Consul) AtomicPut(key string, value []byte, previous *store.KVPair, _ *store.WriteOptions) (bool, *store.KVPair, error) {
+func (s *Consul) AtomicPut(ctx context.Context, key string, value []byte, previous *store.KVPair, _ *store.WriteOptions) (bool, *store.KVPair, error) {
 	p := &api.KVPair{Key: s.normalize(key), Value: value, Flags: api.LockFlagValue}
 
 	// Consul interprets ModifyIndex = 0 as new key.
@@ -522,7 +528,7 @@ func (s *Consul) AtomicPut(key string, value []byte, previous *store.KVPair, _ *
 		return false, nil, store.ErrKeyModified
 	}
 
-	pair, err := s.Get(key, nil)
+	pair, err := s.Get(ctx, key, nil)
 	if err != nil {
 		return false, nil, err
 	}
@@ -532,7 +538,7 @@ func (s *Consul) AtomicPut(key string, value []byte, previous *store.KVPair, _ *
 
 // AtomicDelete deletes a value at "key" if the key has not been modified in the meantime,
 // throws an error if this is the case.
-func (s *Consul) AtomicDelete(key string, previous *store.KVPair) (bool, error) {
+func (s *Consul) AtomicDelete(ctx context.Context, key string, previous *store.KVPair) (bool, error) {
 	if previous == nil {
 		return false, store.ErrPreviousNotSpecified
 	}
@@ -540,7 +546,7 @@ func (s *Consul) AtomicDelete(key string, previous *store.KVPair) (bool, error) 
 	p := &api.KVPair{Key: s.normalize(key), ModifyIndex: previous.LastIndex, Flags: api.LockFlagValue}
 
 	// Extra Get operation to check on the key.
-	_, err := s.Get(key, nil)
+	_, err := s.Get(ctx, key, nil)
 	if errors.Is(err, store.ErrKeyNotFound) {
 		return false, err
 	}
@@ -555,7 +561,7 @@ func (s *Consul) AtomicDelete(key string, previous *store.KVPair) (bool, error) 
 }
 
 // Close closes the client connection.
-func (s *Consul) Close() {}
+func (s *Consul) Close() error { return nil }
 
 type consulLock struct {
 	lock    *api.Lock
@@ -564,15 +570,16 @@ type consulLock struct {
 
 // Lock attempts to acquire the lock and blocks while doing so.
 // It returns a channel that is closed if our lock is lost or if an error occurs.
-func (l *consulLock) Lock(stopChan chan struct{}) (<-chan struct{}, error) {
-	return l.lock.Lock(stopChan)
+func (l *consulLock) Lock(ctx context.Context) (<-chan struct{}, error) {
+	return l.lock.Lock(ctx.Done())
 }
 
 // Unlock the "key".
 // Calling unlock while not holding the lock will throw an error.
-func (l *consulLock) Unlock() error {
+func (l *consulLock) Unlock(_ context.Context) error {
 	if l.renewCh != nil {
 		close(l.renewCh)
 	}
+
 	return l.lock.Unlock()
 }

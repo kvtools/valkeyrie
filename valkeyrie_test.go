@@ -1,6 +1,7 @@
 package valkeyrie
 
 import (
+	"context"
 	"testing"
 	"time"
 
@@ -12,13 +13,11 @@ import (
 func TestNewStoreUnsupported(t *testing.T) {
 	client := "localhost:9999"
 
-	kv, err := NewStore(
-		"unsupported",
-		[]string{client},
-		&store.Config{
-			ConnectionTimeout: 10 * time.Second,
-		},
-	)
+	config := &store.Config{
+		ConnectionTimeout: 10 * time.Second,
+	}
+
+	kv, err := NewStore(context.Background(), "unsupported", []string{client}, config)
 	assert.Error(t, err)
 	assert.Nil(t, kv)
 	assert.Equal(t, "Backend storage not supported yet, please choose one of ", err.Error())
@@ -57,9 +56,9 @@ func TestListSupportedBackends(t *testing.T) {
 			t.Cleanup(func() { initializers = make(map[store.Backend]Initialize) })
 
 			for _, s := range test.stores {
-				AddStore(store.Backend(s), func(_ []string, _ *store.Config) (store.Store, error) { return nil, nil })
+				AddStore(store.Backend(s), func(_ context.Context, _ []string, _ *store.Config) (store.Store, error) { return nil, nil })
 
-				kv, err := NewStore(store.Backend(s), nil, nil)
+				kv, err := NewStore(context.Background(), store.Backend(s), nil, nil)
 				require.NoError(t, err)
 				require.Nil(t, kv) // AddStore return nil
 			}

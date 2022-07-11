@@ -1,6 +1,7 @@
 package zookeeper
 
 import (
+	"context"
 	"testing"
 	"time"
 
@@ -11,17 +12,21 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+const testTimeout = 60 * time.Second
+
 const client = "localhost:2181"
 
 func makeZkClient(t *testing.T) store.Store {
 	t.Helper()
 
-	kv, err := New(
-		[]string{client},
-		&store.Config{
-			ConnectionTimeout: 3 * time.Second,
-		},
-	)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	config := &store.Config{
+		ConnectionTimeout: 3 * time.Second,
+	}
+
+	kv, err := New(ctx, []string{client}, config)
 	require.NoErrorf(t, err, "cannot create store")
 
 	return kv
@@ -30,7 +35,10 @@ func makeZkClient(t *testing.T) store.Store {
 func TestRegister(t *testing.T) {
 	Register()
 
-	kv, err := valkeyrie.NewStore(store.ZK, []string{client}, nil)
+	ctx, cancel := context.WithTimeout(context.Background(), testTimeout)
+	defer cancel()
+
+	kv, err := valkeyrie.NewStore(ctx, store.ZK, []string{client}, nil)
 	require.NoError(t, err)
 	assert.NotNil(t, kv)
 

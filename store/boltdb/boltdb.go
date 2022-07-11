@@ -3,6 +3,7 @@ package boltdb
 
 import (
 	"bytes"
+	"context"
 	"encoding/binary"
 	"errors"
 	"os"
@@ -54,7 +55,7 @@ type BoltDB struct {
 }
 
 // New opens a new BoltDB connection to the specified path and bucket.
-func New(endpoints []string, options *store.Config) (store.Store, error) {
+func New(_ context.Context, endpoints []string, options *store.Config) (store.Store, error) {
 	if len(endpoints) > 1 {
 		return nil, ErrMultipleEndpointsUnsupported
 	}
@@ -124,7 +125,7 @@ func (b *BoltDB) releaseDBHandle() {
 // BoltDB doesn't provide an inbuilt last modified index with every kv pair.
 // It's implemented by an atomic counter maintained by the valkeyrie
 // and appended to the value passed by the client.
-func (b *BoltDB) Get(key string, _ *store.ReadOptions) (*store.KVPair, error) {
+func (b *BoltDB) Get(_ context.Context, key string, _ *store.ReadOptions) (*store.KVPair, error) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 
@@ -164,7 +165,7 @@ func (b *BoltDB) Get(key string, _ *store.ReadOptions) (*store.KVPair, error) {
 
 // Put the key, value pair.
 // Index number metadata is prepended to the value.
-func (b *BoltDB) Put(key string, value []byte, _ *store.WriteOptions) error {
+func (b *BoltDB) Put(_ context.Context, key string, value []byte, _ *store.WriteOptions) error {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 
@@ -195,7 +196,7 @@ func (b *BoltDB) Put(key string, value []byte, _ *store.WriteOptions) error {
 }
 
 // Delete the value for the given key.
-func (b *BoltDB) Delete(key string) error {
+func (b *BoltDB) Delete(_ context.Context, key string) error {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 
@@ -216,7 +217,7 @@ func (b *BoltDB) Delete(key string) error {
 }
 
 // Exists checks if the key exists inside the store.
-func (b *BoltDB) Exists(key string, _ *store.ReadOptions) (bool, error) {
+func (b *BoltDB) Exists(_ context.Context, key string, _ *store.ReadOptions) (bool, error) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 
@@ -246,7 +247,7 @@ func (b *BoltDB) Exists(key string, _ *store.ReadOptions) (bool, error) {
 }
 
 // List returns the range of keys starting with the passed in prefix.
-func (b *BoltDB) List(keyPrefix string, _ *store.ReadOptions) ([]*store.KVPair, error) {
+func (b *BoltDB) List(_ context.Context, keyPrefix string, _ *store.ReadOptions) ([]*store.KVPair, error) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 
@@ -298,7 +299,7 @@ func (b *BoltDB) List(keyPrefix string, _ *store.ReadOptions) ([]*store.KVPair, 
 
 // AtomicDelete deletes a value at "key" if the key has not been modified in the meantime,
 // throws an error if this is the case.
-func (b *BoltDB) AtomicDelete(key string, previous *store.KVPair) (bool, error) {
+func (b *BoltDB) AtomicDelete(_ context.Context, key string, previous *store.KVPair) (bool, error) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 
@@ -340,7 +341,7 @@ func (b *BoltDB) AtomicDelete(key string, previous *store.KVPair) (bool, error) 
 // AtomicPut puts a value at "key"
 // if the key has not been modified since the last Put,
 // throws an error if this is the case.
-func (b *BoltDB) AtomicPut(key string, value []byte, previous *store.KVPair, _ *store.WriteOptions) (bool, *store.KVPair, error) {
+func (b *BoltDB) AtomicPut(_ context.Context, key string, value []byte, previous *store.KVPair, opts *store.WriteOptions) (bool, *store.KVPair, error) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 
@@ -403,19 +404,20 @@ func (b *BoltDB) AtomicPut(key string, value []byte, previous *store.KVPair, _ *
 }
 
 // Close the db connection to the BoltDB.
-func (b *BoltDB) Close() {
+func (b *BoltDB) Close() error {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 
-	if !b.PersistConnection {
-		b.reset()
-	} else {
-		_ = b.client.Close()
+	if b.PersistConnection {
+		return b.client.Close()
 	}
+
+	b.reset()
+	return nil
 }
 
 // DeleteTree deletes a range of keys with a given prefix.
-func (b *BoltDB) DeleteTree(keyPrefix string) error {
+func (b *BoltDB) DeleteTree(_ context.Context, keyPrefix string) error {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 
@@ -442,16 +444,16 @@ func (b *BoltDB) DeleteTree(keyPrefix string) error {
 }
 
 // NewLock has to implemented at the library level since it's not supported by BoltDB.
-func (b *BoltDB) NewLock(_ string, _ *store.LockOptions) (store.Locker, error) {
+func (b *BoltDB) NewLock(_ context.Context, _ string, _ *store.LockOptions) (store.Locker, error) {
 	return nil, store.ErrCallNotSupported
 }
 
 // Watch has to implemented at the library level since it's not supported by BoltDB.
-func (b *BoltDB) Watch(_ string, _ <-chan struct{}, _ *store.ReadOptions) (<-chan *store.KVPair, error) {
+func (b *BoltDB) Watch(_ context.Context, _ string, _ *store.ReadOptions) (<-chan *store.KVPair, error) {
 	return nil, store.ErrCallNotSupported
 }
 
 // WatchTree has to implemented at the library level since it's not supported by BoltDB.
-func (b *BoltDB) WatchTree(_ string, _ <-chan struct{}, _ *store.ReadOptions) (<-chan []*store.KVPair, error) {
+func (b *BoltDB) WatchTree(_ context.Context, _ string, _ *store.ReadOptions) (<-chan []*store.KVPair, error) {
 	return nil, store.ErrCallNotSupported
 }

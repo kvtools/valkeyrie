@@ -1,7 +1,9 @@
 package dynamodb
 
 import (
+	"context"
 	"testing"
+	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
@@ -18,14 +20,17 @@ import (
 
 const TestTableName = "test-1-valkeyrie"
 
+const testTimeout = 60 * time.Second
+
 func TestRegister(t *testing.T) {
 	Register()
 
-	kv, err := valkeyrie.NewStore(
-		store.DYNAMODB,
-		[]string{},
-		&store.Config{Bucket: "test-1-valkeyrie"},
-	)
+	ctx, cancel := context.WithTimeout(context.Background(), testTimeout)
+	defer cancel()
+
+	config := &store.Config{Bucket: "test-1-valkeyrie"}
+
+	kv, err := valkeyrie.NewStore(ctx, store.DYNAMODB, []string{}, config)
 	require.NoError(t, err)
 	assert.NotNil(t, kv)
 
@@ -42,6 +47,7 @@ func TestSetup(t *testing.T) {
 func TestDynamoDBStore(t *testing.T) {
 	ddbStore := newDynamoDBStore(t)
 	backupStore := newDynamoDBStore(t)
+
 	testutils.RunTestCommon(t, ddbStore)
 	testutils.RunTestAtomic(t, ddbStore)
 	testutils.RunTestTTL(t, ddbStore, backupStore)
@@ -50,6 +56,7 @@ func TestDynamoDBStore(t *testing.T) {
 func TestDynamoDBStoreLock(t *testing.T) {
 	ddbStore := newDynamoDBStore(t)
 	backupStore := newDynamoDBStore(t)
+
 	testutils.RunTestLock(t, ddbStore)
 	testutils.RunTestLockTTL(t, ddbStore, backupStore)
 }
@@ -57,10 +64,13 @@ func TestDynamoDBStoreLock(t *testing.T) {
 func TestDynamoDBStoreUnsupported(t *testing.T) {
 	ddbStore := newDynamoDBStore(t)
 
-	_, err := ddbStore.WatchTree("test", nil, nil)
+	ctx, cancel := context.WithTimeout(context.Background(), testTimeout)
+	defer cancel()
+
+	_, err := ddbStore.WatchTree(ctx, "test", nil)
 	assert.ErrorIs(t, err, store.ErrCallNotSupported)
 
-	_, err = ddbStore.Watch("test", nil, nil)
+	_, err = ddbStore.Watch(ctx, "test", nil)
 	assert.ErrorIs(t, err, store.ErrCallNotSupported)
 }
 
@@ -94,22 +104,19 @@ func TestBatchWrite(t *testing.T) {
 	secondKey := "testDeleteTree/second"
 	secondValue := []byte("second")
 
+	ctx, cancel := context.WithTimeout(context.Background(), testTimeout)
+	defer cancel()
+
 	// Put the first key.
-	err := kv.Put(firstKey, firstValue, nil)
+	err := kv.Put(ctx, firstKey, firstValue, nil)
 	require.NoError(t, err)
 
 	// Put the second key.
-	err = kv.Put(secondKey, secondValue, nil)
+	err = kv.Put(ctx, secondKey, secondValue, nil)
 	require.NoError(t, err)
 
-	err = kv.DeleteTree(prefix)
+	err = kv.DeleteTree(ctx, prefix)
 	require.NoError(t, err)
-}
-
-type mockedBatchWrite struct {
-	dynamodbiface.DynamoDBAPI
-	BatchWriteResp *dynamodb.BatchWriteItemOutput
-	Count          int
 }
 
 func TestDecodeItem(t *testing.T) {
@@ -133,6 +140,12 @@ func TestDecodeItem(t *testing.T) {
 	kv, err = decodeItem(data)
 	assert.Error(t, err)
 	assert.Nil(t, kv)
+}
+
+type mockedBatchWrite struct {
+	dynamodbiface.DynamoDBAPI
+	BatchWriteResp *dynamodb.BatchWriteItemOutput
+	Count          int
 }
 
 func (m *mockedBatchWrite) BatchWriteItem(_ *dynamodb.BatchWriteItemInput) (*dynamodb.BatchWriteItemOutput, error) {

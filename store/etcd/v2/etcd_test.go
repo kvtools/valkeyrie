@@ -1,6 +1,7 @@
 package etcd
 
 import (
+	"context"
 	"testing"
 	"time"
 
@@ -13,36 +14,47 @@ import (
 
 const client = "localhost:4001"
 
+const testTimeout = 60 * time.Second
+
 func makeEtcdClient(t *testing.T) store.Store {
 	t.Helper()
 
-	kv, err := New(
-		[]string{client},
-		&store.Config{
-			ConnectionTimeout: 3 * time.Second,
-			Username:          "test",
-			Password:          "very-secure",
-		},
-	)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	config := &store.Config{
+		ConnectionTimeout: 3 * time.Second,
+		Username:          "test",
+		Password:          "very-secure",
+	}
+
+	kv, err := New(ctx, []string{client}, config)
 	require.NoErrorf(t, err, "cannot create store")
 
 	return kv
 }
 
-func TestRegister(t *testing.T) {
+func TestEtcdV2Register(t *testing.T) {
 	Register()
 
-	kv, err := valkeyrie.NewStore(store.ETCD, []string{client}, nil)
+	ctx, cancel := context.WithTimeout(context.Background(), testTimeout)
+	defer cancel()
+
+	kv, err := valkeyrie.NewStore(ctx, store.ETCD, []string{client}, nil)
 	require.NoError(t, err)
 	assert.NotNil(t, kv)
 
 	assert.IsTypef(t, kv, new(Etcd), "Error registering and initializing etcd")
 }
 
-func TestEtcdStore(t *testing.T) {
+func TestEtcdV2Store(t *testing.T) {
 	kv := makeEtcdClient(t)
 	lockKV := makeEtcdClient(t)
 	ttlKV := makeEtcdClient(t)
+
+	t.Cleanup(func() {
+		testutils.RunCleanup(t, kv)
+	})
 
 	testutils.RunTestCommon(t, kv)
 	testutils.RunTestAtomic(t, kv)
@@ -51,5 +63,4 @@ func TestEtcdStore(t *testing.T) {
 	testutils.RunTestLockTTL(t, kv, lockKV)
 	testutils.RunTestListLock(t, kv)
 	testutils.RunTestTTL(t, kv, ttlKV)
-	testutils.RunCleanup(t, kv)
 }
