@@ -175,7 +175,10 @@ func (r *Redis) Watch(ctx context.Context, key string, _ *store.ReadOptions) (<-
 	sub := newSubscribe(ctx, r.client, regexWatch(nKey, false))
 
 	go func(ctx context.Context, sub *subscribe, get getter, push pusher) {
-		defer func() { _ = sub.Close() }()
+		defer func() {
+			close(watchCh)
+			_ = sub.Close()
+		}()
 
 		msgCh := sub.Receive(ctx)
 		if err := watchLoop(ctx, msgCh, get, push); err != nil {
@@ -208,7 +211,10 @@ func (r *Redis) WatchTree(ctx context.Context, directory string, _ *store.ReadOp
 	sub := newSubscribe(ctx, r.client, regexWatch(nKey, true))
 
 	go func(ctx context.Context, sub *subscribe, get getter, push pusher) {
-		defer func() { _ = sub.Close() }()
+		defer func() {
+			close(watchCh)
+			_ = sub.Close()
+		}()
 
 		msgCh := sub.Receive(ctx)
 		if err := watchLoop(ctx, msgCh, get, push); err != nil {
