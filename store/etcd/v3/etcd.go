@@ -155,6 +155,19 @@ func (s *EtcdV3) Put(ctx context.Context, key string, value []byte, opts *store.
 			for v := range ch {
 				_ = v
 			}
+
+			// try put when ch had closed
+			for {
+				select {
+				case <-s.client.Ctx().Done():
+					return
+				default:
+					if err := s.Put(context.Background(), key, value, opts); err == nil {
+						return
+					}
+					time.Sleep(time.Second)
+				}
+			}
 		}()
 	}
 
