@@ -22,7 +22,7 @@ func makeRedisClient(t *testing.T) store.Store {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	kv := newRedis(ctx, []string{client}, "", nil)
+	kv := newRedis(ctx, []string{client}, nil, "", nil)
 
 	// NOTE: please turn on redis's notification
 	// before you using watch/watchtree/lock related features.

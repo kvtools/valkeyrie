@@ -3,6 +3,7 @@ package redis
 
 import (
 	"context"
+	"crypto/tls"
 	"errors"
 	"fmt"
 	"log"
@@ -23,9 +24,6 @@ var (
 	// ErrMultipleEndpointsUnsupported is thrown when there are
 	// multiple endpoints specified for Redis.
 	ErrMultipleEndpointsUnsupported = errors.New("redis: does not support multiple endpoints")
-
-	// ErrTLSUnsupported is thrown when tls config is given.
-	ErrTLSUnsupported = errors.New("redis does not support tls")
 
 	// ErrAbortTryLock is thrown when a user stops trying to seek the lock
 	// by sending a signal to the stop chan,
@@ -48,8 +46,10 @@ func NewWithCodec(ctx context.Context, endpoints []string, options *store.Config
 	if len(endpoints) > 1 {
 		return nil, ErrMultipleEndpointsUnsupported
 	}
+
+	var tlsConfig *tls.Config
 	if options != nil && options.TLS != nil {
-		return nil, ErrTLSUnsupported
+		tlsConfig = options.TLS
 	}
 
 	var password string
@@ -57,7 +57,7 @@ func NewWithCodec(ctx context.Context, endpoints []string, options *store.Config
 		password = options.Password
 	}
 
-	return newRedis(ctx, endpoints, password, codec), nil
+	return newRedis(ctx, endpoints, tlsConfig, password, codec), nil
 }
 
 // Redis implements valkeyrie.Store interface with redis backend.
@@ -67,13 +67,14 @@ type Redis struct {
 	codec  Codec
 }
 
-func newRedis(ctx context.Context, endpoints []string, password string, codec Codec) *Redis {
+func newRedis(ctx context.Context, endpoints []string, tlsConfig *tls.Config, password string, codec Codec) *Redis {
 	// TODO: use *redis.ClusterClient if we support multiple endpoints.
 	client := redis.NewClient(&redis.Options{
 		Addr:         endpoints[0],
 		DialTimeout:  5 * time.Second,
 		ReadTimeout:  30 * time.Second,
 		WriteTimeout: 30 * time.Second,
+		TLSConfig:    tlsConfig,
 		Password:     password,
 	})
 
