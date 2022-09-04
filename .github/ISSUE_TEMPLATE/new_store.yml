@@ -1,0 +1,25 @@
+name: Add a new type of store
+description: "Proposal"
+body:
+
+  - type: input
+    id: store-name
+    attributes:
+      label: The name of the store.
+    validations:
+      required: true
+
+  - type: input
+    id: repo-url
+    attributes:
+      label: The URL of your repository.
+    validations:
+      required: true
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Provide information about the store.
+      placeholder: "A clear and concise description."
+    validations:
+      required: false

@@ -8,11 +8,8 @@ linters-settings:
     enable-all: true
     disable:
       - fieldalignment
-      - shadow # FIXME the issues reported must be reviewed.
   gocyclo:
     min-complexity: 15
-  maligned:
-    suggest-new: true
   goconst:
     min-len: 5
     min-occurrences: 3
@@ -20,7 +17,7 @@ linters-settings:
     locale: US
   funlen:
     lines: -1
-    statements: 40
+    statements: 45
   godox:
     keywords:
       - FIXME
@@ -47,14 +44,13 @@ linters-settings:
       hugeParam:
         sizeThreshold: 100
   stylecheck:
-    go: "1.16"
     checks:
       - "all"
-      - "-ST1005" # FIXME MUST be fixed (error strings should not be capitalized)
 
 linters:
   disable-all: true
   enable:
+    - asasalint
     - asciicheck
     - bidichk
     - bodyclose
@@ -64,7 +60,7 @@ linters:
     - durationcheck
     - errcheck
     - errname
-#    - errorlint # TODO can be used in future.
+    - errorlint
     - exportloopref
     - forbidigo
     - forcetypeassert
@@ -91,7 +87,7 @@ linters:
     - govet
     - importas
     - ineffassign
-#    - makezero # TODO can be used in future. Required to check the current reported issues.
+    - makezero
     - misspell
     - nakedret
     - nestif
@@ -110,6 +106,7 @@ linters:
     - unconvert
     - unparam
     - unused
+    - usestdlibvars
     - wastedassign
     - whitespace
 
@@ -123,13 +120,7 @@ issues:
       linters:
         - goconst
         - funlen
-    - path: "testutils/utils.go"
-      linters: [ "funlen" ]
     - path: "valkeyrie.go"
       linters:
         - gochecknoglobals
-    - path: "store/mock/mock.go"
-      linters:
-        - forcetypeassert
-    - path: store/redis/redis.go
-      text: 'Function `NewClient->newConnPool->NewConnPool->reaper->checkMinIdleConns` should pass the context parameter'
+

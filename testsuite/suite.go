@@ -1,5 +1,5 @@
-// Package testutils test helpers.
-package testutils
+// Package testsuite the valkeyrie tests suite.
+package testsuite
 
 import (
 	"context"
@@ -586,15 +586,14 @@ func testList(t *testing.T, kv store.Store) {
 
 	// List should work and return five child entries.
 	for _, parent := range []string{parentKey, parentKey + "/"} {
-		pairs, err := kv.List(ctx, parent, nil)
-		require.NoError(t, err)
+		pairs, errList := kv.List(ctx, parent, nil)
+		require.NoError(t, errList)
 		assert.Len(t, pairs, 5)
 	}
 
 	// List on childKey should return 0 keys.
 	pairs, err := kv.List(ctx, childKey, nil)
 	require.NoError(t, err)
-	assert.NotNil(t, pairs)
 	assert.Empty(t, pairs)
 
 	// List on subfolderKey should return 3 keys without the directory.
@@ -625,16 +624,16 @@ func testListLockKey(t *testing.T, kv store.Store) {
 	// Put keys under subfolder.
 	for i := 1; i <= 3; i++ {
 		key := listKey + "/subfolder/key" + strconv.Itoa(i)
-		err := kv.Put(ctx, key, []byte("val"), nil)
-		require.NoError(t, err)
+		errPut := kv.Put(ctx, key, []byte("val"), nil)
+		require.NoError(t, errPut)
 
 		// We lock the child key.
-		lock, err := kv.NewLock(ctx, key, &store.LockOptions{Value: []byte("locked"), TTL: 2 * time.Second})
-		require.NoError(t, err)
+		lock, errPut := kv.NewLock(ctx, key, &store.LockOptions{Value: []byte("locked"), TTL: 2 * time.Second})
+		require.NoError(t, errPut)
 		require.NotNil(t, lock)
 
-		lockChan, err := lock.Lock(ctx)
-		require.NoError(t, err)
+		lockChan, errPut := lock.Lock(ctx)
+		require.NoError(t, errPut)
 		assert.NotNil(t, lockChan)
 	}
 

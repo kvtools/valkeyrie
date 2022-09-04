@@ -13,39 +13,19 @@ import (
 	"log"
 	"time"
 
+	"github.com/kvtools/consul"
 	"github.com/kvtools/valkeyrie"
-	"github.com/kvtools/valkeyrie/store"
-	"github.com/kvtools/valkeyrie/store/boltdb"
-	"github.com/kvtools/valkeyrie/store/consul"
-	etcdv3 "github.com/kvtools/valkeyrie/store/etcd/v3"
-	"github.com/kvtools/valkeyrie/store/redis"
-	"github.com/kvtools/valkeyrie/store/zookeeper"
 )
 
-func init() {
-	// Register consul store to valkeyrie
-	consul.Register()
-
-	// We can register more backends that are supported by valkeyrie if we plan to use these
-	etcdv3.Register()
-	zookeeper.Register()
-	boltdb.Register()
-	redis.Register()
-}
-
 func main() {
-	client := "localhost:8500"
+	addr := "localhost:8500"
 
-	// Initialize a new store with consul
-	config := &store.Config{
+	// Initialize a new store.
+	config := &consul.Config{
 		ConnectionTimeout: 10 * time.Second,
 	}
 
-	kv, err := valkeyrie.NewStore(
-		store.CONSUL, // or "consul"
-		[]string{client},
-		config,
-	)
+	kv, err := valkeyrie.NewStore(consul.StoreName, []string{addr}, config)
 	if err != nil {
 		log.Fatal("Cannot create store consul")
 	}

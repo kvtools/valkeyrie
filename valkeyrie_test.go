@@ -3,69 +3,74 @@ package valkeyrie
 import (
 	"context"
 	"testing"
-	"time"
 
-	"github.com/kvtools/valkeyrie/store"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
-func TestNewStoreUnsupported(t *testing.T) {
-	client := "localhost:9999"
+func TestRegister(t *testing.T) {
+	t.Cleanup(UnregisterAllConstructors)
 
-	config := &store.Config{
-		ConnectionTimeout: 10 * time.Second,
-	}
+	Register(testStoreName, newStore)
 
-	kv, err := NewStore(context.Background(), "unsupported", []string{client}, config)
-	assert.Error(t, err)
-	assert.Nil(t, kv)
-	assert.Equal(t, "Backend storage not supported yet, please choose one of ", err.Error())
+	assert.Len(t, constructors, 1)
 }
 
-func TestListSupportedBackends(t *testing.T) {
-	testCases := []struct {
-		desc   string
-		stores []string
-		expect string
-	}{
-		{
-			desc: "no store",
-		},
-		{
-			desc:   "one store",
-			stores: []string{"foo"},
-			expect: "foo",
-		},
-		{
-			desc:   "two unsorted stores",
-			stores: []string{"foo", "bar"},
-			expect: "bar, foo",
-		},
-		{
-			desc:   "two sorted stores",
-			stores: []string{"bar", "foo"},
-			expect: "bar, foo",
-		},
-	}
+func TestRegister_duplicate(t *testing.T) {
+	t.Cleanup(UnregisterAllConstructors)
 
-	for _, test := range testCases {
-		test := test
-		t.Run(test.desc, func(t *testing.T) {
-			t.Parallel()
-			t.Cleanup(func() { initializers = make(map[store.Backend]Initialize) })
+	Register(testStoreName, newStore)
+	assert.Len(t, constructors, 1)
 
-			for _, s := range test.stores {
-				AddStore(store.Backend(s), func(_ context.Context, _ []string, _ *store.Config) (store.Store, error) { return nil, nil })
+	assert.Panics(t, func() {
+		Register(testStoreName, newStore)
+	})
+}
 
-				kv, err := NewStore(context.Background(), store.Backend(s), nil, nil)
-				require.NoError(t, err)
-				require.Nil(t, kv) // AddStore return nil
-			}
+func TestRegister_nil(t *testing.T) {
+	t.Cleanup(UnregisterAllConstructors)
 
-			backends := supportedBackend()
+	assert.Panics(t, func() {
+		Register(testStoreName, nil)
+	})
+}
 
-			assert.Equal(t, test.expect, backends)
-		})
-	}
+func TestUnregister(t *testing.T) {
+	t.Cleanup(UnregisterAllConstructors)
+
+	Register(testStoreName, newStore)
+	assert.Len(t, constructors, 1)
+
+	Unregister(testStoreName)
+
+	constructorsMu.Lock()
+	defer constructorsMu.Unlock()
+
+	assert.Empty(t, constructors)
+}
+
+func TestConstructors(t *testing.T) {
+	t.Cleanup(UnregisterAllConstructors)
+
+	Register(testStoreName, newStore)
+	assert.Len(t, constructors, 1)
+
+	cttrs := Constructors()
+
+	expected := []string{testStoreName}
+	assert.Equal(t, expected, cttrs)
+}
+
+func TestNewStore(t *testing.T) {
+	t.Cleanup(UnregisterAllConstructors)
+
+	Register(testStoreName, newStore)
+
+	assert.Len(t, constructors, 1)
+
+	s, err := NewStore(context.Background(), testStoreName, nil, nil)
+	require.NoError(t, err)
+
+	assert.NotNil(t, s)
+	assert.IsType(t, &Mock{}, s)
 }

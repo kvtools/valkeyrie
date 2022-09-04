@@ -15,7 +15,7 @@ this document carefully.
 
 - Git
 - Golang
-- One or all of the supported datastores (Zookeeper / Consul / Etcd / Redis / BoltDB)
+- One or all of the supported datastore (Zookeeper / Consul / Etcd / Redis / BoltDB)
 
 ### Installing Golang
 
@@ -25,30 +25,12 @@ following these [Guidelines](https://golang.org/doc/install).
 An easy way to get started on mac OS is to use [homebrew](https://brew.sh) and type
 `brew install go` in a shell.
 
-In addition to the language runtime, make sure you install these tools locally using
-`go get`:
-
-- **fmt** (to format source code)
-- **goimports** (to automatically include and triage imports)
-
-Once you have a working Go installation, follow the next steps:
-
-- Get the repository:
-
-        go get -u github.com/kvtools/valkeyrie
-
-- Checkout on a new branch from the master branch to start working on a patch
-
-        git checkout -b mybranch
-
 ### Local testing of key/value stores
 
-In addition to installing golang, you will need to install some or all of the key
-value stores for testing.
+In addition to installing golang, you will need to install some or all of the key  value stores for testing.
 
 Refer to each of these stores documentation in order to proceed with installation.
-Generally, the tests are using the **default configuration** with the **default port**
-to connect to a store and run the test suite.
+Generally, the tests are using the **default configuration** with the **default port** to connect to a store and run the test suite.
 
 To test a change, you can proceed in two ways:
 
@@ -75,9 +57,9 @@ To test a change, you can proceed in two ways:
 ### Flush Key/Value pairs and Specific configurations
 
 Once in a while, you may need to flush key/value pairs from your local store installations:
-for example if you stop the tests purposefully with keys still being locked. This section
-describes how to easily start distributed backend storage locally and flush the key/value
-pairs when needed.
+for example if you stop the tests purposefully with keys still being locked.
+
+This section describes how to easily start distributed backend storage locally and flush the key/value pairs when needed.
 
 #### Consul
 
