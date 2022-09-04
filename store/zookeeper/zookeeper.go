@@ -340,7 +340,7 @@ func (s *Zookeeper) AtomicPut(_ context.Context, key string, value []byte, previ
 
 	// Interpret previous == nil as create operation.
 	_, err := s.client.Create(s.normalize(key), value, 0, zk.WorldACL(zk.PermAll))
-	if err != nil { // nolint:nestif // require a deep refactor.
+	if err != nil { //nolint:nestif // require a deep refactor.
 		// Node Exists error (when previous nil).
 		if errors.Is(err, zk.ErrNodeExists) {
 			return false, nil, store.ErrKeyExists

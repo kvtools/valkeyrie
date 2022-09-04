@@ -14,16 +14,14 @@ func CreateEndpoints(addrs []string, scheme string) (entries []string) {
 
 // Normalize the key for each store to the form:
 //
-//     /path/to/key
-//
+//	/path/to/key
 func Normalize(key string) string {
 	return "/" + join(SplitKey(key))
 }
 
 // GetDirectory gets the full directory part of the key to the form:
 //
-//     /path/to/
-//
+//	/path/to/
 func GetDirectory(key string) string {
 	parts := SplitKey(key)
 	parts = parts[:len(parts)-1]
