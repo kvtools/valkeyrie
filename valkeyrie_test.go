@@ -62,7 +62,10 @@ func TestListSupportedBackends(t *testing.T) {
 				require.NoError(t, err)
 				require.Nil(t, kv) // AddStore return nil
 			}
-			assert.Equal(t, test.expect, supportedBackend())
+
+			backends := supportedBackend()
+
+			assert.Equal(t, test.expect, backends)
 		})
 	}
 }

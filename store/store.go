@@ -49,7 +49,7 @@ var (
 
 // Config contains the options for a storage client.
 type Config struct {
-	ClientTLS         *ClientTLSConfig
+	ClientTLS         *ClientTLSConfig // Deprecated
 	TLS               *tls.Config
 	ConnectionTimeout time.Duration
 	SyncPeriod        time.Duration
@@ -65,6 +65,7 @@ type Config struct {
 // ClientTLSConfig contains data for a Client TLS configuration
 // in the form the etcd client wants it.
 // Eventually we'll adapt it for ZK and Consul.
+// Deprecated unused.
 type ClientTLSConfig struct {
 	CertFile   string
 	KeyFile    string
