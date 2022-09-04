@@ -4,3 +4,4 @@
 - [Maciej Winnicki](https://github.com/mthenw)
 - [Ludovic Fernandez](https://github.com/ldez)
 - [Kevin Pollet](https://github.com/kevinpollet)
+- [Tom Moulard](https://github.com/tomMoulard)
