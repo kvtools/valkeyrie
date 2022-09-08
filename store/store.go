@@ -3,74 +3,8 @@ package store
 
 import (
 	"context"
-	"crypto/tls"
-	"errors"
 	"time"
 )
-
-// Backend represents a KV Store Backend.
-type Backend string
-
-const (
-	// CONSUL backend.
-	CONSUL Backend = "consul"
-	// ETCD backend with v2 client (backward compatibility).
-	ETCD Backend = "etcd"
-	// ETCDV3 backend with v3 client.
-	ETCDV3 Backend = "etcdv3"
-	// ZK backend.
-	ZK Backend = "zk"
-	// BOLTDB backend.
-	BOLTDB Backend = "boltdb"
-	// REDIS backend.
-	REDIS Backend = "redis"
-	// DYNAMODB backend.
-	DYNAMODB Backend = "dynamodb"
-)
-
-var (
-	// ErrBackendNotSupported is thrown when the backend k/v store is not supported by valkeyrie.
-	ErrBackendNotSupported = errors.New("Backend storage not supported yet, please choose one of")
-	// ErrCallNotSupported is thrown when a method is not implemented/supported by the current backend.
-	ErrCallNotSupported = errors.New("The current call is not supported with this backend")
-	// ErrNotReachable is thrown when the API cannot be reached for issuing common store operations.
-	ErrNotReachable = errors.New("Api not reachable")
-	// ErrCannotLock is thrown when there is an error acquiring a lock on a key.
-	ErrCannotLock = errors.New("Error acquiring the lock")
-	// ErrKeyModified is thrown during an atomic operation if the index does not match the one in the store.
-	ErrKeyModified = errors.New("Unable to complete atomic operation, key modified")
-	// ErrKeyNotFound is thrown when the key is not found in the store during a Get operation.
-	ErrKeyNotFound = errors.New("Key not found in store")
-	// ErrPreviousNotSpecified is thrown when the previous value is not specified for an atomic operation.
-	ErrPreviousNotSpecified = errors.New("Previous K/V pair should be provided for the Atomic operation")
-	// ErrKeyExists is thrown when the previous value exists in the case of an AtomicPut.
-	ErrKeyExists = errors.New("Previous K/V pair exists, cannot complete Atomic operation")
-)
-
-// Config contains the options for a storage client.
-type Config struct {
-	ClientTLS         *ClientTLSConfig // Deprecated
-	TLS               *tls.Config
-	ConnectionTimeout time.Duration
-	SyncPeriod        time.Duration
-	Bucket            string
-	PersistConnection bool
-	Username          string
-	Password          string
-	Token             string
-	Namespace         string
-	MaxBufferSize     int
-}
-
-// ClientTLSConfig contains data for a Client TLS configuration
-// in the form the etcd client wants it.
-// Eventually we'll adapt it for ZK and Consul.
-// Deprecated unused.
-type ClientTLSConfig struct {
-	CertFile   string
-	KeyFile    string
-	CACertFile string
-}
 
 // Store represents the backend K/V storage.
 // Each store should support every call listed here.

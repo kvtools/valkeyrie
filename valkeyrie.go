@@ -3,40 +3,84 @@ package valkeyrie
 
 import (
 	"context"
-	"fmt"
 	"sort"
-	"strings"
+	"sync"
 
 	"github.com/kvtools/valkeyrie/store"
 )
 
-// Initialize creates a new Store object, initializing the client.
-type Initialize func(ctx context.Context, endpoints []string, options *store.Config) (store.Store, error)
+var (
+	constructorsMu sync.RWMutex
+	constructors   = make(map[string]Constructor)
+)
 
-// Backend initializers.
-var initializers = make(map[store.Backend]Initialize)
+// Config the raw type of the store configurations.
+type Config any
 
-// NewStore creates an instance of store.
-func NewStore(ctx context.Context, backend store.Backend, endpoints []string, options *store.Config) (store.Store, error) {
-	if init, exists := initializers[backend]; exists {
-		return init(ctx, endpoints, options)
+// Constructor The signature of a store constructor.
+type Constructor func(ctx context.Context, endpoints []string, options Config) (store.Store, error)
+
+// Register makes a store constructor available by the provided name.
+// If Register is called twice with the same name or if constructor is nil, it panics.
+func Register(name string, cttr Constructor) {
+	constructorsMu.Lock()
+	defer constructorsMu.Unlock()
+
+	if cttr == nil {
+		panic("valkeyrie: Register constructor is nil")
 	}
 
-	return nil, fmt.Errorf("%w %s", store.ErrBackendNotSupported, supportedBackend())
-}
-
-// AddStore adds a new store backend to valkeyrie.
-func AddStore(backend store.Backend, init Initialize) {
-	initializers[backend] = init
-}
-
-// supportedBackend returns a comma separated list of all available stores in initializers.
-func supportedBackend() string {
-	keys := make([]string, 0, len(initializers))
-	for k := range initializers {
-		keys = append(keys, string(k))
+	if _, dup := constructors[name]; dup {
+		panic("valkeyrie: Register called twice for constructor " + name)
 	}
 
-	sort.Strings(keys)
-	return strings.Join(keys, ", ")
+	constructors[name] = cttr
+}
+
+// Unregister Unregisters a store.
+func Unregister(storeName string) {
+	constructorsMu.Lock()
+	defer constructorsMu.Unlock()
+
+	delete(constructors, storeName)
+}
+
+// UnregisterAllConstructors Unregisters all stores.
+func UnregisterAllConstructors() {
+	constructorsMu.Lock()
+	defer constructorsMu.Unlock()
+
+	constructors = make(map[string]Constructor)
+}
+
+// Constructors returns a sorted list of the names of the registered constructors.
+func Constructors() []string {
+	constructorsMu.RLock()
+	defer constructorsMu.RUnlock()
+
+	list := make([]string, 0, len(constructors))
+	for name := range constructors {
+		list = append(list, name)
+	}
+
+	sort.Strings(list)
+
+	return list
+}
+
+// NewStore creates a new store instance.
+func NewStore(ctx context.Context, storeName string, endpoints []string, options Config) (store.Store, error) {
+	constructorsMu.RLock()
+	construct, ok := constructors[storeName]
+	constructorsMu.RUnlock()
+
+	if !ok {
+		return nil, &store.UnknownConstructorError{Store: storeName}
+	}
+
+	if construct == nil {
+		return nil, &store.UnknownConstructorError{Store: storeName}
+	}
+
+	return construct(ctx, endpoints, options)
 }
