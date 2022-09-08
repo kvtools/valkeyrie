@@ -25,12 +25,15 @@ type Constructor func(ctx context.Context, endpoints []string, options Config) (
 func Register(name string, cttr Constructor) {
 	constructorsMu.Lock()
 	defer constructorsMu.Unlock()
+
 	if cttr == nil {
 		panic("valkeyrie: Register constructor is nil")
 	}
+
 	if _, dup := constructors[name]; dup {
 		panic("valkeyrie: Register called twice for constructor " + name)
 	}
+
 	constructors[name] = cttr
 }
 
@@ -46,6 +49,7 @@ func Unregister(storeName string) {
 func UnregisterAllConstructors() {
 	constructorsMu.Lock()
 	defer constructorsMu.Unlock()
+
 	constructors = make(map[string]Constructor)
 }
 
@@ -53,11 +57,14 @@ func UnregisterAllConstructors() {
 func Constructors() []string {
 	constructorsMu.RLock()
 	defer constructorsMu.RUnlock()
+
 	list := make([]string, 0, len(constructors))
 	for name := range constructors {
 		list = append(list, name)
 	}
+
 	sort.Strings(list)
+
 	return list
 }
 
@@ -66,6 +73,7 @@ func NewStore(ctx context.Context, storeName string, endpoints []string, options
 	constructorsMu.RLock()
 	construct, ok := constructors[storeName]
 	constructorsMu.RUnlock()
+
 	if !ok {
 		return nil, &store.UnknownConstructorError{Store: storeName}
 	}

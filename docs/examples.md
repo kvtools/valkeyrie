@@ -1,7 +1,8 @@
 # Examples
 
 This document contains useful example of usage for `valkeyrie`.
-It might not be complete but provides with general information on how to use the client.
+It might not be complete but provides with general information on how to use
+the client.
 
 ## Create a Store and Use `Put`/`Get`/`Delete`
 
@@ -78,7 +79,7 @@ import (
 	"github.com/kvtools/valkeyrie/store"
 )
 
-func foo(ctx context.Context, kv store.Store, key string) error {
+func watch(ctx context.Context, kv store.Store, key string) error {
 	// Checking on the key before watching
 	exists, _ := kv.Exists(ctx, key, nil)
 	if !exists {
@@ -112,9 +113,11 @@ You can use watches to watch modifications on a key.
 First you need to check if the key exists.
 If this is not the case, we need to create it using the `Put` function.
 
-There is a special step here if you are using etcd **APIv2** and if want your code to work across backends.
+There is a special step here if you are using etcd **APIv2** and if want your
+code to work across backends.
 `etcd` with **APIv2** makes the distinction between directories and keys,
-we need to make sure that the created key is considered as a directory by enforcing `IsDir` at `true`.
+we need to make sure that the created key is considered as a directory by
+enforcing `IsDir` at `true`.
 
 ```go
 package example
@@ -126,7 +129,7 @@ import (
 	"github.com/kvtools/valkeyrie/store"
 )
 
-func foo(ctx context.Context, kv store.Store, key string) error {
+func watchTree(ctx context.Context, kv store.Store, key string) error {
 	// Checking on the key before watching
 	exists, _ := kv.Exists(ctx, key, nil)
 	if !exists {

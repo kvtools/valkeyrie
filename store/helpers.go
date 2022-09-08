@@ -9,6 +9,7 @@ func CreateEndpoints(addrs []string, scheme string) (entries []string) {
 	for _, addr := range addrs {
 		entries = append(entries, scheme+"://"+addr)
 	}
+
 	return entries
 }
 
