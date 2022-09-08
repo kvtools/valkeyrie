@@ -22,17 +22,31 @@ A **storage backend** in `valkeyrie` implements (fully or partially) the [Store]
 
 | Calls                 | Consul | Etcd | Zookeeper | Redis | BoltDB | DynamoDB |
 |-----------------------|:------:|:----:|:---------:|:-----:|:------:|:--------:|
-| Put                   |  🟢️    |  🟢️  |     🟢️    |   🟢️  |   🟢️   |    🟢️    |
-| Get                   |  🟢️    |  🟢️  |     🟢️    |   🟢️  |   🟢️   |    🟢️    |
-| Delete                |  🟢️    |  🟢️  |     🟢️    |   🟢️  |   🟢️   |    🟢️    |
-| Exists                |  🟢️    |  🟢️  |     🟢️    |   🟢️  |   🟢️   |    🟢️    |
-| Watch                 |  🟢️    |  🟢️  |     🟢️    |   🟢️  |   🔴   |    🔴    |
-| WatchTree             |  🟢️    |  🟢️  |     🟢️    |   🟢️  |   🔴   |    🔴    |
-| NewLock (Lock/Unlock) |  🟢️    |  🟢️  |     🟢️    |   🟢️  |   🔴   |    🟢️    |
-| List                  |  🟢️    |  🟢️  |     🟢️    |   🟢️  |   🟢️   |    🟢️    |
-| DeleteTree            |  🟢️    |  🟢️  |     🟢️    |   🟢️  |   🟢️   |    🟢️    |
-| AtomicPut             |  🟢️    |  🟢️  |     🟢️    |   🟢️  |   🟢️   |    🟢️    |
-| AtomicDelete          |  🟢️    |  🟢️  |     🟢️    |   🟢️  |   🟢️   |    🟢️    |
+| Put                   |  🟢️   | 🟢️  |    🟢️    |  🟢️  |  🟢️   |   🟢️    |
+| Get                   |  🟢️   | 🟢️  |    🟢️    |  🟢️  |  🟢️   |   🟢️    |
+| Delete                |  🟢️   | 🟢️  |    🟢️    |  🟢️  |  🟢️   |   🟢️    |
+| Exists                |  🟢️   | 🟢️  |    🟢️    |  🟢️  |  🟢️   |   🟢️    |
+| Watch                 |  🟢️   | 🟢️  |    🟢️    |  🟢️  |   🔴   |    🔴    |
+| WatchTree             |  🟢️   | 🟢️  |    🟢️    |  🟢️  |   🔴   |    🔴    |
+| NewLock (Lock/Unlock) |  🟢️   | 🟢️  |    🟢️    |  🟢️  |   🔴   |   🟢️    |
+| List                  |  🟢️   | 🟢️  |    🟢️    |  🟢️  |  🟢️   |   🟢️    |
+| DeleteTree            |  🟢️   | 🟢️  |    🟢️    |  🟢️  |  🟢️   |   🟢️    |
+| AtomicPut             |  🟢️   | 🟢️  |    🟢️    |  🟢️  |  🟢️   |   🟢️    |
+| AtomicDelete          |  🟢️   | 🟢️  |    🟢️    |  🟢️  |  🟢️   |   🟢️    |
+
+The store implementations:
+
+- [boltdb](https://github.com/kvtools/boltdb)
+- [consul](https://github.com/kvtools/consul)
+- [dynamodb](https://github.com/kvtools/dynamodb)
+- [etcdv2](https://github.com/kvtools/etcdv2)
+- [etcdv3](https://github.com/kvtools/etcdv3)
+- [redis](https://github.com/kvtools/redis)
+- [zookeeper](https://github.com/kvtools/zookeeper)
+
+The store tempate:
+
+- [template](https://github.com/kvtools/template)
 
 ## Limitations
 
