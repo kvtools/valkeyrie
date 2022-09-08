@@ -19,20 +19,18 @@ import (
 )
 
 func main() {
-	addr := "localhost:8500"
+	ctx := context.Background()
 
-	// Initialize a new store.
 	config := &consul.Config{
 		ConnectionTimeout: 10 * time.Second,
 	}
 
-	kv, err := valkeyrie.NewStore(consul.StoreName, []string{addr}, config)
+	kv, err := valkeyrie.NewStore(ctx, consul.StoreName, []string{"localhost:8500"}, config)
 	if err != nil {
 		log.Fatal("Cannot create store consul")
 	}
 
 	key := "foo"
-	ctx := context.Background()
 
 	err = kv.Put(ctx, key, []byte("bar"), nil)
 	if err != nil {

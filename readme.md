@@ -16,6 +16,52 @@ The benefit of `valkeyrie` is not to duplicate the code for programs that should
 
 You can refer to [Examples](https://github.com/kvtools/valkeyrie/blob/master/docs/examples.md) for a basic overview of the library.
 
+```go
+package main
+
+import (
+	"context"
+	"log"
+	"time"
+
+	"github.com/kvtools/consul"
+	"github.com/kvtools/valkeyrie"
+)
+
+func main() {
+	ctx := context.Background()
+	
+	config := &consul.Config{
+		ConnectionTimeout: 10 * time.Second,
+	}
+
+	kv, err := valkeyrie.NewStore(ctx, consul.StoreName, []string{"localhost:8500"}, config)
+	if err != nil {
+		log.Fatal("Cannot create store consul")
+	}
+
+	key := "foo"
+	
+
+	err = kv.Put(ctx, key, []byte("bar"), nil)
+	if err != nil {
+		log.Fatalf("Error trying to put value at key: %v", key)
+	}
+
+	pair, err := kv.Get(ctx, key, nil)
+	if err != nil {
+		log.Fatalf("Error trying accessing value at key: %v", key)
+	}
+
+	log.Printf("value: %s", string(pair.Value))
+
+	err = kv.Delete(ctx, key)
+	if err != nil {
+		log.Fatalf("Error trying to delete key %v", key)
+	}
+}
+```
+
 ## Compatibility
 
 A **storage backend** in `valkeyrie` implements (fully or partially) the [Store](https://github.com/kvtools/valkeyrie/blob/master/store/store.go#L69) interface.
@@ -44,7 +90,7 @@ The store implementations:
 - [redis](https://github.com/kvtools/redis)
 - [zookeeper](https://github.com/kvtools/zookeeper)
 
-The store tempate:
+The store template:
 
 - [template](https://github.com/kvtools/template)
 
@@ -66,4 +112,4 @@ The [Maintainers](https://github.com/kvtools/valkeyrie/blob/master/maintainers.m
 
 Apache License Version 2.0
 
-Valkeyrie is a hard fork of the unmaintained [libkv](https://github.com/docker/libkv).
+Valkeyrie started as a hard fork of the unmaintained [libkv](https://github.com/docker/libkv).
