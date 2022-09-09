@@ -99,7 +99,8 @@ The store template:
 Distributed Key/Value stores often have different concepts for managing and formatting keys and their associated values.
 Even though `valkeyrie` tries to abstract those stores aiming for some consistency, in some cases it can't be applied easily.
 
-Calls like `WatchTree` may return different events (or number of events) depending on the backend (for now, `Etcd` and `Consul` will likely return more events than `Zookeeper` that you should triage properly).
+Calls like `WatchTree` may return different events (or number of events) depending on the backend
+(for now, `Etcd` and `Consul` will likely return more events than `Zookeeper` that you should triage properly).
 
 ## Contributing
 
