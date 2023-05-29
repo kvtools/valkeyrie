@@ -6,8 +6,8 @@
 
 # Valkeyrie
 
-[![GoDoc](https://godoc.org/github.com/kvtools/valkeyrie?status.png)](https://godoc.org/github.com/kvtools/valkeyrie)
-[![Build Status](https://github.com/kvtools/valkeyrie/actions/workflows/build.yml/badge.svg)](https://github.com/kvtools/valkeyrie/actions/workflows/build.yml)
+[![Go Reference](https://pkg.go.dev/badge/github.com/kvtools/valkeyrie.svg)](https://pkg.go.dev/github.com/kvtools/valkeyrie)
+[![Build and test](https://github.com/kvtools/valkeyrie/actions/workflows/build.yml/badge.svg)](https://github.com/kvtools/valkeyrie/actions/workflows/build.yml)
 [![Go Report Card](https://goreportcard.com/badge/github.com/kvtools/valkeyrie)](https://goreportcard.com/report/github.com/kvtools/valkeyrie)
 
 `valkeyrie` provides a Go native library to store metadata using Distributed Key/Value stores (or common databases).
