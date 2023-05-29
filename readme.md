@@ -1,3 +1,9 @@
+<p align="center">
+  <img alt="golangci-lint logo" src="docs/valkeyrie.png" height="350" />
+  <h3 align="center">Valkeyrie</h3>
+  <p align="center">Distributed Key/Value Store Abstraction Library</p>
+</p>
+
 # Valkeyrie
 
 [![GoDoc](https://godoc.org/github.com/kvtools/valkeyrie?status.png)](https://godoc.org/github.com/kvtools/valkeyrie)
