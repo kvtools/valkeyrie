@@ -1,7 +1,5 @@
 run:
   timeout: 5m
-  skip-files: [ ]
-  skip-dirs: [ ]
 
 linters-settings:
   govet:
@@ -78,7 +76,7 @@ linters:
     - gocyclo
     - godot
     - godox
-    - goerr113
+    - err113
     - gofmt
     - gofumpt
     - goheader
@@ -116,7 +114,7 @@ linters:
 
 issues:
   exclude-use-default: false
-  max-per-linter: 0
+  max-issues-per-linter: 0
   max-same-issues: 0
   exclude: [ ]
   exclude-rules:

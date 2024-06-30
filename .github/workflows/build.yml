@@ -3,32 +3,20 @@ name: Build and test
 on: [push, pull_request]
 
 env:
-  GOLANGCI_LINT_VERSION: v1.54.1
+  GOLANGCI_LINT_VERSION: v1.59.1
 
 jobs:
   build:
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-latest
     strategy:
       matrix:
         go-version: [stable, oldstable]
 
     steps:
-      - name: Set up Go ${{ matrix.go-version }}
-        uses: actions/setup-go@v3
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
         with:
           go-version: ${{ matrix.go-version }}
-
-      - name: Check out code
-        uses: actions/checkout@v3
-
-      - name: Cache Go modules
-        uses: actions/cache@v3
-        with:
-          path: |
-            ~/pkg/mod
-            ~/.cache/go-build
-          key: ${{ runner.os }}-${{ matrix.go-version }}-go-${{ hashFiles('**/go.sum') }}
-          restore-keys: ${{ runner.os }}-${{ matrix.go-version }}-go-
 
       - name: Download and check dependencies
         run: |

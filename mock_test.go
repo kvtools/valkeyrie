@@ -10,7 +10,7 @@ const testStoreName = "mock"
 
 func newStore(ctx context.Context, endpoints []string, options Config) (store.Store, error) {
 	cfg, ok := options.(*Config)
-	if !ok && cfg != nil {
+	if !ok && options != nil {
 		return nil, &store.InvalidConfigurationError{Store: testStoreName, Config: options}
 	}
 
