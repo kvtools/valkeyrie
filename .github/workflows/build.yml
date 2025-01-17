@@ -3,7 +3,7 @@ name: Build and test
 on: [push, pull_request]
 
 env:
-  GOLANGCI_LINT_VERSION: v1.59.1
+  GOLANGCI_LINT_VERSION: v1.63.4
 
 jobs:
   build:
