@@ -3,7 +3,9 @@ name: Build and test
 on: [push, pull_request]
 
 env:
-  GOLANGCI_LINT_VERSION: v2.4.0
+  GOLANGCI_LINT_VERSION: v2.11
+
+permissions: {}
 
 jobs:
   build:
@@ -13,27 +15,26 @@ jobs:
         go-version: [stable, oldstable]
 
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
       - uses: actions/setup-go@v6
         with:
           go-version: ${{ matrix.go-version }}
 
       - name: Download and check dependencies
         run: |
-          go mod tidy
-          git diff --exit-code go.mod
-          git diff --exit-code go.sum
+          go mod tidy --diff
 
       - name: Install golangci-lint ${{ env.GOLANGCI_LINT_VERSION }}
-        run: curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/HEAD/install.sh | sh -s -- -b $(go env GOPATH)/bin ${GOLANGCI_LINT_VERSION}
+        uses: golangci/golangci-lint-action@v9.0.0
+        with:
+          version: ${{ env.GOLANGCI_LINT_VERSION }}
 
       - name: Install Compose
         uses: ndeloof/install-compose-action@v0.0.1
         with:
           legacy: true
-
-      - name: Install golangci-lint
-        run: make validate
 
       - name: Run tests
         run: make test
