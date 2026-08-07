@@ -36,7 +36,7 @@ linters:
     - godox
     - goheader
     - gomoddirectives
-    - gomodguard
+    - gomodguard_v2
     - goprintffuncname
     - gosec
     - govet
@@ -44,10 +44,12 @@ linters:
     - ineffassign
     - makezero
     - misspell
+    - modernize
     - nakedret
     - nestif
     - nilerr
     - noctx
+    - noinlineerr
     - nolintlint
     - predeclared
     - promlinter
@@ -60,6 +62,8 @@ linters:
     - unused
     - usestdlibvars
     - wastedassign
+    - whitespace
+    - wsl_v5
 
   settings:
     depguard:
@@ -97,15 +101,15 @@ linters:
     godox:
       keywords:
         - FIXME
+    gosec:
+      excludes:
+        - G115
     govet:
       disable:
         - fieldalignment
       enable-all: true
     misspell:
       locale: US
-    staticcheck:
-      checks:
-        - all
 
   exclusions:
     warn-unused: true

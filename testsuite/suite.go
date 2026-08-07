@@ -153,17 +153,21 @@ func testWatch(t *testing.T, kv store.Store) {
 	// Update loop.
 	go func() {
 		timeout := time.After(1 * time.Second)
+
 		tick := time.NewTicker(250 * time.Millisecond)
 		defer tick.Stop()
+
 		for {
 			select {
 			case <-timeout:
 				return
+
 			case <-tick.C:
 				err := kv.Put(ctx, key, newValue, nil)
 				if assert.NoError(t, err) {
 					continue
 				}
+
 				return
 			}
 		}
@@ -171,21 +175,26 @@ func testWatch(t *testing.T, kv store.Store) {
 
 	// Check for updates.
 	eventCount := 1
+
 	for {
 		select {
 		case event := <-events:
 			assert.NotNil(t, event)
 			assert.Equal(t, event.Key, key)
+
 			if eventCount == 1 {
 				assert.Equal(t, event.Value, value)
 			} else {
 				assert.Equal(t, event.Value, newValue)
 			}
+
 			eventCount++
+
 			// We received all the events we wanted to check.
 			if eventCount >= 4 {
 				return
 			}
+
 		case <-time.After(4 * time.Second):
 			t.Fatal("Timeout reached")
 			return
@@ -231,6 +240,7 @@ func testWatchTree(t *testing.T, kv store.Store) {
 
 	// Check for updates.
 	eventCount := 1
+
 	for {
 		select {
 		case event := <-events:
@@ -240,6 +250,7 @@ func testWatchTree(t *testing.T, kv store.Store) {
 			if eventCount == 2 {
 				return
 			}
+
 			eventCount++
 		case <-time.After(4 * time.Second):
 			t.Fatal("Timeout reached")
@@ -487,6 +498,7 @@ func testLockTTL(t *testing.T, kv store.Store, otherConn store.Store) {
 		lockChan, err = lock.Lock(ctx)
 		require.NoError(t, err)
 		assert.NotNil(t, lockChan)
+
 		locked <- struct{}{}
 	}(locked)
 

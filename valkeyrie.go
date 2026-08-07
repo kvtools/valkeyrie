@@ -71,7 +71,9 @@ func Constructors() []string {
 // NewStore creates a new store instance.
 func NewStore(ctx context.Context, storeName string, endpoints []string, options Config) (store.Store, error) {
 	constructorsMu.RLock()
+
 	construct, ok := constructors[storeName]
+
 	constructorsMu.RUnlock()
 
 	if !ok {
