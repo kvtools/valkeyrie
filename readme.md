@@ -8,7 +8,6 @@
 
 [![Go Reference](https://pkg.go.dev/badge/github.com/kvtools/valkeyrie.svg)](https://pkg.go.dev/github.com/kvtools/valkeyrie)
 [![Build and test](https://github.com/kvtools/valkeyrie/actions/workflows/build.yml/badge.svg)](https://github.com/kvtools/valkeyrie/actions/workflows/build.yml)
-[![Go Report Card](https://goreportcard.com/badge/github.com/kvtools/valkeyrie)](https://goreportcard.com/report/github.com/kvtools/valkeyrie)
 
 `valkeyrie` provides a Go native library to store metadata using Distributed Key/Value stores (or common databases).
 
@@ -20,7 +19,7 @@ The benefit of `valkeyrie` is not to duplicate the code for programs that should
 
 ## Examples of Usage
 
-You can refer to [Examples](https://github.com/kvtools/valkeyrie/blob/master/docs/examples.md) for a basic overview of the library.
+You can refer to [Examples](https://github.com/kvtools/valkeyrie/blob/main/docs/examples.md) for a basic overview of the library.
 
 ```go
 package main
@@ -70,7 +69,7 @@ func main() {
 
 ## Compatibility
 
-A **storage backend** in `valkeyrie` implements (fully or partially) the [Store](https://github.com/kvtools/valkeyrie/blob/master/store/store.go#L69) interface.
+A **storage backend** in `valkeyrie` implements (fully or partially) the [Store](https://github.com/kvtools/valkeyrie/blob/main/store/store.go#L12) interface.
 
 | Calls                 | Consul | Etcd | Zookeeper | Redis | BoltDB | DynamoDB |
 |-----------------------|:------:|:----:|:---------:|:-----:|:------:|:--------:|
@@ -111,9 +110,9 @@ Calls like `WatchTree` may return different events (or number of events) dependi
 ## Contributing
 
 Want to contribute to `valkeyrie`?
-Take a look at the [Contribution Guidelines](https://github.com/kvtools/valkeyrie/blob/master/CONTRIBUTING.md).
+Take a look at the [Contribution Guidelines](https://github.com/kvtools/valkeyrie/blob/main/CONTRIBUTING.md).
 
-The [Maintainers](https://github.com/kvtools/valkeyrie/blob/master/maintainers.md).
+The [Maintainers](https://github.com/kvtools/valkeyrie/blob/main/maintainers.md).
 
 ## Copyright and License
 
