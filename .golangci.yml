@@ -6,7 +6,9 @@ formatters:
     - gofumpt
   settings:
     gofumpt:
-      extra-rules: false
+      extra:
+        group-params: true
+        clothe-returns: true
 
 linters:
   default: none
